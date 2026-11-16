@@ -1,3 +1,5 @@
+using Caiqelle.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,16 +18,13 @@ namespace Caiqelle.Views
 {
     public sealed partial class EditorWindow : Window
     {
+        public EditorViewModel ViewModel { get; }
+
         private byte[]? _currentImageBytes;
-        
-        public enum EditorTool { Pen, Line, Arrow, Rect, Number }
-        private EditorTool _currentTool = EditorTool.Pen;
         
         // Drawing State
         private bool _isDrawing = false;
         private Windows.Foundation.Point _startPoint;
-        private SolidColorBrush _currentBrush = new SolidColorBrush(Microsoft.UI.Colors.Red);
-        private bool _isFillEnabled = false;
         
         // Active Elements for preview
         private Polyline? _currentPolyline;
@@ -42,6 +41,14 @@ namespace Caiqelle.Views
 
         public EditorWindow()
         {
+            var app = (App)Application.Current;
+            ViewModel = app.Services.GetRequiredService<EditorViewModel>();
+            ViewModel.RequestUndo = PerformUndo;
+            ViewModel.RequestRedo = PerformRedo;
+            ViewModel.RequestClear = PerformClear;
+            ViewModel.RequestCopyAsync = PerformCopyAsync;
+            ViewModel.RequestSaveAsync = PerformSaveAsync;
+
             this.InitializeComponent();
             var hWndForIcon = WinRT.Interop.WindowNative.GetWindowHandle(this);
             var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
@@ -100,11 +107,11 @@ namespace Caiqelle.Views
 
         private void UpdateUndoRedoButtons()
         {
-            if (UndoBtn != null) UndoBtn.IsEnabled = _undoStack.Count > 0;
-            if (RedoBtn != null) RedoBtn.IsEnabled = _redoStack.Count > 0;
+            ViewModel.CanUndo = _undoStack.Count > 0;
+            ViewModel.CanRedo = _redoStack.Count > 0;
         }
 
-        private void UndoBtn_Click(object? sender, RoutedEventArgs? e)
+        private void PerformUndo()
         {
             if (_undoStack.Count > 0)
             {
@@ -115,7 +122,7 @@ namespace Caiqelle.Views
             }
         }
 
-        private void RedoBtn_Click(object? sender, RoutedEventArgs? e)
+        private void PerformRedo()
         {
             if (_redoStack.Count > 0)
             {
@@ -123,40 +130,6 @@ namespace Caiqelle.Views
                 DrawCanvas.Children.Add(el);
                 _undoStack.Push(el);
                 UpdateUndoRedoButtons();
-            }
-        }
-
-        private void ToolBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Microsoft.UI.Xaml.Controls.Primitives.ToggleButton tb)
-            {
-                PenBtn.IsChecked = false;
-                LineBtn.IsChecked = false;
-                ArrowBtn.IsChecked = false;
-                RectBtn.IsChecked = false;
-                NumberBtn.IsChecked = false;
-                
-                tb.IsChecked = true;
-                
-                if (tb == PenBtn) _currentTool = EditorTool.Pen;
-                else if (tb == LineBtn) _currentTool = EditorTool.Line;
-                else if (tb == ArrowBtn) _currentTool = EditorTool.Arrow;
-                else if (tb == RectBtn) _currentTool = EditorTool.Rect;
-                else if (tb == NumberBtn) _currentTool = EditorTool.Number;
-            }
-        }
-
-        private void FillBtn_Click(object sender, RoutedEventArgs e)
-        {
-            _isFillEnabled = FillBtn.IsChecked == true;
-        }
-
-        private void EditorColorPicker_ColorChanged(Microsoft.UI.Xaml.Controls.ColorPicker sender, Microsoft.UI.Xaml.Controls.ColorChangedEventArgs args)
-        {
-            _currentBrush = new SolidColorBrush(args.NewColor);
-            if (ColorPreviewBorder != null)
-            {
-                ColorPreviewBorder.Background = _currentBrush;
             }
         }
 
@@ -174,11 +147,14 @@ namespace Caiqelle.Views
             _isDrawing = true;
             _redoStack.Clear();
 
-            if (_currentTool == EditorTool.Pen)
+            var brush = ViewModel.SelectedColorBrush;
+            var currentTool = ViewModel.CurrentTool;
+
+            if (currentTool == EditorTool.Pen)
             {
                 _currentPolyline = new Polyline
                 {
-                    Stroke = _currentBrush,
+                    Stroke = brush,
                     StrokeThickness = 4,
                     StrokeStartLineCap = PenLineCap.Round,
                     StrokeEndLineCap = PenLineCap.Round,
@@ -188,30 +164,30 @@ namespace Caiqelle.Views
                 DrawCanvas.Children.Add(_currentPolyline);
                 _undoStack.Push(_currentPolyline);
             }
-            else if (_currentTool == EditorTool.Line)
+            else if (currentTool == EditorTool.Line)
             {
-                _currentLine = new Microsoft.UI.Xaml.Shapes.Line { Stroke = _currentBrush, StrokeThickness = 4, X1 = _startPoint.X, Y1 = _startPoint.Y, X2 = _startPoint.X, Y2 = _startPoint.Y, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+                _currentLine = new Microsoft.UI.Xaml.Shapes.Line { Stroke = brush, StrokeThickness = 4, X1 = _startPoint.X, Y1 = _startPoint.Y, X2 = _startPoint.X, Y2 = _startPoint.Y, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
                 DrawCanvas.Children.Add(_currentLine);
                 _undoStack.Push(_currentLine);
             }
-            else if (_currentTool == EditorTool.Arrow)
+            else if (currentTool == EditorTool.Arrow)
             {
-                _currentArrow = new Microsoft.UI.Xaml.Shapes.Path { Stroke = _currentBrush, StrokeThickness = 4, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+                _currentArrow = new Microsoft.UI.Xaml.Shapes.Path { Stroke = brush, StrokeThickness = 4, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
                 UpdateArrowPath(_startPoint, _startPoint);
                 DrawCanvas.Children.Add(_currentArrow);
                 _undoStack.Push(_currentArrow);
             }
-            else if (_currentTool == EditorTool.Rect)
+            else if (currentTool == EditorTool.Rect)
             {
                 _currentRect = new Microsoft.UI.Xaml.Shapes.Rectangle { StrokeThickness = 4 };
-                if (_isFillEnabled)
+                if (ViewModel.IsFillEnabled)
                 {
-                    _currentRect.Fill = _currentBrush;
+                    _currentRect.Fill = brush;
                     _currentRect.Stroke = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
                 }
                 else
                 {
-                    _currentRect.Stroke = _currentBrush;
+                    _currentRect.Stroke = brush;
                     _currentRect.Fill = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
                 }
                 
@@ -222,7 +198,7 @@ namespace Caiqelle.Views
                 DrawCanvas.Children.Add(_currentRect);
                 _undoStack.Push(_currentRect);
             }
-            else if (_currentTool == EditorTool.Number)
+            else if (currentTool == EditorTool.Number)
             {
                 DrawStepNumber(_startPoint);
                 _isDrawing = false;
@@ -245,20 +221,21 @@ namespace Caiqelle.Views
                 Math.Max(0, Math.Min(rawPos.Y, DrawCanvas.ActualHeight))
             );
 
-            if (_currentTool == EditorTool.Pen && _currentPolyline != null)
+            var currentTool = ViewModel.CurrentTool;
+            if (currentTool == EditorTool.Pen && _currentPolyline != null)
             {
                 _currentPolyline.Points.Add(pos);
             }
-            else if (_currentTool == EditorTool.Line && _currentLine != null)
+            else if (currentTool == EditorTool.Line && _currentLine != null)
             {
                 _currentLine.X2 = pos.X;
                 _currentLine.Y2 = pos.Y;
             }
-            else if (_currentTool == EditorTool.Arrow && _currentArrow != null)
+            else if (currentTool == EditorTool.Arrow && _currentArrow != null)
             {
                 UpdateArrowPath(_startPoint, pos);
             }
-            else if (_currentTool == EditorTool.Rect && _currentRect != null)
+            else if (currentTool == EditorTool.Rect && _currentRect != null)
             {
                 Canvas.SetLeft(_currentRect, Math.Min(_startPoint.X, pos.X));
                 Canvas.SetTop(_currentRect, Math.Min(_startPoint.Y, pos.Y));
@@ -310,7 +287,7 @@ namespace Caiqelle.Views
                 Width = 32,
                 Height = 32,
                 CornerRadius = new CornerRadius(16),
-                Background = _currentBrush
+                Background = ViewModel.SelectedColorBrush
             };
 
             var text = new TextBlock
@@ -334,7 +311,7 @@ namespace Caiqelle.Views
             _stepNumber++;
         }
 
-        private void ClearButton_Click(object? sender, RoutedEventArgs? e)
+        private void PerformClear()
         {
             DrawCanvas.Children.Clear();
             _undoStack.Clear();
@@ -343,9 +320,9 @@ namespace Caiqelle.Views
             UpdateUndoRedoButtons();
         }
 
-        private async void SaveButton_Click(object? sender, RoutedEventArgs? e)
+        private async Task PerformSaveAsync()
         {
-            var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Caiqelle.Services.SettingsManager>(((App)Application.Current).Services);
+            var settings = ((App)Application.Current).Services.GetRequiredService<Caiqelle.Services.SettingsManager>();
             using var bmp = GetCompositedBitmap();
             byte[] finalBytes = EncodeBitmap(bmp, settings.ImageFormat, settings.JpegQuality);
             
@@ -465,34 +442,34 @@ namespace Caiqelle.Views
             {
                 if (e.Key == Windows.System.VirtualKey.S)
                 {
-                    SaveButton_Click(null, null);
+                    ViewModel.SaveCommand.Execute(null);
                     e.Handled = true;
                     return;
                 }
                 else if (e.Key == Windows.System.VirtualKey.C)
                 {
-                    CopyButton_Click(null, null);
+                    ViewModel.CopyCommand.Execute(null);
                     e.Handled = true;
                     return;
                 }
                 else if (e.Key == Windows.System.VirtualKey.Z)
                 {
-                    if (UndoBtn.IsEnabled) UndoBtn_Click(null, null);
+                    if (ViewModel.UndoCommand.CanExecute(null)) ViewModel.UndoCommand.Execute(null);
                     e.Handled = true;
                     return;
                 }
                 else if (e.Key == Windows.System.VirtualKey.Y)
                 {
-                    if (RedoBtn.IsEnabled) RedoBtn_Click(null, null);
+                    if (ViewModel.RedoCommand.CanExecute(null)) ViewModel.RedoCommand.Execute(null);
                     e.Handled = true;
                     return;
                 }
             }
         }
 
-        private void CopyButton_Click(object? sender, RoutedEventArgs? e)
+        private Task PerformCopyAsync()
         {
-            var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Caiqelle.Services.SettingsManager>(((App)Application.Current).Services);
+            var settings = ((App)Application.Current).Services.GetRequiredService<Caiqelle.Services.SettingsManager>();
             using var bmp = GetCompositedBitmap();
             byte[] finalBytes = EncodeBitmap(bmp, settings.ImageFormat, settings.JpegQuality);
             
@@ -505,6 +482,7 @@ namespace Caiqelle.Views
             
             dataPackage.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
             Clipboard.SetContent(dataPackage);
+            return Task.CompletedTask;
         }
     }
     

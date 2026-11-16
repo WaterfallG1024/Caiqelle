@@ -38,36 +38,36 @@
                         BorderThickness="0" CornerRadius="14" Padding="6,4" Translation="0,0,16">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <!-- Drawing Tools -->
-                        <ToggleButton x:Name="PenBtn" ToolTipService.ToolTip="ペン" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click" IsChecked="True">
+                        <ToggleButton x:Name="PenBtn" ToolTipService.ToolTip="ペン" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.SelectToolCommand}" CommandParameter="Pen" IsChecked="{x:Bind ViewModel.IsPenSelected, Mode=OneWay}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEC87;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
-                        <ToggleButton x:Name="LineBtn" ToolTipService.ToolTip="直線" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click">
+                        <ToggleButton x:Name="LineBtn" ToolTipService.ToolTip="直線" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.SelectToolCommand}" CommandParameter="Line" IsChecked="{x:Bind ViewModel.IsLineSelected, Mode=OneWay}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF464;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
-                        <ToggleButton x:Name="ArrowBtn" ToolTipService.ToolTip="矢印" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click">
+                        <ToggleButton x:Name="ArrowBtn" ToolTipService.ToolTip="矢印" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.SelectToolCommand}" CommandParameter="Arrow" IsChecked="{x:Bind ViewModel.IsArrowSelected, Mode=OneWay}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE742;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
-                        <ToggleButton x:Name="RectBtn" ToolTipService.ToolTip="四角形" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click">
+                        <ToggleButton x:Name="RectBtn" ToolTipService.ToolTip="四角形" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.SelectToolCommand}" CommandParameter="Rect" IsChecked="{x:Bind ViewModel.IsRectSelected, Mode=OneWay}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE739;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
-                        <ToggleButton x:Name="NumberBtn" ToolTipService.ToolTip="ステップ番号" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click">
+                        <ToggleButton x:Name="NumberBtn" ToolTipService.ToolTip="ステップ番号" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.SelectToolCommand}" CommandParameter="Number" IsChecked="{x:Bind ViewModel.IsNumberSelected, Mode=OneWay}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF146;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
 
                         <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
                         <!-- Fill Toggle -->
-                        <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="図形の塗りつぶし" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="FillBtn_Click">
+                        <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="図形の塗りつぶし" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" IsChecked="{x:Bind ViewModel.IsFillEnabled, Mode=TwoWay}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEB33;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
 
                         <!-- Color Picker Button (Clean Squircle No Clip) -->
                         <Button x:Name="ColorBtn" ToolTipService.ToolTip="色選択" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0">
-                            <Border x:Name="ColorPreviewBorder" Width="18" Height="18" CornerRadius="5" Background="Red" BorderThickness="0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border x:Name="ColorPreviewBorder" Width="18" Height="18" CornerRadius="5" Background="{x:Bind ViewModel.SelectedColorBrush, Mode=OneWay}" BorderThickness="0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <Button.Flyout>
                                 <Flyout>
                                     <ColorPicker x:Name="EditorColorPicker" 
-                                                 ColorChanged="EditorColorPicker_ColorChanged"
+                                                 Color="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}"
                                                  ColorSpectrumShape="Ring" 
                                                  IsMoreButtonVisible="False" 
                                                  IsColorSliderVisible="True" 
@@ -83,23 +83,23 @@
                         <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
                         <!-- Undo / Redo -->
-                        <Button x:Name="UndoBtn" ToolTipService.ToolTip="元に戻す (Ctrl+Z)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="UndoBtn_Click" IsEnabled="False">
+                        <Button x:Name="UndoBtn" ToolTipService.ToolTip="元に戻す (Ctrl+Z)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.UndoCommand}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A7;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </Button>
-                        <Button x:Name="RedoBtn" ToolTipService.ToolTip="やり直す (Ctrl+Y)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="RedoBtn_Click" IsEnabled="False">
+                        <Button x:Name="RedoBtn" ToolTipService.ToolTip="やり直す (Ctrl+Y)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.RedoCommand}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A6;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </Button>
                         
-                        <Button x:Name="ClearButton" ToolTipService.ToolTip="編集をすべて消去" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ClearButton_Click">
+                        <Button x:Name="ClearButton" ToolTipService.ToolTip="編集をすべて消去" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.ClearCommand}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </Button>
 
                         <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
                         
-                        <Button x:Name="CopyButton" ToolTipService.ToolTip="コピー(またはCtrl + C)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="CopyButton_Click">
+                        <Button x:Name="CopyButton" ToolTipService.ToolTip="コピー(またはCtrl + C)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.CopyCommand}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C8;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </Button>
-                        <Button x:Name="SaveButton" ToolTipService.ToolTip="保存(またはCtrl + S)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="SaveButton_Click">
+                        <Button x:Name="SaveButton" ToolTipService.ToolTip="保存(またはCtrl + S)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.SaveCommand}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE792;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </Button>
                     </StackPanel>

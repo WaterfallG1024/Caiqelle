@@ -9,7 +9,7 @@
     mc:Ignorable="d"
     Title="Select Folder">
 
-    <Grid x:Name="RootGrid" Background="Transparent" CornerRadius="0" BorderThickness="0" KeyDown="Grid_KeyDown" CharacterReceived="Grid_CharacterReceived" IsTabStop="True">
+    <Grid x:Name="RootGrid" DataContext="{x:Bind ViewModel}" Background="Transparent" CornerRadius="0" BorderThickness="0" KeyDown="Grid_KeyDown" CharacterReceived="Grid_CharacterReceived" IsTabStop="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -28,6 +28,7 @@
         <!-- FileName TextBox (M3 Expressive Filled Style) -->
         <TextBox x:Name="FileNameTextBox" 
                  Grid.Row="1" 
+                 Text="{x:Bind ViewModel.FileNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  PlaceholderText="ファイル名を入力 (任意)" 
                  Width="308" 
                  HorizontalAlignment="Center" 
@@ -40,7 +41,7 @@
 
         <!-- 2 Columns x 5 Rows Grid for Buttons (Horizontal Layout with 2 Columns) -->
         <Grid Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Top" Width="308" Margin="16,0">
-            <ItemsControl x:Name="FoldersGrid" HorizontalAlignment="Center" Width="308" ItemsSource="{x:Bind CurrentPageMappings, Mode=OneWay}">
+            <ItemsControl x:Name="FoldersGrid" HorizontalAlignment="Center" Width="308" ItemsSource="{x:Bind ViewModel.CurrentPageMappings, Mode=OneWay}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VariableSizedWrapGrid MaximumRowsOrColumns="2" Orientation="Horizontal" ItemWidth="154" ItemHeight="48" HorizontalAlignment="Center" VerticalAlignment="Top" />
@@ -48,7 +49,8 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="services:FolderMapping">
-                        <Button Click="FolderButton_Click" 
+                        <Button Command="{Binding DataContext.SelectFolderCommand, ElementName=RootGrid}"
+                                CommandParameter="{x:Bind}"
                                 Width="146" Height="42" 
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
@@ -58,8 +60,7 @@
                                 BorderThickness="0" 
                                 FontWeight="SemiBold"
                                 Padding="10,0"
-                                ToolTipService.ToolTip="{x:Bind FolderName}"
-                                Tag="{x:Bind}">
+                                ToolTipService.ToolTip="{x:Bind FolderName}">
                             <Grid HorizontalAlignment="Stretch" VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -94,13 +95,13 @@
         <StackPanel Grid.Row="3" Margin="0,10,0,18" HorizontalAlignment="Center" Spacing="6">
             <Border Background="{StaticResource M3SurfaceContainerLowBrush}" CornerRadius="12" Padding="6,3" HorizontalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button x:Name="PrevButton" Click="PrevButton_Click" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button x:Name="PrevButton" Command="{x:Bind ViewModel.PreviousPageCommand}" Visibility="{x:Bind ViewModel.IsPrevButtonVisible, Mode=OneWay}" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <FontIcon Glyph="&#xE76B;" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="12" />
                     </Button>
                     
-                    <TextBlock x:Name="PageIndicator" Text="1/5" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="32" TextAlignment="Center" />
+                    <TextBlock x:Name="PageIndicator" Text="{x:Bind ViewModel.PageIndicatorText, Mode=OneWay}" Foreground="{x:Bind GetPageIndicatorBrush(ViewModel.IsErrorState), Mode=OneWay}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="32" TextAlignment="Center" />
                     
-                    <Button x:Name="NextButton" Click="NextButton_Click" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button x:Name="NextButton" Command="{x:Bind ViewModel.NextPageCommand}" Visibility="{x:Bind ViewModel.IsNextButtonVisible, Mode=OneWay}" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <FontIcon Glyph="&#xE76C;" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="12" />
                     </Button>
                 </StackPanel>

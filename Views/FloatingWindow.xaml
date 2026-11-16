@@ -13,7 +13,7 @@
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,16">
                 <!-- Capture Buttons Panel (M3 Expressive Cards) -->
                 <StackPanel x:Name="CaptureButtonsPanel" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Visibility="Visible">
-                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Click="CaptureRegion_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Command="{x:Bind ViewModel.CaptureRegionCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="46" Height="46" CornerRadius="16" Background="{StaticResource FuncBlueBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE73F;" FontSize="18" Foreground="{StaticResource FuncBlueBrush}" />
@@ -22,7 +22,7 @@
                         </StackPanel>
                     </Button>
                     
-                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Click="CaptureWindow_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Command="{x:Bind ViewModel.CaptureWindowCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="46" Height="46" CornerRadius="16" Background="{StaticResource FuncCyanBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF7ED;" FontSize="18" Foreground="{StaticResource FuncCyanBrush}" />
@@ -31,7 +31,7 @@
                         </StackPanel>
                     </Button>
                     
-                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Click="CaptureFullscreen_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Command="{x:Bind ViewModel.CaptureFullscreenCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="46" Height="46" CornerRadius="16" Background="{StaticResource FuncPurpleBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE740;" FontSize="18" Foreground="{StaticResource FuncPurpleBrush}" />
@@ -40,7 +40,7 @@
                         </StackPanel>
                     </Button>
                     
-                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Click="CapturePin_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Command="{x:Bind ViewModel.CapturePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="46" Height="46" CornerRadius="16" Background="{StaticResource M3TertiaryContainerGlassBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE718;" FontSize="18" Foreground="{StaticResource M3TertiaryBrush}" />
@@ -49,7 +49,7 @@
                         </StackPanel>
                     </Button>
                     
-                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Click="CaptureOCR_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                    <Button Style="{StaticResource CardButtonStyle}" Width="104" Height="104" Command="{x:Bind ViewModel.CaptureOcrCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="46" Height="46" CornerRadius="16" Background="{StaticResource FuncPinkBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8D2;" FontSize="18" Foreground="{StaticResource FuncPinkBrush}" />

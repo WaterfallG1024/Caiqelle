@@ -13,7 +13,7 @@
         <DesktopAcrylicBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid Background="Transparent" BorderThickness="0" CornerRadius="0" KeyDown="Grid_KeyDown">
+    <Grid x:Name="RootGrid" DataContext="{x:Bind ViewModel}" Background="Transparent" BorderThickness="0" CornerRadius="0" KeyDown="Grid_KeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -22,13 +22,13 @@
 
         <!-- Top Header (M3 Expressive Top App Bar) -->
         <Grid x:Name="AppTitleBar" Grid.Row="0" Height="48" Background="Transparent" Padding="20,0">
-            <TextBlock x:Name="HeaderTitle" Text="クイック アクセス" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontFamily="Segoe UI Variable Display" />
+            <TextBlock x:Name="HeaderTitle" Text="{x:Bind ViewModel.HeaderTitle, Mode=OneWay}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontFamily="Segoe UI Variable Display" />
         </Grid>
 
         <!-- Main Content Area -->
         <ScrollViewer x:Name="ContentScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <Grid Margin="16,0,16,16">
-                <Grid x:Name="HomeTab">
+                <Grid x:Name="HomeTab" Visibility="{x:Bind ViewModel.IsHomeTabVisible, Mode=OneWay}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -44,7 +44,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- What's New Release Notification Banner (M3 Expressive Pill & Highlights) -->
-                    <Border Grid.Row="0" Grid.ColumnSpan="3" x:Name="WhatsNewBannerCard" Background="{StaticResource M3SurfaceContainerLowBrush}" CornerRadius="16" BorderThickness="0" Margin="4,4,4,16" Padding="14,12" Visibility="Collapsed">
+                    <Border Grid.Row="0" Grid.ColumnSpan="3" x:Name="WhatsNewBannerCard" Background="{StaticResource M3SurfaceContainerLowBrush}" CornerRadius="16" BorderThickness="0" Margin="4,4,4,16" Padding="14,12" Visibility="{x:Bind ViewModel.IsWhatsNewVisible, Mode=OneWay}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -59,29 +59,29 @@
 
                             <!-- Title & Action Button Stack -->
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
-                                <TextBlock x:Name="WhatsNewTitle" Text="v0.1.0 がリリースされました！" FontSize="13" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                <Button x:Name="WhatsNewDetailBtn" Content="詳細を見る" Style="{StaticResource M3PillTonalButtonStyle}" Click="WhatsNewDetailBtn_Click" Padding="14,4" FontSize="11" HorizontalAlignment="Left"/>
+                                <TextBlock x:Name="WhatsNewTitle" Text="{x:Bind ViewModel.WhatsNewTitle, Mode=OneWay}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                <Button x:Name="WhatsNewDetailBtn" Content="詳細を見る" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.OpenWhatsNewDetailCommand}" Padding="14,4" FontSize="11" HorizontalAlignment="Left"/>
                             </StackPanel>
 
                             <!-- Dismiss Close Button -->
-                            <Button Grid.Column="2" x:Name="WhatsNewDismissBtn" Click="WhatsNewDismissBtn_Click" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" VerticalAlignment="Top" HorizontalAlignment="Right" ToolTipService.ToolTip="このバナーを非表示">
+                            <Button Grid.Column="2" x:Name="WhatsNewDismissBtn" Command="{x:Bind ViewModel.DismissWhatsNewCommand}" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" VerticalAlignment="Top" HorizontalAlignment="Right" ToolTipService.ToolTip="このバナーを非表示">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE711;" FontSize="11" Foreground="{StaticResource AfterGlowTextSecondaryBrush}"/>
                             </Button>
                         </Grid>
                     </Border>
 
                     <!-- Rewind Status Card (M3 Expressive Tonal Container) -->
-                    <Border Grid.Row="1" Grid.ColumnSpan="3" x:Name="RewindStatusCard" Background="{StaticResource M3SurfaceContainerBrush}" CornerRadius="16" BorderThickness="0" Margin="4,4,4,16" Padding="16,14">
+                    <Border Grid.Row="1" Grid.ColumnSpan="3" x:Name="RewindStatusCard" Background="{StaticResource M3SurfaceContainerBrush}" CornerRadius="16" BorderThickness="0" Margin="4,4,4,16" Padding="16,14" Visibility="{x:Bind ViewModel.IsRewindStatusVisible, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource FuncOrangeBgBrush}" Margin="0,0,12,0" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE768;" FontSize="14" Foreground="{StaticResource FuncOrangeBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock x:Name="RewindStatusText" Text="リワインド録画中 (30秒 / 4K)" FontSize="14" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="RewindStatusText" Text="{x:Bind ViewModel.RewindStatusText, Mode=OneWay}" FontSize="14" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
                     <!-- Quick Action Cards (M3 Expressive Cards & Clean Badges) -->
-                    <Button Grid.Row="2" Grid.Column="0" Style="{StaticResource CardButtonStyle}" Click="CaptureRegion_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                    <Button Grid.Row="2" Grid.Column="0" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.CaptureRegionCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource FuncBlueBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE73F;" FontSize="20" Foreground="{StaticResource FuncBlueBrush}"/>
@@ -93,7 +93,7 @@
                         </StackPanel>
                     </Button>
                     
-                    <Button Grid.Row="2" Grid.Column="1" Style="{StaticResource CardButtonStyle}" Click="CaptureWindow_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                    <Button Grid.Row="2" Grid.Column="1" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.CaptureWindowCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource FuncCyanBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF7ED;" FontSize="20" Foreground="{StaticResource FuncCyanBrush}"/>
@@ -105,7 +105,7 @@
                         </StackPanel>
                     </Button>
                     
-                    <Button Grid.Row="2" Grid.Column="2" Style="{StaticResource CardButtonStyle}" Click="CaptureFullscreen_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                    <Button Grid.Row="2" Grid.Column="2" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.CaptureFullscreenCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource FuncPurpleBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE740;" FontSize="20" Foreground="{StaticResource FuncPurpleBrush}"/>
@@ -117,7 +117,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="3" Grid.Column="0" Style="{StaticResource CardButtonStyle}" Click="CapturePin_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                    <Button Grid.Row="3" Grid.Column="0" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.CapturePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource M3TertiaryContainerGlassBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE718;" FontSize="20" Foreground="{StaticResource M3TertiaryBrush}"/>
@@ -129,7 +129,7 @@
                         </StackPanel>
                     </Button>
                     
-                    <Button Grid.Row="3" Grid.Column="1" Style="{StaticResource CardButtonStyle}" Click="CaptureOCR_Tapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                    <Button Grid.Row="3" Grid.Column="1" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.CaptureOcrCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource FuncPinkBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8D2;" FontSize="20" Foreground="{StaticResource FuncPinkBrush}"/>
@@ -141,7 +141,7 @@
                         </StackPanel>
                     </Button>
                     
-                    <Button Grid.Row="3" Grid.Column="2" Style="{StaticResource CardButtonStyle}" Click="NavRewind_Click" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                    <Button Grid.Row="3" Grid.Column="2" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.NavigateToRewindCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource FuncOrangeBgBrush}" HorizontalAlignment="Center">
                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE768;" FontSize="20" Foreground="{StaticResource FuncOrangeBrush}"/>
@@ -228,7 +228,7 @@
                 </Grid>
 
                 <!-- Folder Tab (Image Folder Management) -->
-                <Grid x:Name="FolderTab" Visibility="Collapsed">
+                <Grid x:Name="FolderTab" Visibility="{x:Bind ViewModel.IsFolderTabVisible, Mode=OneWay}">
                     <StackPanel Spacing="12">
                         <StackPanel Orientation="Horizontal" Margin="4,0,0,4" VerticalAlignment="Center">
                             <TextBlock Text="画像保存先フォルダ" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center"/>
@@ -250,19 +250,19 @@
                         
                         <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16">
                             <StackPanel Spacing="12">
-                                <InfoBar x:Name="ValidationErrorBar" IsOpen="False" Severity="Error" Margin="0,0,0,4"/>
+                                <InfoBar x:Name="ValidationErrorBar" IsOpen="{x:Bind ViewModel.IsValidationErrorOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.ValidationErrorMessage, Mode=OneWay}" Severity="Error" Margin="0,0,0,4"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="FolderNameInput" Grid.Column="0" PlaceholderText="フォルダ名" Margin="0,0,8,0" CornerRadius="10" Background="{StaticResource M3SurfaceContainerLowestBrush}" BorderThickness="0"/>
-                                    <TextBox x:Name="KeyInput" Grid.Column="1" Width="52" MinWidth="0" PlaceholderText="キー" Margin="0,0,8,0" CornerRadius="10" Background="{StaticResource M3SurfaceContainerLowestBrush}" BorderThickness="0" MaxLength="1" TextAlignment="Center"/>
-                                    <Button Grid.Column="2" Content="追加" Style="{StaticResource M3FilledPrimaryButtonStyle}" Padding="16,6" Click="AddMapping_Click"/>
+                                    <TextBox x:Name="FolderNameInput" Grid.Column="0" Text="{x:Bind ViewModel.FolderNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="フォルダ名" Margin="0,0,8,0" CornerRadius="10" Background="{StaticResource M3SurfaceContainerLowestBrush}" BorderThickness="0"/>
+                                    <TextBox x:Name="KeyInput" Grid.Column="1" Text="{x:Bind ViewModel.KeyInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="52" MinWidth="0" PlaceholderText="キー" Margin="0,0,8,0" CornerRadius="10" Background="{StaticResource M3SurfaceContainerLowestBrush}" BorderThickness="0" MaxLength="1" TextAlignment="Center"/>
+                                    <Button Grid.Column="2" Content="追加" Style="{StaticResource M3FilledPrimaryButtonStyle}" Padding="16,6" Command="{x:Bind ViewModel.AddMappingCommand}"/>
                                 </Grid>
                                 
-                                <ItemsControl x:Name="MappingsList" Margin="0,8,0,0">
+                                <ItemsControl x:Name="MappingsList" ItemsSource="{x:Bind ViewModel.Mappings}" Margin="0,8,0,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Background="{StaticResource M3SurfaceContainerLowBrush}" CornerRadius="12" Padding="12,8" Margin="0,0,0,6">
@@ -276,7 +276,7 @@
                                                     <Border Grid.Column="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" CornerRadius="6" Width="24" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding Key}" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontWeight="Bold" FontSize="11"/>
                                                     </Border>
-                                                    <Button Grid.Column="2" Content="解除" Background="{StaticResource FuncPinkBgBrush}" Foreground="{StaticResource FuncPinkBrush}" BorderThickness="0" CornerRadius="8" Padding="12,4" FontSize="12" FontWeight="SemiBold" Click="RemoveMapping_Click" Tag="{Binding}"/>
+                                                    <Button Grid.Column="2" Content="解除" Background="{StaticResource FuncPinkBgBrush}" Foreground="{StaticResource FuncPinkBrush}" BorderThickness="0" CornerRadius="8" Padding="12,4" FontSize="12" FontWeight="SemiBold" Command="{Binding DataContext.RemoveMappingCommand, ElementName=RootGrid}" CommandParameter="{Binding}"/>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -284,7 +284,7 @@
                                 </ItemsControl>
 
                                 <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0" Foreground="{StaticResource AfterGlowTextSecondaryBrush}">
-                                    標準フォルダ: Pictures\AGShot
+                                    標準フォルダ: Pictures\Caiqelle
                                 </TextBlock>
                             </StackPanel>
                         </Border>
@@ -292,11 +292,11 @@
                 </Grid>
 
                 <!-- Rewind Tab (M3 Expressive) -->
-                <Grid x:Name="RewindTab" Visibility="Collapsed">
+                <Grid x:Name="RewindTab" Visibility="{x:Bind ViewModel.IsRewindTabVisible, Mode=OneWay}">
                     <StackPanel Spacing="8">
                         <TextBlock Text="リワインド設定" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" Margin="4,0,0,8"/>
                         
-                        <InfoBar x:Name="RewindMemoryInfoBar" IsOpen="True" Severity="Informational" Margin="0,0,0,8" Title="メモリ搭載量に応じた制限について" Message=""/>
+                        <InfoBar x:Name="RewindMemoryInfoBar" IsOpen="True" Severity="{x:Bind ViewModel.RewindMemoryInfoSeverity, Mode=OneWay}" Margin="0,0,0,8" Title="{x:Bind ViewModel.RewindMemoryInfoTitle, Mode=OneWay}" Message="{x:Bind ViewModel.RewindMemoryInfoMessage, Mode=OneWay}"/>
                         
                         <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
                             <Grid>
@@ -305,7 +305,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="機能を有効にする" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="RewindEnableSwitch" Toggled="RewindEnableSwitch_Toggled" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                <ToggleSwitch Grid.Column="1" x:Name="RewindEnableSwitch" IsOn="{x:Bind ViewModel.IsRewindEnabled, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEnableRewind, Mode=OneWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>
                         </Border>
                         
@@ -319,7 +319,7 @@
                                     <TextBlock Text="Shift + CapsLock でリワインド開始/停止" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" TextWrapping="Wrap"/>
                                     <TextBlock Text="オンにすると、本来の機能は無効化されます" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
-                                <ToggleSwitch Grid.Column="1" x:Name="ShiftCapsLockRewindSwitch" Toggled="ShiftCapsLockRewindSwitch_Toggled" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                <ToggleSwitch Grid.Column="1" x:Name="ShiftCapsLockRewindSwitch" IsOn="{x:Bind ViewModel.IsShiftCapsLockRewindEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>
                         </Border>
                         
@@ -330,19 +330,12 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="遡る秒数" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ComboBox Grid.Column="1" x:Name="RewindDurationCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" SelectionChanged="RewindCombo_SelectionChanged" VerticalAlignment="Center">
-                                    <ComboBoxItem Content="3秒" Tag="3"/>
-                                    <ComboBoxItem Content="5秒" Tag="5"/>
-                                    <ComboBoxItem Content="10秒" Tag="10"/>
-                                    <ComboBoxItem Content="20秒" Tag="20"/>
-                                    <ComboBoxItem Content="30秒" Tag="30"/>
-                                    <ComboBoxItem Content="60秒" Tag="60"/>
-                                    <ComboBoxItem Content="90秒" Tag="90"/>
-                                    <ComboBoxItem Content="120秒" Tag="120"/>
-                                    <ComboBoxItem Content="180秒" Tag="180"/>
-                                    <ComboBoxItem Content="240秒" Tag="240"/>
-                                    <ComboBoxItem Content="300秒" Tag="300"/>
-                                </ComboBox>
+                                <ComboBox Grid.Column="1" x:Name="RewindDurationCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          ItemsSource="{x:Bind ViewModel.RewindDurationOptions}"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{x:Bind ViewModel.SelectedRewindDuration, Mode=TwoWay}"
+                                          DropDownOpened="RewindCombo_DropDownOpened" />
                             </Grid>
                         </Border>
                         
@@ -353,19 +346,19 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="画質設定" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ComboBox Grid.Column="1" x:Name="RewindQualityCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" SelectionChanged="RewindCombo_SelectionChanged" VerticalAlignment="Center">
-                                    <ComboBoxItem Content="低画質(720p)" Tag="720p"/>
-                                    <ComboBoxItem Content="中画質(FullHD)" Tag="FulHD"/>
-                                    <ComboBoxItem Content="高画質(2K)" Tag="2K"/>
-                                    <ComboBoxItem Content="最高画質(4K)" Tag="4K"/>
-                                </ComboBox>
+                                <ComboBox Grid.Column="1" x:Name="RewindQualityCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          ItemsSource="{x:Bind ViewModel.RewindQualityOptions}"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{x:Bind ViewModel.SelectedRewindQuality, Mode=TwoWay}"
+                                          DropDownOpened="RewindCombo_DropDownOpened" />
                             </Grid>
                         </Border>
                     </StackPanel>
                 </Grid>
 
                 <!-- Settings Tab (M3 Expressive) -->
-                <Grid x:Name="SettingsTab" Visibility="Collapsed">
+                <Grid x:Name="SettingsTab" Visibility="{x:Bind ViewModel.IsSettingsTabVisible, Mode=OneWay}">
                     <StackPanel Spacing="8">
                         <TextBlock Text="全体設定" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" Margin="4,0,0,8"/>
                         
@@ -376,10 +369,11 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="画像保存形式" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ComboBox Grid.Column="1" x:Name="ImageFormatCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" SelectionChanged="SettingsCombo_SelectionChanged" VerticalAlignment="Center">
-                                    <ComboBoxItem Content="PNG" Tag="PNG"/>
-                                    <ComboBoxItem Content="JPEG" Tag="JPEG"/>
-                                </ComboBox>
+                                <ComboBox Grid.Column="1" x:Name="ImageFormatCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          ItemsSource="{x:Bind ViewModel.ImageFormatOptions}"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{x:Bind ViewModel.SelectedImageFormat, Mode=TwoWay}"/>
                             </Grid>
                         </Border>
                         
@@ -390,12 +384,12 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="画像圧縮 (JPEG)" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ComboBox Grid.Column="1" x:Name="ImageCompressionCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" SelectionChanged="SettingsCombo_SelectionChanged" VerticalAlignment="Center">
-                                    <ComboBoxItem Content="最高画質(100)" Tag="100"/>
-                                    <ComboBoxItem Content="高画質(90)" Tag="90"/>
-                                    <ComboBoxItem Content="標準(70)" Tag="70"/>
-                                    <ComboBoxItem Content="低画質(50)" Tag="50"/>
-                                </ComboBox>
+                                <ComboBox Grid.Column="1" x:Name="ImageCompressionCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          IsEnabled="{x:Bind ViewModel.IsImageCompressionEnabled, Mode=OneWay}"
+                                          ItemsSource="{x:Bind ViewModel.ImageCompressionOptions}"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{x:Bind ViewModel.SelectedJpegQuality, Mode=TwoWay}"/>
                             </Grid>
                         </Border>
                         
@@ -406,7 +400,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="PrintScreen乗っ取り" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="PrintScreenHookSwitch" IsOn="True" Toggled="PrintScreenHookSwitch_Toggled" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                <ToggleSwitch Grid.Column="1" x:Name="PrintScreenHookSwitch" IsOn="{x:Bind ViewModel.IsHijackPrintScreen, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>
                         </Border>
                         
@@ -417,7 +411,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Win+Shift+S乗っ取り" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="WinShiftSHookSwitch" IsOn="True" Toggled="WinShiftSHookSwitch_Toggled" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                <ToggleSwitch Grid.Column="1" x:Name="WinShiftSHookSwitch" IsOn="{x:Bind ViewModel.IsHijackWinShiftS, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>
                         </Border>
 
@@ -428,7 +422,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Windows起動時に自動実行する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="RunAtStartupSwitch" IsOn="True" Toggled="RunAtStartupSwitch_Toggled" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                <ToggleSwitch Grid.Column="1" x:Name="RunAtStartupSwitch" IsOn="{x:Bind ViewModel.IsRunAtStartup, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>
                         </Border>
 
@@ -439,7 +433,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="自動クリップボードコピー" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="AutoCopyToClipboardSwitch" IsOn="True" Toggled="AutoCopyToClipboardSwitch_Toggled" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                <ToggleSwitch Grid.Column="1" x:Name="AutoCopyToClipboardSwitch" IsOn="{x:Bind ViewModel.IsAutoCopyToClipboard, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>
                         </Border>
 
@@ -450,7 +444,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="起動時に自動でアップデートを確認する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="AutoUpdateSwitch" IsOn="True" Toggled="AutoUpdateSwitch_Toggled" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                <ToggleSwitch Grid.Column="1" x:Name="AutoUpdateSwitch" IsOn="{x:Bind ViewModel.IsAutoUpdateEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>
                         </Border>
 
@@ -462,10 +456,10 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
                                     <TextBlock Text="バージョン情報" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="VersionText" Text="v0.1.0" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12"/>
-                                    <TextBlock x:Name="UpdateStatusText" Text="" Foreground="{StaticResource FuncCyanBrush}" FontSize="12" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="VersionText" Text="{x:Bind ViewModel.VersionText, Mode=OneWay}" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="UpdateStatusText" Text="{x:Bind ViewModel.UpdateStatusText, Mode=OneWay}" Foreground="{StaticResource FuncCyanBrush}" FontSize="12" Visibility="{x:Bind ViewModel.IsUpdateStatusVisible, Mode=OneWay}"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" x:Name="CheckUpdateBtn" Content="更新を確認" Style="{StaticResource M3PillTonalButtonStyle}" Click="CheckUpdateBtn_Click" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="14,6"/>
+                                <Button Grid.Column="1" x:Name="CheckUpdateBtn" Content="更新を確認" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.CheckUpdateCommand}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="14,6"/>
                             </Grid>
                         </Border>
                     </StackPanel>
@@ -477,13 +471,13 @@
         <Grid Grid.Row="2" Background="Transparent" Padding="16,0,16,14">
             <Border Background="{StaticResource M3SurfaceContainerBrush}" CornerRadius="16" HorizontalAlignment="Right" Padding="6,4">
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                    <Button x:Name="NavHomeBtn" Background="{StaticResource M3SurfaceContainerHighestBrush}" BorderThickness="0" CornerRadius="10" Width="44" Height="36" Padding="0" Click="NavHome_Click" ToolTipService.ToolTip="クイック アクセス">
+                    <Button x:Name="NavHomeBtn" Background="{StaticResource M3SurfaceContainerHighestBrush}" BorderThickness="0" CornerRadius="10" Width="44" Height="36" Padding="0" Command="{x:Bind ViewModel.NavigateToHomeCommand}" ToolTipService.ToolTip="クイック アクセス">
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE80F;" FontSize="18" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                     </Button>
-                    <Button x:Name="NavFolderBtn" Background="Transparent" BorderThickness="0" CornerRadius="10" Width="44" Height="36" Padding="0" Click="NavImageFolder_Click" ToolTipService.ToolTip="フォルダ管理">
+                    <Button x:Name="NavFolderBtn" Background="Transparent" BorderThickness="0" CornerRadius="10" Width="44" Height="36" Padding="0" Command="{x:Bind ViewModel.NavigateToFolderCommand}" ToolTipService.ToolTip="フォルダ管理">
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE838;" FontSize="18" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                     </Button>
-                    <Button x:Name="NavSettingsBtn" Background="Transparent" BorderThickness="0" CornerRadius="10" Width="44" Height="36" Padding="0" Click="NavSettings_Click" ToolTipService.ToolTip="設定">
+                    <Button x:Name="NavSettingsBtn" Background="Transparent" BorderThickness="0" CornerRadius="10" Width="44" Height="36" Padding="0" Command="{x:Bind ViewModel.NavigateToSettingsCommand}" ToolTipService.ToolTip="設定">
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE713;" FontSize="18" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                     </Button>
                 </StackPanel>

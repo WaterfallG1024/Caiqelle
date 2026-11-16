@@ -236,7 +236,27 @@ namespace Caiqelle
             services.AddSingleton<StartupService>();
             services.AddSingleton<NotificationService>();
             services.AddSingleton<UpdateService>();
+            services.AddTransient<ViewModels.MainViewModel>();
+            services.AddTransient<ViewModels.FolderSelectionViewModel>();
+            services.AddTransient<ViewModels.FloatingViewModel>();
+            services.AddTransient<ViewModels.EditorViewModel>();
             return services.BuildServiceProvider();
+        }
+
+        private static System.Drawing.Icon LoadTrayIcon()
+        {
+            try
+            {
+                string pngPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Square44x44Logo.scale-200.png");
+                if (System.IO.File.Exists(pngPath))
+                {
+                    using var bmp = new System.Drawing.Bitmap(pngPath);
+                    return System.Drawing.Icon.FromHandle(bmp.GetHicon());
+                }
+            }
+            catch { }
+
+            return System.Drawing.SystemIcons.Application;
         }
 
         private H.NotifyIcon.TaskbarIcon? _trayIcon;
@@ -272,7 +292,7 @@ namespace Caiqelle
                 _trayIcon = new H.NotifyIcon.TaskbarIcon
                 {
                     // TODO: Caiqelle用アイコンを用意したら差し替える
-                    IconSource = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri("ms-appx:///Assets/Square44x44Logo.scale-200.png")),
+                    Icon = LoadTrayIcon(),
                     ToolTipText = "Caiqelle",
                 };
                 
@@ -285,7 +305,14 @@ namespace Caiqelle
                 rightClickCommand.ExecuteRequested += (s, e) => { ShowNativeTrayContextMenu(); };
                 _trayIcon.RightClickCommand = rightClickCommand;
                 
-                _trayIcon.ForceCreate();
+                try
+                {
+                    _trayIcon.ForceCreate();
+                }
+                catch (Exception trayEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[App] TaskbarIcon.ForceCreate failed: {trayEx.Message}");
+                }
 
                 if (!Program.IsBackgroundStart)
                 {
