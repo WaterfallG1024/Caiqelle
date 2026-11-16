@@ -32,6 +32,7 @@ namespace Caiqelle.Services
         public bool IsShiftCapsLockRewindEnabled { get; set; } = false;
         public bool IsAutoUpdateEnabled { get; set; } = true;
         public string LastDismissedReleaseTag { get; set; } = string.Empty;
+        public AccentTheme AccentTheme { get; set; } = AccentTheme.Emerald;
     }
 
     public class SettingsManager
@@ -111,6 +112,12 @@ namespace Caiqelle.Services
         {
             get => _data.LastDismissedReleaseTag;
             set => _data.LastDismissedReleaseTag = value;
+        }
+
+        public AccentTheme AccentTheme
+        {
+            get => _data.AccentTheme;
+            set => _data.AccentTheme = value;
         }
 
         public SettingsManager()

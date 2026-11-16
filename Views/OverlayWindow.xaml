@@ -35,7 +35,7 @@
                 
             <!-- Selection Box Border -->
             <Rectangle x:Name="SelectionBox" 
-                       Stroke="White" 
+                       Stroke="{StaticResource M3PrimaryBrush}" 
                        StrokeThickness="1" 
                        Fill="Transparent" 
                        Visibility="Collapsed" 

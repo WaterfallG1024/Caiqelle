@@ -26,6 +26,50 @@ namespace Caiqelle.Services
         [DllImport("gdi32.dll")]
         private static extern bool DeleteDC(IntPtr hdc);
 
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr SelectObject(IntPtr hdc, IntPtr h);
+
+        [DllImport("gdi32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool DeleteObject(IntPtr ho);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateDIBSection(IntPtr hdc, ref BITMAPINFO pbmi, uint usage, out IntPtr ppvBits, IntPtr hSection, uint offset);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BITMAPINFOHEADER
+        {
+            public uint biSize;
+            public int biWidth;
+            public int biHeight;
+            public ushort biPlanes;
+            public ushort biBitCount;
+            public uint biCompression;
+            public uint biSizeImage;
+            public int biXPelsPerMeter;
+            public int biYPelsPerMeter;
+            public uint biClrUsed;
+            public uint biClrImportant;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BITMAPINFO
+        {
+            public BITMAPINFOHEADER bmiHeader;
+            public uint bmiColors;
+        }
+
+        [ComImport]
+        [Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private unsafe interface IMemoryBufferByteAccess
+        {
+            void GetBuffer(out byte* buffer, out uint capacity);
+        }
+
         private const int SM_XVIRTUALSCREEN = 76;
         private const int SM_YVIRTUALSCREEN = 77;
         private const int SM_CXVIRTUALSCREEN = 78;
@@ -49,30 +93,86 @@ namespace Caiqelle.Services
             var bounds = GetVirtualScreenBounds();
             if (bounds.Width <= 0 || bounds.Height <= 0) return null;
 
-            using Bitmap bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppPArgb);
-            using Graphics graphics = Graphics.FromImage(bitmap);
-            
-            IntPtr hdcDest = graphics.GetHdc();
-            IntPtr hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
-            BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY | CAPTUREBLT);
-            DeleteDC(hdcSrc);
-            graphics.ReleaseHdc(hdcDest);
-
-            // GDI+ Bitmap to SoftwareBitmap (Zero encoding overhead)
-            var data = bitmap.LockBits(new Rectangle(0, 0, bounds.Width, bounds.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
-            
-            var softwareBitmap = new SoftwareBitmap(BitmapPixelFormat.Bgra8, bounds.Width, bounds.Height, BitmapAlphaMode.Premultiplied);
-            
-            int bytesCount = data.Stride * bounds.Height;
-            byte[] pixels = new byte[bytesCount];
-            Marshal.Copy(data.Scan0, pixels, 0, bytesCount);
-            
-            softwareBitmap.CopyFromBuffer(pixels.AsBuffer());
-            bitmap.UnlockBits(data);
+            // BitBlt と SoftwareBitmap への直接転送をバックグラウンドスレッドで実行し、UIスレッドのブロックと中間配列確保を排除
+            var softwareBitmap = await Task.Run(() => CaptureBoundsToSoftwareBitmap(bounds));
+            if (softwareBitmap == null) return null;
 
             var source = new SoftwareBitmapSource();
             await source.SetBitmapAsync(softwareBitmap);
             return source;
+        }
+
+        private static unsafe SoftwareBitmap? CaptureBoundsToSoftwareBitmap(Rectangle bounds)
+        {
+            IntPtr hdcScreen = IntPtr.Zero;
+            IntPtr hdcMem = IntPtr.Zero;
+            IntPtr hBitmap = IntPtr.Zero;
+            IntPtr hOldBitmap = IntPtr.Zero;
+
+            try
+            {
+                hdcScreen = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
+                if (hdcScreen == IntPtr.Zero) return null;
+
+                hdcMem = CreateCompatibleDC(hdcScreen);
+                if (hdcMem == IntPtr.Zero) return null;
+
+                var bmi = new BITMAPINFO
+                {
+                    bmiHeader = new BITMAPINFOHEADER
+                    {
+                        biSize = (uint)Marshal.SizeOf<BITMAPINFOHEADER>(),
+                        biWidth = bounds.Width,
+                        biHeight = -bounds.Height, // トップダウン DIB
+                        biPlanes = 1,
+                        biBitCount = 32,
+                        biCompression = 0 // BI_RGB
+                    }
+                };
+
+                hBitmap = CreateDIBSection(hdcScreen, ref bmi, 0, out IntPtr pBits, IntPtr.Zero, 0);
+                if (hBitmap == IntPtr.Zero || pBits == IntPtr.Zero) return null;
+
+                hOldBitmap = SelectObject(hdcMem, hBitmap);
+                BitBlt(hdcMem, 0, 0, bounds.Width, bounds.Height, hdcScreen, bounds.X, bounds.Y, SRCCOPY | CAPTUREBLT);
+                SelectObject(hdcMem, hOldBitmap);
+                hOldBitmap = IntPtr.Zero;
+
+                var softwareBitmap = new SoftwareBitmap(BitmapPixelFormat.Bgra8, bounds.Width, bounds.Height, BitmapAlphaMode.Premultiplied);
+                using (var buffer = softwareBitmap.LockBuffer(BitmapBufferAccessMode.Write))
+                using (var reference = buffer.CreateReference())
+                {
+                    var byteAccess = WinRT.CastExtensions.As<IMemoryBufferByteAccess>(reference);
+                    byteAccess.GetBuffer(out byte* destPtr, out uint capacity);
+
+                    var plane = buffer.GetPlaneDescription(0);
+                    int srcStride = bounds.Width * 4;
+                    byte* srcPtr = (byte*)pBits.ToPointer();
+
+                    if (plane.Stride == srcStride)
+                    {
+                        long totalBytes = (long)srcStride * bounds.Height;
+                        Buffer.MemoryCopy(srcPtr, destPtr + plane.StartIndex, capacity - (uint)plane.StartIndex, totalBytes);
+                    }
+                    else
+                    {
+                        byte* dstRow = destPtr + plane.StartIndex;
+                        for (int y = 0; y < bounds.Height; y++)
+                        {
+                            Buffer.MemoryCopy(srcPtr + (long)y * srcStride, dstRow + (long)y * plane.Stride, srcStride, srcStride);
+                        }
+                    }
+                }
+
+                return softwareBitmap;
+            }
+            finally
+            {
+                if (hOldBitmap != IntPtr.Zero && hdcMem != IntPtr.Zero) SelectObject(hdcMem, hOldBitmap);
+                if (hBitmap != IntPtr.Zero) DeleteObject(hBitmap);
+                if (hdcMem != IntPtr.Zero) DeleteDC(hdcMem);
+                if (hdcScreen != IntPtr.Zero) DeleteDC(hdcScreen);
+            }
         }
 
         public async Task<byte[]> CaptureRegionToBytesAsync(Rectangle bounds)

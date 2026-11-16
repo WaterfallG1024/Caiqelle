@@ -230,6 +230,7 @@ namespace Caiqelle
         {
             var services = new ServiceCollection();
             services.AddSingleton<SettingsManager>();
+            services.AddSingleton<ThemeService>();
             services.AddSingleton<RewindService>();
             services.AddSingleton<HookService>();
             services.AddSingleton<ScreenshotService>();
@@ -265,10 +266,12 @@ namespace Caiqelle
         {
             try
             {
+                var settings = Services.GetRequiredService<SettingsManager>();
+                Services.GetRequiredService<ThemeService>().ApplyTheme(settings.AccentTheme);
+
                 // Instantiate a hidden window to provide a XamlRoot and DispatcherQueue for the background logic
                 _hiddenTrayWindow = new Views.HiddenTrayWindow();
 
-                var settings = Services.GetRequiredService<SettingsManager>();
                 var startupService = Services.GetRequiredService<StartupService>();
                 if (settings.IsRunAtStartup)
                 {
@@ -323,6 +326,20 @@ namespace Caiqelle
                         PositionAndShowWindow();
                     });
                 }
+
+                // アイドル時にフローティングUIとオーバーレイウィンドウを事前生成して初回起動を爆速化
+                _hiddenTrayWindow?.DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                {
+                    try
+                    {
+                        _ = GetFloatingWindow();
+                        CaptureManager?.Prewarm();
+                    }
+                    catch (Exception prewarmEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[App] Prewarm failed: {prewarmEx.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {

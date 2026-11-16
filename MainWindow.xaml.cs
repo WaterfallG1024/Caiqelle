@@ -87,14 +87,37 @@ namespace Caiqelle
                 _ => null
             };
 
-            var activeBg = (Application.Current.Resources.TryGetValue("M3SurfaceContainerHighestBrush", out var brush) && brush is Microsoft.UI.Xaml.Media.Brush m3Brush)
+            var activeBg = (Application.Current.Resources.TryGetValue("M3PrimaryContainerGlassBrush", out var brush) && brush is Microsoft.UI.Xaml.Media.Brush m3Brush)
                 ? m3Brush
-                : new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x33, 0x33, 0x42));
+                : new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x44, 0x00, 0xFF, 0x7F));
             var transparentBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
 
-            if (NavHomeBtn != null) NavHomeBtn.Background = (NavHomeBtn == activeBtn) ? activeBg : transparentBg;
-            if (NavFolderBtn != null) NavFolderBtn.Background = (NavFolderBtn == activeBtn) ? activeBg : transparentBg;
-            if (NavSettingsBtn != null) NavSettingsBtn.Background = (NavSettingsBtn == activeBtn) ? activeBg : transparentBg;
+            var activeFg = (Application.Current.Resources.TryGetValue("M3PrimaryBrush", out var pBrush) && pBrush is Microsoft.UI.Xaml.Media.Brush primaryBrush)
+                ? primaryBrush
+                : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
+            var defaultFg = (Application.Current.Resources.TryGetValue("AfterGlowTextPrimaryBrush", out var dBrush) && dBrush is Microsoft.UI.Xaml.Media.Brush textBrush)
+                ? textBrush
+                : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
+
+            ApplyNavButtonVisual(NavHomeBtn, NavHomeBtn == activeBtn, activeBg, transparentBg, activeFg, defaultFg);
+            ApplyNavButtonVisual(NavFolderBtn, NavFolderBtn == activeBtn, activeBg, transparentBg, activeFg, defaultFg);
+            ApplyNavButtonVisual(NavSettingsBtn, NavSettingsBtn == activeBtn, activeBg, transparentBg, activeFg, defaultFg);
+        }
+
+        private static void ApplyNavButtonVisual(
+            Button? btn,
+            bool isActive,
+            Microsoft.UI.Xaml.Media.Brush activeBg,
+            Microsoft.UI.Xaml.Media.Brush transparentBg,
+            Microsoft.UI.Xaml.Media.Brush activeFg,
+            Microsoft.UI.Xaml.Media.Brush defaultFg)
+        {
+            if (btn == null) return;
+            btn.Background = isActive ? activeBg : transparentBg;
+            if (btn.Content is FontIcon icon)
+            {
+                icon.Foreground = isActive ? activeFg : defaultFg;
+            }
         }
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)

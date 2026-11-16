@@ -14,6 +14,20 @@ namespace Caiqelle.Views
     {
         public FloatingViewModel ViewModel { get; }
 
+        private readonly IntPtr _hwnd;
+        private readonly AppWindow _appWindow;
+        private readonly Microsoft.UI.Composition.Compositor _compositor;
+        private readonly Microsoft.UI.Composition.Visual _contentVisual;
+        private readonly Microsoft.UI.Composition.SpringVector3NaturalMotionAnimation _showScaleAnim;
+        private readonly Microsoft.UI.Composition.ScalarKeyFrameAnimation _showOpacityAnim;
+        private readonly Microsoft.UI.Composition.ScalarKeyFrameAnimation _hideOpacityAnim;
+
+        private int _lastTargetWidth = -1;
+        private int _lastTargetHeight = -1;
+        private int _lastX = int.MinValue;
+        private int _lastY = int.MinValue;
+        private bool _isLoaded = false;
+
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
         {
@@ -41,16 +55,14 @@ namespace Caiqelle.Views
 
             this.InitializeComponent();
 
-            ExtendsContentIntoTitleBar = true;
-            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
 
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-            // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindow.SetIcon("Assets\\favicon.ico");
+            _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hwnd);
+            _appWindow = AppWindow.GetFromWindowId(windowId);
+            _appWindow.IsShownInSwitchers = false;
 
-            if (appWindow.Presenter is OverlappedPresenter presenter)
+            if (_appWindow.Presenter is OverlappedPresenter presenter)
             {
                 presenter.SetBorderAndTitleBar(false, false);
                 presenter.IsMaximizable = false;
@@ -59,35 +71,63 @@ namespace Caiqelle.Views
                 presenter.IsAlwaysOnTop = true;
             }
 
-            // ウィンドウの角を丸くする
+            // 透明ウィンドウの影・角丸・枠線を完全に無効化（5枚のカードのみを浮かせる）
+            int DWMWA_NCRENDERING_POLICY = 2;
+            int DWMNCRP_DISABLED = 1;
+            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_NCRENDERING_POLICY, ref DWMNCRP_DISABLED, sizeof(int));
+
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
-            int DWMWCP_ROUND = 2;
-            NativeMethods.DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
+            int DWMWCP_DONOTROUND = 1;
+            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_DONOTROUND, sizeof(int));
 
             // ウィンドウの白い線を完全に削除
             int DWMWA_BORDER_COLOR = 34;
             int DWM_BORDER_COLOR_NONE = -2;
-            NativeMethods.DwmSetWindowAttribute(hWnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
+            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
 
             // フレームをクライアント領域に拡張して枠線を非表示にする
             var margins = new NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
-            NativeMethods.DwmExtendFrameIntoClientArea(hWnd, ref margins);
+            NativeMethods.DwmExtendFrameIntoClientArea(_hwnd, ref margins);
 
-            NativeMethods.RemoveWindowBorder(hWnd);
+            NativeMethods.RemoveWindowBorder(_hwnd);
+
+            // Composition アニメーションを事前構築してキャッシュ
+            _compositor = ElementCompositionPreview.GetElementVisual(this.RootGrid).Compositor;
+            _contentVisual = ElementCompositionPreview.GetElementVisual(ContentBorder);
+            _contentVisual.CenterPoint = new Vector3(330, 82, 0);
+
+            _showScaleAnim = _compositor.CreateSpringVector3Animation();
+            _showScaleAnim.Target = "Scale";
+            _showScaleAnim.InitialValue = new Vector3(0.94f, 0.94f, 1.0f);
+            _showScaleAnim.FinalValue = new Vector3(1.0f, 1.0f, 1.0f);
+            _showScaleAnim.DampingRatio = 0.78f;
+            _showScaleAnim.Period = TimeSpan.FromMilliseconds(28);
+
+            _showOpacityAnim = _compositor.CreateScalarKeyFrameAnimation();
+            _showOpacityAnim.Target = "Opacity";
+            _showOpacityAnim.InsertKeyFrame(0.0f, 0.0f);
+            _showOpacityAnim.InsertKeyFrame(1.0f, 1.0f);
+            _showOpacityAnim.Duration = TimeSpan.FromMilliseconds(70);
+
+            _hideOpacityAnim = _compositor.CreateScalarKeyFrameAnimation();
+            _hideOpacityAnim.Target = "Opacity";
+            _hideOpacityAnim.InsertKeyFrame(1.0f, 0.0f);
+            _hideOpacityAnim.Duration = TimeSpan.FromMilliseconds(90);
 
             UpdatePositionAndSize();
         }
 
         private void UpdatePositionAndSize()
         {
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-
-            double dpiScale = GetDpiForWindow(hWnd) / 96.0;
+            double dpiScale = GetDpiForWindow(_hwnd) / 96.0;
             int targetWidth = (int)(660 * dpiScale);
             int targetHeight = (int)(164 * dpiScale);
-            appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
+            if (targetWidth != _lastTargetWidth || targetHeight != _lastTargetHeight)
+            {
+                _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
+                _lastTargetWidth = targetWidth;
+                _lastTargetHeight = targetHeight;
+            }
 
             GetCursorPos(out POINT cursorPos);
             var displayArea = DisplayArea.GetFromPoint(new Windows.Graphics.PointInt32(cursorPos.X, cursorPos.Y), DisplayAreaFallback.Primary);
@@ -96,47 +136,25 @@ namespace Caiqelle.Views
                 var workArea = displayArea.WorkArea;
                 int x = workArea.X + (workArea.Width - targetWidth) / 2;
                 int y = workArea.Y + (workArea.Height - targetHeight) / 2;
-                appWindow.Move(new Windows.Graphics.PointInt32(x, y));
+                if (x != _lastX || y != _lastY)
+                {
+                    _appWindow.Move(new Windows.Graphics.PointInt32(x, y));
+                    _lastX = x;
+                    _lastY = y;
+                }
             }
         }
 
         private void RootGrid_Loaded(object sender, RoutedEventArgs e)
         {
-            var compositor = ElementCompositionPreview.GetElementVisual(this.RootGrid).Compositor;
-            var visual = ElementCompositionPreview.GetElementVisual(ContentBorder);
-
-            var springAnim = compositor.CreateSpringVector3Animation();
-            springAnim.Target = "Scale";
-            springAnim.InitialValue = new Vector3(0.95f, 0.95f, 1.0f);
-            springAnim.FinalValue = new Vector3(1.0f, 1.0f, 1.0f);
-            springAnim.DampingRatio = 0.7f;
-            springAnim.Period = TimeSpan.FromMilliseconds(50);
-
-            var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
-            opacityAnim.Target = "Opacity";
-            opacityAnim.InsertKeyFrame(0.0f, 0.0f);
-            opacityAnim.InsertKeyFrame(1.0f, 1.0f);
-            opacityAnim.Duration = TimeSpan.FromMilliseconds(150);
-
-            visual.CenterPoint = new Vector3(330, 82, 0);
-            visual.StartAnimation("Scale", springAnim);
-            visual.StartAnimation("Opacity", opacityAnim);
-
+            _isLoaded = true;
             ContentBorder.Opacity = 1;
         }
 
         public void CloseWithAnimation()
         {
-            var compositor = ElementCompositionPreview.GetElementVisual(this.RootGrid).Compositor;
-            var visual = ElementCompositionPreview.GetElementVisual(ContentBorder);
-
-            var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
-            opacityAnim.Target = "Opacity";
-            opacityAnim.InsertKeyFrame(1.0f, 0.0f);
-            opacityAnim.Duration = TimeSpan.FromMilliseconds(150);
-
-            var batch = compositor.CreateScopedBatch(Microsoft.UI.Composition.CompositionBatchTypes.Animation);
-            visual.StartAnimation("Opacity", opacityAnim);
+            var batch = _compositor.CreateScopedBatch(Microsoft.UI.Composition.CompositionBatchTypes.Animation);
+            _contentVisual.StartAnimation("Opacity", _hideOpacityAnim);
             batch.End();
 
             batch.Completed += (s, e) => HideWindow();
@@ -146,10 +164,7 @@ namespace Caiqelle.Views
 
         public void HideWindow()
         {
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-            var appWindow = AppWindow.GetFromWindowId(windowId);
-            appWindow.Hide();
+            _appWindow.Hide();
 
             var app = (App)Application.Current;
             var hook = app.Services.GetRequiredService<HookService>();
@@ -158,35 +173,17 @@ namespace Caiqelle.Views
 
         public void ShowAnimated()
         {
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-            var appWindow = AppWindow.GetFromWindowId(windowId);
-
             UpdatePositionAndSize();
 
-            appWindow.Show();
-            SetForegroundWindow(hwnd);
+            // 前回のフェードアウトで Visual.Opacity が 0 のままの場合に備えて即時リセット＆アニメーション開始
+            ContentBorder.Opacity = 1;
+            _appWindow.Show();
+            SetForegroundWindow(_hwnd);
             this.Activate();
 
-            var compositor = ElementCompositionPreview.GetElementVisual(this.RootGrid).Compositor;
-            var visual = ElementCompositionPreview.GetElementVisual(ContentBorder);
-
-            var springAnim = compositor.CreateSpringVector3Animation();
-            springAnim.Target = "Scale";
-            springAnim.InitialValue = new Vector3(0.9f, 0.9f, 1.0f);
-            springAnim.FinalValue = new Vector3(1.0f, 1.0f, 1.0f);
-            springAnim.DampingRatio = 0.6f;
-            springAnim.Period = TimeSpan.FromMilliseconds(50);
-
-            var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
-            opacityAnim.Target = "Opacity";
-            opacityAnim.InsertKeyFrame(0.0f, 0.0f);
-            opacityAnim.InsertKeyFrame(1.0f, 1.0f);
-            opacityAnim.Duration = TimeSpan.FromMilliseconds(200);
-
-            visual.CenterPoint = new Vector3(330, 82, 0);
-            visual.StartAnimation("Scale", springAnim);
-            visual.StartAnimation("Opacity", opacityAnim);
+            if (!_isLoaded) _isLoaded = true;
+            _contentVisual.StartAnimation("Scale", _showScaleAnim);
+            _contentVisual.StartAnimation("Opacity", _showOpacityAnim);
         }
 
         private void RootGrid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)

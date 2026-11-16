@@ -52,20 +52,19 @@ namespace Caiqelle.Views
 
         public event Action? CaptureCompleted;
 
+        private readonly IntPtr _hwnd;
+        private readonly AppWindow _appWindow;
+        private System.Drawing.Rectangle _lastBounds = System.Drawing.Rectangle.Empty;
+
         public OverlayWindow()
         {
             this.InitializeComponent();
-            var hWndForIcon = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
-            var appWindowForIcon = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowIdForIcon);
-            // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindowForIcon.SetIcon("Assets/favicon.ico");
+            _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hwnd);
+            _appWindow = AppWindow.GetFromWindowId(windowId);
+            _appWindow.IsShownInSwitchers = false;
 
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-
-            if (appWindow.Presenter is OverlappedPresenter presenter)
+            if (_appWindow.Presenter is OverlappedPresenter presenter)
             {
                 presenter.SetBorderAndTitleBar(false, false);
                 presenter.IsMaximizable = false;
@@ -77,11 +76,11 @@ namespace Caiqelle.Views
             // ウィンドウの白い境界線を完全に削除
             int DWMWA_BORDER_COLOR = 34;
             int DWM_BORDER_COLOR_NONE = -2; // 0xFFFFFFFE
-            NativeMethods.DwmSetWindowAttribute(hWnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
+            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
 
             var margins = new NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
-            NativeMethods.DwmExtendFrameIntoClientArea(hWnd, ref margins);
-            NativeMethods.RemoveWindowBorder(hWnd);
+            NativeMethods.DwmExtendFrameIntoClientArea(_hwnd, ref margins);
+            NativeMethods.RemoveWindowBorder(_hwnd);
 
             // Attach hit testing to handles
             HandleTL.PointerPressed += Handle_PointerPressed;
@@ -119,17 +118,16 @@ namespace Caiqelle.Views
                 if (SaveButton.Content is FontIcon icon) icon.Glyph = "\uE792"; // Save icon
             }
             FrozenImage = frozenImage;
-            Bounds = new Windows.Foundation.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-            
             BackgroundImage.Source = frozenImage;
 
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
+            if (_lastBounds != bounds)
+            {
+                _lastBounds = bounds;
+                Bounds = new Windows.Foundation.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+                _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+                OuterDimmerRect.Rect = Bounds;
+            }
 
-            appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
-            
-            OuterDimmerRect.Rect = Bounds;
             CutoutRect.Rect = new Windows.Foundation.Rect(0, 0, 0, 0);
 
             _state = OverlayState.Initial;
@@ -138,21 +136,18 @@ namespace Caiqelle.Views
             OverlayDimmer.Visibility = Visibility.Visible;
             SetHandlesVisibility(Visibility.Collapsed);
             AnnotationCanvas.Visibility = Visibility.Collapsed;
-            AnnotationCanvas.Children.Clear();
+            if (AnnotationCanvas.Children.Count > 0) AnnotationCanvas.Children.Clear();
             _undoStack.Clear();
             _redoStack.Clear();
             _stepNumber = 1;
             UpdateUndoRedoButtons();
 
-            appWindow.Show();
+            _appWindow.Show();
         }
 
         private void HideAndComplete()
         {
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-            appWindow.Hide();
+            _appWindow.Hide();
             CaptureCompleted?.Invoke();
         }
 

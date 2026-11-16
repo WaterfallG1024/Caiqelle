@@ -40,6 +40,23 @@ namespace Caiqelle.ViewModels
     }
 
     /// <summary>
+    /// カラーテーマ選択用の表示モデル
+    /// </summary>
+    public class AccentThemeOption
+    {
+        public string Label { get; }
+        public AccentTheme Value { get; }
+        public Microsoft.UI.Xaml.Media.SolidColorBrush ColorBrush { get; }
+
+        public AccentThemeOption(AccentThemeInfo info)
+        {
+            Label = info.DisplayName;
+            Value = info.Theme;
+            ColorBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(info.Color);
+        }
+    }
+
+    /// <summary>
     /// MainWindow の状態・コマンドを管理する ViewModel
     /// </summary>
     public partial class MainViewModel : ObservableObject
@@ -50,6 +67,7 @@ namespace Caiqelle.ViewModels
         private readonly ScreenshotService _screenshotService;
         private readonly StartupService _startupService;
         private readonly NotificationService _notificationService;
+        private readonly ThemeService _themeService;
         private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
         private bool _isInitializing = true;
@@ -225,13 +243,31 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         public partial bool IsUpdateStatusVisible { get; set; }
 
+        public ObservableCollection<AccentThemeOption> AccentThemeOptions { get; } = new();
+
+        [ObservableProperty]
+        public partial AccentTheme SelectedAccentTheme { get; set; } = AccentTheme.Emerald;
+
+        public int SelectedAccentThemeIndex
+        {
+            get => (int)SelectedAccentTheme;
+            set
+            {
+                if (value >= 0 && value < AccentThemeOptions.Count)
+                {
+                    SelectedAccentTheme = AccentThemeOptions[value].Value;
+                }
+            }
+        }
+
         public MainViewModel(
             SettingsManager settings,
             RewindService rewindService,
             HookService hookService,
             ScreenshotService screenshotService,
             StartupService startupService,
-            NotificationService notificationService)
+            NotificationService notificationService,
+            ThemeService themeService)
         {
             _settings = settings;
             _rewindService = rewindService;
@@ -239,7 +275,13 @@ namespace Caiqelle.ViewModels
             _screenshotService = screenshotService;
             _startupService = startupService;
             _notificationService = notificationService;
+            _themeService = themeService;
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+            foreach (var info in ThemeService.AvailableThemes)
+            {
+                AccentThemeOptions.Add(new AccentThemeOption(info));
+            }
 
             InitializeFromSettings();
 
@@ -268,6 +310,7 @@ namespace Caiqelle.ViewModels
 
                 SelectedImageFormat = string.IsNullOrEmpty(_settings.ImageFormat) ? "PNG" : _settings.ImageFormat;
                 SelectedJpegQuality = _settings.JpegQuality.ToString();
+                SelectedAccentTheme = _settings.AccentTheme;
 
                 LoadRewindSettings();
                 UpdateRewindUIConstraints();
@@ -655,6 +698,15 @@ namespace Caiqelle.ViewModels
             if (_isInitializing) return;
             _settings.IsAutoUpdateEnabled = value;
             _settings.SaveSettings();
+        }
+
+        partial void OnSelectedAccentThemeChanged(AccentTheme value)
+        {
+            OnPropertyChanged(nameof(SelectedAccentThemeIndex));
+            if (_isInitializing) return;
+            _settings.AccentTheme = value;
+            _settings.SaveSettings();
+            _themeService.ApplyTheme(value);
         }
 
         // --- リワインド設定とハードウェア制約 ---

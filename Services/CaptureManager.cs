@@ -21,10 +21,22 @@ namespace Caiqelle.Services
             _editorWindow = editorWindow;
         }
 
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+        private static extern int DwmFlush();
+
         private OverlayWindow GetOverlayWindow() => _overlayWindow ??= new OverlayWindow();
         private WindowSelectionOverlay GetWindowSelectionOverlay() => _windowSelectionOverlay ??= new WindowSelectionOverlay();
         private FolderSelectionWindow GetFolderSelectionWindow() => _folderSelectionWindow ??= new FolderSelectionWindow((App)Microsoft.UI.Xaml.Application.Current);
         public EditorWindow GetEditorWindow() => _editorWindow ??= new EditorWindow();
+
+        /// <summary>
+        /// 初回キャプチャ時の遅延をなくすため、オーバーレイ用ウィンドウを事前に生成しておく
+        /// </summary>
+        public void Prewarm()
+        {
+            _ = GetOverlayWindow();
+            _ = GetWindowSelectionOverlay();
+        }
 
         public void CancelCapture()
         {
@@ -39,8 +51,8 @@ namespace Caiqelle.Services
 
             try
             {
-                // Wait a tiny bit for any UI to hide
-                await Task.Delay(10);
+                // フローティングUI等の非表示がDWM合成に反映されるのを1フレーム分だけ待機（Task.Delayより高速・確実）
+                await Task.Run(() => DwmFlush());
 
                 var bounds = _screenshotService.GetVirtualScreenBounds();
 
