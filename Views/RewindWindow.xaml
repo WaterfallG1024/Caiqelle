@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Caiqelle.Views.RewindWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Caiqelle.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Rewind Viewer">
+
+    <Window.SystemBackdrop>
+        <DesktopAcrylicBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid Background="Transparent" KeyDown="Grid_KeyDown" PointerWheelChanged="Window_PointerWheelChanged">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Top Header & Guide (M3 Expressive) -->
+        <Grid Grid.Row="0" Margin="28,24,28,8">
+            <TextBlock Text="リワインド" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontFamily="Segoe UI Variable Display" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+            <TextBlock x:Name="TimestampLabel" Text="矢印キーまたはマウスホイールでフレーム移動 / 画像タップで編集" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        </Grid>
+
+        <!-- Center Image Area with Navigation Arrows -->
+        <Grid Grid.Row="1" Margin="40,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Arrow (Older Frame, M3 Squircle Button) -->
+            <Button x:Name="LeftArrowBtn" Grid.Column="0" Width="64" Height="64" Background="{StaticResource M3SurfaceContainerHighBrush}" BorderThickness="0" CornerRadius="18" Padding="0" VerticalAlignment="Center" Click="LeftArrowBtn_Click" ToolTipService.ToolTip="過去のフレームへ (← または ホイール下)">
+                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE76B;" FontSize="28" Foreground="{StaticResource AfterGlowTextPrimaryBrush}"/>
+            </Button>
+
+            <!-- Preview Image (M3 Surface Container with Tap Action) -->
+            <Border Grid.Column="1" Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" Margin="24,0" CornerRadius="20" Tapped="PreviewImage_Tapped" ToolTipService.ToolTip="クリックしてエディターで編集">
+                <Image x:Name="PreviewImage" Stretch="Uniform" />
+            </Border>
+
+            <!-- Right Arrow (Newer Frame, M3 Squircle Button) -->
+            <Button x:Name="RightArrowBtn" Grid.Column="2" Width="64" Height="64" Background="{StaticResource M3SurfaceContainerHighBrush}" BorderThickness="0" CornerRadius="18" Padding="0" VerticalAlignment="Center" Click="RightArrowBtn_Click" ToolTipService.ToolTip="新しいフレームへ (→ または ホイール上)">
+                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE76C;" FontSize="28" Foreground="{StaticResource AfterGlowTextPrimaryBrush}"/>
+            </Button>
+        </Grid>
+
+        <!-- Bottom Controls & Index (M3 Expressive Pill Bar) -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16" Margin="0,0,0,36">
+            <Border Background="{StaticResource M3SurfaceContainerHighestBrush}" CornerRadius="14" Padding="20,8">
+                <TextBlock x:Name="IndexLabel" Text="1/300" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            
+            <Button x:Name="OpenInEditorBtn" Style="{StaticResource M3FilledPrimaryButtonStyle}" Click="OpenInEditorBtn_Click" Padding="18,8" ToolTipService.ToolTip="このフレームをエディターで編集">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="16" Foreground="{StaticResource M3OnPrimaryBrush}" />
+                    <TextBlock Text="エディターで開く" FontSize="14" FontWeight="Bold" Foreground="{StaticResource M3OnPrimaryBrush}" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Caiqelle.Views.EditorWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Caiqelle"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Caiqelle Editor">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="RootGrid" Background="Transparent" KeyDown="EditorWindow_KeyDown">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom TitleBar & App Title -->
+        <Grid x:Name="AppTitleBar" Height="60" Background="Transparent" Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <!-- Title -->
+            <TextBlock Text="Caiqelle" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="14" FontFamily="Segoe UI Variable Display" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+            
+            <!-- Floating Toolbar (M3 Expressive Tonal Bar) -->
+            <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4,0,0">
+                <Grid.Shadow>
+                    <ThemeShadow />
+                </Grid.Shadow>
+                <!-- UIElement translation is needed for ThemeShadow to show up in Z space -->
+                <Border Background="{StaticResource M3SurfaceContainerHighestBrush}" 
+                        BorderThickness="0" CornerRadius="14" Padding="6,4" Translation="0,0,16">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <!-- Drawing Tools -->
+                        <ToggleButton x:Name="PenBtn" ToolTipService.ToolTip="ペン" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click" IsChecked="True">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEC87;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </ToggleButton>
+                        <ToggleButton x:Name="LineBtn" ToolTipService.ToolTip="直線" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF464;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </ToggleButton>
+                        <ToggleButton x:Name="ArrowBtn" ToolTipService.ToolTip="矢印" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE742;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </ToggleButton>
+                        <ToggleButton x:Name="RectBtn" ToolTipService.ToolTip="四角形" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE739;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </ToggleButton>
+                        <ToggleButton x:Name="NumberBtn" ToolTipService.ToolTip="ステップ番号" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ToolBtn_Click">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF146;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </ToggleButton>
+
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+
+                        <!-- Fill Toggle -->
+                        <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="図形の塗りつぶし" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="FillBtn_Click">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEB33;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </ToggleButton>
+
+                        <!-- Color Picker Button (Clean Squircle No Clip) -->
+                        <Button x:Name="ColorBtn" ToolTipService.ToolTip="色選択" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0">
+                            <Border x:Name="ColorPreviewBorder" Width="18" Height="18" CornerRadius="5" Background="Red" BorderThickness="0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Button.Flyout>
+                                <Flyout>
+                                    <ColorPicker x:Name="EditorColorPicker" 
+                                                 ColorChanged="EditorColorPicker_ColorChanged"
+                                                 ColorSpectrumShape="Ring" 
+                                                 IsMoreButtonVisible="False" 
+                                                 IsColorSliderVisible="True" 
+                                                 IsColorChannelTextInputVisible="False" 
+                                                 IsHexInputVisible="True" 
+                                                 IsAlphaEnabled="True" 
+                                                 IsAlphaSliderVisible="True" 
+                                                 IsAlphaTextInputVisible="False" />
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+
+                        <!-- Undo / Redo -->
+                        <Button x:Name="UndoBtn" ToolTipService.ToolTip="元に戻す (Ctrl+Z)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="UndoBtn_Click" IsEnabled="False">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A7;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </Button>
+                        <Button x:Name="RedoBtn" ToolTipService.ToolTip="やり直す (Ctrl+Y)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="RedoBtn_Click" IsEnabled="False">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7A6;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </Button>
+                        
+                        <Button x:Name="ClearButton" ToolTipService.ToolTip="編集をすべて消去" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ClearButton_Click">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </Button>
+
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        
+                        <Button x:Name="CopyButton" ToolTipService.ToolTip="コピー(またはCtrl + C)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="CopyButton_Click">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C8;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </Button>
+                        <Button x:Name="SaveButton" ToolTipService.ToolTip="保存(またはCtrl + S)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="SaveButton_Click">
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE792;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- Image Editor Canvas -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ZoomMode="Enabled" MinZoomFactor="0.1" MaxZoomFactor="5.0">
+            <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                <Grid.Shadow>
+                    <ThemeShadow />
+                </Grid.Shadow>
+                
+                <Image x:Name="CapturedImage" Stretch="None" />
+                <Canvas x:Name="DrawCanvas" Background="Transparent" 
+                        PointerPressed="DrawCanvas_PointerPressed" 
+                        PointerMoved="DrawCanvas_PointerMoved" 
+                        PointerReleased="DrawCanvas_PointerReleased" />
+            </Grid>
+        </ScrollViewer>
+
+        <!-- Folder Selection Overlay Removed -->
+    </Grid>
+</Window>

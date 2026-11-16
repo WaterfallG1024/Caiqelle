@@ -1,0 +1,112 @@
+<Window
+    x:Class="Caiqelle.Views.FolderSelectionWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Caiqelle.Views"
+    xmlns:services="using:Caiqelle.Services"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Select Folder">
+
+    <Grid x:Name="RootGrid" Background="Transparent" CornerRadius="0" BorderThickness="0" KeyDown="Grid_KeyDown" CharacterReceived="Grid_CharacterReceived" IsTabStop="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Dummy button to hold initial focus so the TextBox doesn't steal it -->
+        <Button x:Name="DummyFocus" Width="0" Height="0" Opacity="0" IsTabStop="True"/>
+
+        <!-- Header Title (M3 Expressive Headline) -->
+        <StackPanel Grid.Row="0" Margin="0,20,0,10" HorizontalAlignment="Center">
+            <TextBlock x:Name="WindowTitle" Text="保存先選択" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontFamily="Segoe UI Variable Display" FontWeight="Bold" HorizontalAlignment="Center" FontSize="18" />
+        </StackPanel>
+
+        <!-- FileName TextBox (M3 Expressive Filled Style) -->
+        <TextBox x:Name="FileNameTextBox" 
+                 Grid.Row="1" 
+                 PlaceholderText="ファイル名を入力 (任意)" 
+                 Width="308" 
+                 HorizontalAlignment="Center" 
+                 Margin="0,0,0,14" 
+                 Background="{StaticResource M3SurfaceContainerLowestBrush}" 
+                 Foreground="{StaticResource AfterGlowTextPrimaryBrush}" 
+                 BorderThickness="0" 
+                 Padding="12,6"
+                 CornerRadius="10"/>
+
+        <!-- 2 Columns x 5 Rows Grid for Buttons (Horizontal Layout with 2 Columns) -->
+        <Grid Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Top" Width="308" Margin="16,0">
+            <ItemsControl x:Name="FoldersGrid" HorizontalAlignment="Center" Width="308" ItemsSource="{x:Bind CurrentPageMappings, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VariableSizedWrapGrid MaximumRowsOrColumns="2" Orientation="Horizontal" ItemWidth="154" ItemHeight="48" HorizontalAlignment="Center" VerticalAlignment="Top" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="services:FolderMapping">
+                        <Button Click="FolderButton_Click" 
+                                Width="146" Height="42" 
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Background="{StaticResource M3SurfaceContainerBrush}" 
+                                Foreground="{StaticResource AfterGlowTextPrimaryBrush}" 
+                                CornerRadius="10" 
+                                BorderThickness="0" 
+                                FontWeight="SemiBold"
+                                Padding="10,0"
+                                ToolTipService.ToolTip="{x:Bind FolderName}"
+                                Tag="{x:Bind}">
+                            <Grid HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" 
+                                           Text="{x:Bind FolderName}" 
+                                           TextTrimming="CharacterEllipsis" 
+                                           VerticalAlignment="Center" 
+                                           HorizontalAlignment="Left"
+                                           FontSize="12" />
+                                <Border Grid.Column="1" 
+                                        Background="{StaticResource M3SurfaceContainerHighestBrush}" 
+                                        CornerRadius="6" 
+                                        Padding="6,2" 
+                                        Margin="4,0,0,0" 
+                                        VerticalAlignment="Center" 
+                                        HorizontalAlignment="Right">
+                                    <TextBlock Text="{x:Bind Key}" 
+                                               Foreground="{StaticResource AfterGlowTextPrimaryBrush}" 
+                                               FontWeight="Bold" 
+                                               FontSize="11" />
+                                </Border>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
+
+        <!-- Bottom Navigation & Page Indicator -->
+        <StackPanel Grid.Row="3" Margin="0,10,0,18" HorizontalAlignment="Center" Spacing="6">
+            <Border Background="{StaticResource M3SurfaceContainerLowBrush}" CornerRadius="12" Padding="6,3" HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button x:Name="PrevButton" Click="PrevButton_Click" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE76B;" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="12" />
+                    </Button>
+                    
+                    <TextBlock x:Name="PageIndicator" Text="1/5" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="32" TextAlignment="Center" />
+                    
+                    <Button x:Name="NextButton" Click="NextButton_Click" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE76C;" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="12" />
+                    </Button>
+                </StackPanel>
+            </Border>
+            
+            <TextBlock Text="Escキーでキャンセル" Foreground="{StaticResource AfterGlowTextTertiaryBrush}" FontSize="11" HorizontalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</Window>

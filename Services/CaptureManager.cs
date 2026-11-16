@@ -1,0 +1,234 @@
+using System;
+using System.Drawing;
+using System.Threading.Tasks;
+using Microsoft.UI.Xaml;
+using Caiqelle.Views;
+using System.IO;
+
+namespace Caiqelle.Services
+{
+    public class CaptureManager
+    {
+        private readonly ScreenshotService _screenshotService;
+        private EditorWindow? _editorWindow;
+        private OverlayWindow? _overlayWindow;
+        private WindowSelectionOverlay? _windowSelectionOverlay;
+        private FolderSelectionWindow? _folderSelectionWindow;
+
+        public CaptureManager(ScreenshotService screenshotService, EditorWindow? editorWindow = null)
+        {
+            _screenshotService = screenshotService;
+            _editorWindow = editorWindow;
+        }
+
+        private OverlayWindow GetOverlayWindow() => _overlayWindow ??= new OverlayWindow();
+        private WindowSelectionOverlay GetWindowSelectionOverlay() => _windowSelectionOverlay ??= new WindowSelectionOverlay();
+        private FolderSelectionWindow GetFolderSelectionWindow() => _folderSelectionWindow ??= new FolderSelectionWindow((App)Microsoft.UI.Xaml.Application.Current);
+        public EditorWindow GetEditorWindow() => _editorWindow ??= new EditorWindow();
+
+        public void CancelCapture()
+        {
+            _overlayWindow?.Cancel();
+            _windowSelectionOverlay?.Cancel();
+        }
+
+        public async Task StartCaptureAsync(CapturedKey key)
+        {
+            var rewindService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<RewindService>(((App)Application.Current).Services);
+            rewindService?.Pause();
+
+            try
+            {
+                // Wait a tiny bit for any UI to hide
+                await Task.Delay(10);
+
+                var bounds = _screenshotService.GetVirtualScreenBounds();
+
+                if (key == CapturedKey.F)
+                {
+                    // Full screen capture directly
+                    byte[]? imageBytes = await _screenshotService.CaptureRegionToBytesAsync(bounds);
+                    if (imageBytes == null || imageBytes.Length == 0) return;
+                    
+                    var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<SettingsManager>(((App)Microsoft.UI.Xaml.Application.Current).Services);
+                    if (settings.IsAutoCopyToClipboard)
+                    {
+                        await CopyToClipboardAsync(imageBytes, false);
+                    }
+
+                    SaveAndShowNotification(imageBytes);
+                    return;
+                }
+
+                var frozenImage = await _screenshotService.CaptureFullScreenAsync();
+                if (frozenImage == null) return;
+
+                Rectangle? selectedRegion = null;
+                byte[]? overlayCapturedBytes = null;
+                OverlayWindow.CaptureAction overlayAction = OverlayWindow.CaptureAction.None;
+
+                if (key == CapturedKey.C || key == CapturedKey.E || key == CapturedKey.P)
+                {
+                    var overlay = GetOverlayWindow();
+                    var tcs = new TaskCompletionSource<Rectangle?>();
+                    
+                    Action? handler = null;
+                    handler = () =>
+                    {
+                        if (handler != null) overlay.CaptureCompleted -= handler;
+                        if (overlay.IsSelected)
+                        {
+                            overlayCapturedBytes = overlay.CapturedBytes;
+                            overlayAction = overlay.ActionTaken;
+                            tcs.SetResult(overlay.SelectedRegion);
+                        }
+                        else
+                        {
+                            tcs.SetResult(null);
+                        }
+                    };
+                    
+                    overlay.CaptureCompleted += handler;
+                    overlay.UpdateAndShow(frozenImage, bounds, key == CapturedKey.E, key == CapturedKey.P);
+                    
+                    selectedRegion = await tcs.Task;
+                }
+                else if (key == CapturedKey.W)
+                {
+                    var windowOverlay = GetWindowSelectionOverlay();
+                    var tcs = new TaskCompletionSource<Rectangle?>();
+                    
+                    Action? handler = null;
+                    handler = () =>
+                    {
+                        if (handler != null) windowOverlay.CaptureCompleted -= handler;
+                        if (windowOverlay.IsSelected)
+                        {
+                            overlayAction = windowOverlay.ActionTaken;
+                            tcs.SetResult(windowOverlay.SelectedRegion);
+                        }
+                        else
+                        {
+                            tcs.SetResult(null);
+                        }
+                    };
+                    
+                    windowOverlay.CaptureCompleted += handler;
+                    windowOverlay.UpdateAndShow(frozenImage, bounds);
+                    
+                    selectedRegion = await tcs.Task;
+                }
+
+                if (selectedRegion.HasValue)
+                {
+                    byte[]? finalBytes = overlayCapturedBytes;
+
+                    if (finalBytes == null || finalBytes.Length == 0)
+                    {
+                        var absRect = new Rectangle(
+                            selectedRegion.Value.X + bounds.X,
+                            selectedRegion.Value.Y + bounds.Y,
+                            selectedRegion.Value.Width,
+                            selectedRegion.Value.Height
+                        );
+                        
+                        await Task.Delay(50);
+                        finalBytes = await _screenshotService.CaptureRegionToBytesAsync(absRect);
+                    }
+                    
+                    if (key == CapturedKey.P)
+                    {
+                        if (finalBytes != null && finalBytes.Length > 0)
+                        {
+                            var pinWindow = new PinWindow(finalBytes);
+                            pinWindow.Activate();
+                        }
+                        return;
+                    }
+
+                    if (finalBytes != null && finalBytes.Length > 0)
+                    {
+                        if (overlayAction == OverlayWindow.CaptureAction.Copy)
+                        {
+                            await CopyToClipboardAsync(finalBytes, true);
+                        }
+                        else if (overlayAction == OverlayWindow.CaptureAction.Save)
+                        {
+                            SaveAndShowNotification(finalBytes);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                rewindService?.Resume();
+            }
+        }
+
+        private async Task CopyToClipboardAsync(byte[] imageBytes, bool showNotification)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            var app = (App)Microsoft.UI.Xaml.Application.Current;
+            var dispatcher = app.MainWindow?.DispatcherQueue ?? _editorWindow?.DispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+            
+            if (dispatcher == null) return;
+
+            dispatcher.TryEnqueue(async () =>
+            {
+                try
+                {
+                    var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                    dataPackage.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+                    
+                    var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                    using (var writer = new Windows.Storage.Streams.DataWriter(stream.GetOutputStreamAt(0)))
+                    {
+                        writer.WriteBytes(imageBytes);
+                        await writer.StoreAsync();
+                    }
+                    var rsr = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream);
+                    dataPackage.SetBitmap(rsr);
+                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
+                    Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+                    
+                    if (showNotification)
+                    {
+                        var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<NotificationService>(app.Services);
+                        notificationService.ShowNotification("クリップボードにコピーしました", "\uE8C8");
+                    }
+                    tcs.SetResult(true);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Clipboard Copy Error: {ex.Message}");
+                    tcs.SetResult(false);
+                }
+            });
+            await tcs.Task;
+        }
+
+        private void SaveAndShowNotification(byte[] imageBytes)
+        {
+            if (imageBytes == null || imageBytes.Length == 0) return;
+
+            var app = (App)Microsoft.UI.Xaml.Application.Current;
+            var folderWin = GetFolderSelectionWindow();
+            var dispatcher = folderWin.DispatcherQueue ?? app.MainWindow?.DispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+            if (dispatcher != null)
+            {
+                dispatcher.TryEnqueue(async () => 
+                {
+                    try
+                    {
+                        await folderWin.ShowAsync(imageBytes);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to show folder selection: {ex.Message}");
+                    }
+                });
+            }
+        }
+    }
+}

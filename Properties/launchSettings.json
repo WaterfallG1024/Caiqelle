@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Caiqelle (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Caiqelle (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
