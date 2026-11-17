@@ -165,6 +165,96 @@ namespace Caiqelle.Services
             }
         }
 
+        public event Action? MappingsChanged;
+
+        public static string ResolveFolderPath(string folderName)
+        {
+            if (Path.IsPathRooted(folderName))
+            {
+                return folderName;
+            }
+            string myPictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            return Path.Combine(myPictures, "Caiqelle", folderName);
+        }
+
+        /// <summary>
+        /// フォルダ名とキーを検証してマッピングを追加し、実フォルダを作成する
+        /// </summary>
+        public bool TryAddFolderMapping(string folderInput, string keyInput, bool createDirectory, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            string folder = folderInput.Trim();
+            string key = keyInput.Trim().ToUpper();
+
+            if (string.IsNullOrEmpty(folder) || string.IsNullOrEmpty(key))
+            {
+                errorMessage = "フォルダ名とキーを入力してください。";
+                return false;
+            }
+
+            char[] invalidChars = new[] { '\\', '/', ':', '*', '?', '"', '<', '>', '|' };
+            if (folder.IndexOfAny(invalidChars) >= 0)
+            {
+                errorMessage = "フォルダ名に \\ / : * ? \" < > | は使用できません。";
+                return false;
+            }
+
+            if (key.Length != 1)
+            {
+                errorMessage = "キーは1文字のみ指定できます。";
+                return false;
+            }
+
+            char k = key[0];
+            bool isAlphaNumeric = (k >= '0' && k <= '9') || (k >= 'A' && k <= 'Z');
+            bool isAllowedSymbol = "/[]-^;:@".Contains(k);
+            if (!isAlphaNumeric && !isAllowedSymbol)
+            {
+                errorMessage = "キーには半角英数字(0-9, A-Z)または / [ ] - ^ ; : @ のみが使用可能です。";
+                return false;
+            }
+
+            foreach (var m in _data.ImageFolderMappings)
+            {
+                if (string.Equals(m.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    errorMessage = $"キー '{key}' はすでに登録されています。";
+                    return false;
+                }
+            }
+
+            if (createDirectory)
+            {
+                try
+                {
+                    string targetPath = ResolveFolderPath(folder);
+                    if (!Directory.Exists(targetPath))
+                    {
+                        Directory.CreateDirectory(targetPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errorMessage = $"フォルダの作成に失敗しました: {ex.Message}";
+                    return false;
+                }
+            }
+
+            _data.ImageFolderMappings.Add(new FolderMapping { FolderName = folder, Key = key });
+            SaveSettings();
+            MappingsChanged?.Invoke();
+            return true;
+        }
+
+        public void RemoveFolderMapping(FolderMapping mapping)
+        {
+            if (_data.ImageFolderMappings.Remove(mapping))
+            {
+                SaveSettings();
+                MappingsChanged?.Invoke();
+            }
+        }
+
         public void SaveSettings()
         {
             try

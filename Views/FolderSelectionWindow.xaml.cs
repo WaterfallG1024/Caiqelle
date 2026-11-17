@@ -21,6 +21,7 @@ namespace Caiqelle.Views
         {
             ViewModel = app.Services.GetRequiredService<FolderSelectionViewModel>();
             ViewModel.RequestCloseWithResult = CloseWithResult;
+            ViewModel.RequestRestoreDummyFocus = () => DummyFocus?.Focus(FocusState.Programmatic);
 
             this.InitializeComponent();
 
@@ -71,8 +72,8 @@ namespace Caiqelle.Views
         private void CenterOnCursorDisplay(IntPtr hwnd)
         {
             double dpiScale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
-            int targetWidth = (int)(380 * dpiScale);
-            int targetHeight = (int)(460 * dpiScale);
+            int targetWidth = (int)(410 * dpiScale);
+            int targetHeight = (int)(525 * dpiScale);
             _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
 
             NativeMethods.GetCursorPos(out NativeMethods.POINT cursorPos);
@@ -126,11 +127,26 @@ namespace Caiqelle.Views
             return new SolidColorBrush(Microsoft.UI.Colors.White);
         }
 
+        private void CreateInput_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                ViewModel.CreateFolderCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Escape)
+            {
+                DummyFocus?.Focus(FocusState.Programmatic);
+                e.Handled = true;
+            }
+        }
+
         private void Grid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key == Windows.System.VirtualKey.Escape)
             {
                 ViewModel.CancelCommand.Execute(null);
+                e.Handled = true;
                 return;
             }
 

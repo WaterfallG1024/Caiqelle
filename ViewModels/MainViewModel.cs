@@ -290,7 +290,20 @@ namespace Caiqelle.ViewModels
             InitializeFromSettings();
 
             _rewindService.StateChanged += RewindService_StateChanged;
+            _settings.MappingsChanged += Settings_MappingsChanged;
             _ = CheckAndShowWhatsNewBannerAsync();
+        }
+
+        private void Settings_MappingsChanged()
+        {
+            _dispatcherQueue?.TryEnqueue(() =>
+            {
+                Mappings.Clear();
+                foreach (var mapping in _settings.ImageFolderMappings)
+                {
+                    Mappings.Add(mapping);
+                }
+            });
         }
 
         private void InitializeFromSettings()
@@ -429,50 +442,11 @@ namespace Caiqelle.ViewModels
         {
             IsValidationErrorOpen = false;
 
-            string folder = FolderNameInput.Trim();
-            string key = KeyInput.Trim().ToUpper();
-
-            if (string.IsNullOrEmpty(folder) || string.IsNullOrEmpty(key))
+            if (!_settings.TryAddFolderMapping(FolderNameInput, KeyInput, createDirectory: false, out string errorMessage))
             {
-                ShowValidationError("フォルダ名とキーを入力してください。");
+                ShowValidationError(errorMessage);
                 return;
             }
-
-            char[] invalidChars = new[] { '\\', '/', ':', '*', '?', '"', '<', '>', '|' };
-            if (folder.IndexOfAny(invalidChars) >= 0)
-            {
-                ShowValidationError("フォルダ名に \\ / : * ? \" < > | は使用できません。");
-                return;
-            }
-
-            if (key.Length != 1)
-            {
-                ShowValidationError("キーは1文字のみ指定できます。");
-                return;
-            }
-
-            char k = key[0];
-            bool isAlphaNumeric = (k >= '0' && k <= '9') || (k >= 'A' && k <= 'Z');
-            bool isAllowedSymbol = "/[]-^;:@".Contains(k);
-            if (!isAlphaNumeric && !isAllowedSymbol)
-            {
-                ShowValidationError("キーには半角英数字(0-9, A-Z)または / [ ] - ^ ; : @ のみが使用可能です。");
-                return;
-            }
-
-            foreach (var m in Mappings)
-            {
-                if (m.Key == key)
-                {
-                    ShowValidationError($"キー '{key}' はすでに登録されています。");
-                    return;
-                }
-            }
-
-            var newMapping = new FolderMapping { FolderName = folder, Key = key };
-            Mappings.Add(newMapping);
-            _settings.ImageFolderMappings.Add(newMapping);
-            _settings.SaveSettings();
 
             FolderNameInput = string.Empty;
             KeyInput = string.Empty;
@@ -488,9 +462,7 @@ namespace Caiqelle.ViewModels
         private void RemoveMapping(FolderMapping? mapping)
         {
             if (mapping == null) return;
-            Mappings.Remove(mapping);
-            _settings.ImageFolderMappings.Remove(mapping);
-            _settings.SaveSettings();
+            _settings.RemoveFolderMapping(mapping);
         }
 
         // --- アップデート確認・What's New ---

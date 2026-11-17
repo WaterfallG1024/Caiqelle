@@ -53,6 +53,17 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         public partial bool IsErrorState { get; set; }
 
+        /// <summary>
+        /// フォルダ作成完了後にダミーボタンへフォーカスを戻すコールバック（キー保存をすぐ使えるようにする）
+        /// </summary>
+        public Action? RequestRestoreDummyFocus { get; set; }
+
+        [ObservableProperty]
+        public partial string NewFolderName { get; set; } = string.Empty;
+
+        [ObservableProperty]
+        public partial string NewFolderKey { get; set; } = string.Empty;
+
         [ObservableProperty]
         public partial bool IsSaving { get; set; }
 
@@ -70,9 +81,34 @@ namespace Caiqelle.ViewModels
         {
             _imageBytes = imageBytes;
             FileNameInput = string.Empty;
+            NewFolderName = string.Empty;
+            NewFolderKey = string.Empty;
             IsErrorState = false;
             IsSaving = false;
             ReloadMappings();
+        }
+
+        [RelayCommand]
+        private void CreateFolder()
+        {
+            if (!_settings.TryAddFolderMapping(NewFolderName, NewFolderKey, createDirectory: true, out string errorMessage))
+            {
+                IsErrorState = true;
+                PageIndicatorText = errorMessage;
+                return;
+            }
+
+            NewFolderName = string.Empty;
+            NewFolderKey = string.Empty;
+
+            // 新規作成したフォルダが見える最終ページを表示
+            _allMappings.Clear();
+            _allMappings.AddRange(_settings.ImageFolderMappings);
+            _totalPages = Math.Max(1, (int)Math.Ceiling(_allMappings.Count / 10.0));
+            LoadPage(_totalPages);
+
+            _notificationService.ShowNotification("フォルダとキーを追加しました", "\uE8F4");
+            RequestRestoreDummyFocus?.Invoke();
         }
 
         public void ReloadMappings()
