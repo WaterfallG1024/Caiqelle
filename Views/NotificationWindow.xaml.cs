@@ -1,9 +1,9 @@
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using System;
 using System.Numerics;
-using Microsoft.UI.Xaml.Hosting;
 
 namespace Caiqelle.Views
 {
@@ -13,25 +13,30 @@ namespace Caiqelle.Views
         private string? _pendingMessage = null;
         private string? _pendingGlyph = null;
         private int _pendingDurationMs = 4000;
-        private DispatcherTimer _timer;
+        private readonly DispatcherTimer _timer;
+
+        private readonly IntPtr _hwnd;
+        private readonly AppWindow _appWindow;
+        private readonly Microsoft.UI.Composition.Compositor _compositor;
+        private readonly Microsoft.UI.Composition.Visual _contentVisual;
+        private readonly Microsoft.UI.Composition.SpringVector3NaturalMotionAnimation _showScaleAnim;
+        private readonly Microsoft.UI.Composition.ScalarKeyFrameAnimation _showOpacityAnim;
+        private readonly Microsoft.UI.Composition.ScalarKeyFrameAnimation _hideOpacityAnim;
+        private int _animGeneration = 0;
 
         public NotificationWindow()
         {
             this.InitializeComponent();
-            var hWndForIcon = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
-            var appWindowForIcon = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowIdForIcon);
-            // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindowForIcon.SetIcon("Assets\\favicon.ico");
 
-            // アクリル背景（ContentBorder が全面を覆うため視覚的には不可視）
-            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+            // 大枠のアクリル背景を削除し、完全透過ウィンドウにする
+            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
 
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
+            _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hwnd);
+            _appWindow = AppWindow.GetFromWindowId(windowId);
+            _appWindow.IsShownInSwitchers = false;
 
-            if (appWindow.Presenter is OverlappedPresenter presenter)
+            if (_appWindow.Presenter is OverlappedPresenter presenter)
             {
                 presenter.SetBorderAndTitleBar(false, false);
                 presenter.IsMaximizable = false;
@@ -40,29 +45,58 @@ namespace Caiqelle.Views
                 presenter.IsAlwaysOnTop = true;
             }
 
-            // ウィンドウ枠線の色を非表示に
+            // 透明ウィンドウの影・角丸・枠線を完全に無効化（トースト本体のみを浮かせる）
+            int DWMWA_NCRENDERING_POLICY = 2;
+            int DWMNCRP_DISABLED = 1;
+            NotificationNativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_NCRENDERING_POLICY, ref DWMNCRP_DISABLED, sizeof(int));
+
+            int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+            int DWMWCP_DONOTROUND = 1;
+            NotificationNativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_DONOTROUND, sizeof(int));
+
             int DWMWA_BORDER_COLOR = 34;
             int DWM_BORDER_COLOR_NONE = -2;
-            NotificationNativeMethods.DwmSetWindowAttribute(hWnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
+            NotificationNativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
 
-            // OS レベルでウィンドウ自体に角丸を適用（Windows 11）
-            // ContentBorder は CornerRadius=0 で全面塗りつぶし → 黒い背景が一切露出しない
-            int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
-            int DWMWCP_ROUND = 2;
-            NotificationNativeMethods.DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
+            NotificationNativeMethods.RemoveWindowBorder(_hwnd);
 
-            NotificationNativeMethods.RemoveWindowBorder(hWnd);
+            // タスクバーから除外（コンストラクタで1回のみ設定）
+            var exStyle = (long)NotificationNativeMethods.GetWindowLongPtr(_hwnd, NotificationNativeMethods.GWL_EXSTYLE);
+            exStyle |= 0x00000080L; // WS_EX_TOOLWINDOW
+            NotificationNativeMethods.SetWindowLongPtr(_hwnd, NotificationNativeMethods.GWL_EXSTYLE, (IntPtr)exStyle);
 
             // 通知ウィンドウのサイズと位置を設定（画面中央）
-            appWindow.Resize(new Windows.Graphics.SizeInt32(360, 64));
+            _appWindow.Resize(new Windows.Graphics.SizeInt32(380, 72));
             var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
             if (displayArea != null)
             {
                 var workArea = displayArea.WorkArea;
-                appWindow.Move(new Windows.Graphics.PointInt32(
-                    workArea.X + (workArea.Width - 360) / 2,
-                    workArea.Y + (workArea.Height - 64) / 2));
+                _appWindow.Move(new Windows.Graphics.PointInt32(
+                    workArea.X + (workArea.Width - 380) / 2,
+                    workArea.Y + (workArea.Height - 72) / 2));
             }
+
+            // Composition アニメーションを事前構築してキャッシュ
+            _compositor = ElementCompositionPreview.GetElementVisual(RootGrid).Compositor;
+            _contentVisual = ElementCompositionPreview.GetElementVisual(ContentBorder);
+
+            _showScaleAnim = _compositor.CreateSpringVector3Animation();
+            _showScaleAnim.Target = "Scale";
+            _showScaleAnim.InitialValue = new Vector3(0.92f, 0.92f, 1.0f);
+            _showScaleAnim.FinalValue = new Vector3(1.0f, 1.0f, 1.0f);
+            _showScaleAnim.DampingRatio = 0.78f;
+            _showScaleAnim.Period = TimeSpan.FromMilliseconds(28);
+
+            _showOpacityAnim = _compositor.CreateScalarKeyFrameAnimation();
+            _showOpacityAnim.Target = "Opacity";
+            _showOpacityAnim.InsertKeyFrame(0.0f, 0.0f);
+            _showOpacityAnim.InsertKeyFrame(1.0f, 1.0f);
+            _showOpacityAnim.Duration = TimeSpan.FromMilliseconds(70);
+
+            _hideOpacityAnim = _compositor.CreateScalarKeyFrameAnimation();
+            _hideOpacityAnim.Target = "Opacity";
+            _hideOpacityAnim.InsertKeyFrame(1.0f, 0.0f);
+            _hideOpacityAnim.Duration = TimeSpan.FromMilliseconds(150);
 
             _timer = new DispatcherTimer();
             _timer.Tick += Timer_Tick;
@@ -73,8 +107,11 @@ namespace Caiqelle.Views
             _isLoaded = true;
             if (_pendingMessage != null)
             {
-                ShowMessageInternal(_pendingMessage, _pendingGlyph, _pendingDurationMs);
+                var msg = _pendingMessage;
+                var glyph = _pendingGlyph;
+                var dur = _pendingDurationMs;
                 _pendingMessage = null;
+                ShowMessageInternal(msg, glyph, dur);
             }
         }
 
@@ -86,17 +123,8 @@ namespace Caiqelle.Views
                 _pendingGlyph = glyph;
                 _pendingDurationMs = durationMs;
 
-                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-                var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-                var appWindow = AppWindow.GetFromWindowId(windowId);
-
-                // タスクバーから除外
-                var exStyle = (long)NotificationNativeMethods.GetWindowLongPtr(hwnd, NotificationNativeMethods.GWL_EXSTYLE);
-                exStyle |= 0x00000080L; // WS_EX_TOOLWINDOW
-                NotificationNativeMethods.SetWindowLongPtr(hwnd, NotificationNativeMethods.GWL_EXSTYLE, (IntPtr)exStyle);
-
-                appWindow.Show();
-                NotificationNativeMethods.SetWindowPos(hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0200);
+                _appWindow.Show();
+                NotificationNativeMethods.SetWindowPos(_hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0200);
             }
             else
             {
@@ -110,14 +138,14 @@ namespace Caiqelle.Views
             string target = message;
             string suffix = "";
 
-            string[] knownSuffixes = new[] 
-            { 
-                " に保存しました", 
-                " にコピーしました", 
-                " を開始しました", 
-                " を停止しました", 
-                " を一時停止しました", 
-                " を再開しました" 
+            string[] knownSuffixes = new[]
+            {
+                " に保存しました",
+                " にコピーしました",
+                " を開始しました",
+                " を停止しました",
+                " を一時停止しました",
+                " を再開しました"
             };
 
             foreach (var s in knownSuffixes)
@@ -134,29 +162,15 @@ namespace Caiqelle.Views
             SuffixText.Text = suffix;
             SuffixText.Visibility = string.IsNullOrEmpty(suffix) ? Visibility.Collapsed : Visibility.Visible;
             ToolTipService.SetToolTip(RootGrid, message);
+
             if (!string.IsNullOrEmpty(glyph))
             {
                 IconElement.Glyph = glyph;
                 IconElement.Visibility = Visibility.Visible;
                 if (IconContainer != null) IconContainer.Visibility = Visibility.Visible;
 
-                // アクションに応じたアイコン配色（M3 ファンクショナルカラー）
-                if (glyph == "\uE73E" || glyph == "\uE8D5") // Check / Folder
-                {
-                    SetIconColors("FuncGreenBgBrush", "FuncGreenBrush", Microsoft.UI.Colors.LightGreen);
-                }
-                else if (glyph == "\uE8C8") // Copy
-                {
-                    SetIconColors("FuncBlueBgBrush", "FuncBlueBrush", Microsoft.UI.Colors.DeepSkyBlue);
-                }
-                else if (glyph == "\uE7C8" || glyph == "\uE71A") // Record / Pause
-                {
-                    SetIconColors("FuncPinkBgBrush", "FuncPinkBrush", Microsoft.UI.Colors.Salmon);
-                }
-                else
-                {
-                    SetIconColors("FuncCyanBgBrush", "FuncCyanBrush", Microsoft.UI.Colors.Cyan);
-                }
+                // カラーテーマに合わせたアイコン配色
+                SetIconColors("M3PrimaryContainerGlassBrush", "M3PrimaryBrush", Microsoft.UI.Colors.SpringGreen);
             }
             else
             {
@@ -164,29 +178,17 @@ namespace Caiqelle.Views
                 if (IconContainer != null) IconContainer.Visibility = Visibility.Collapsed;
             }
 
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-            var appWindow = AppWindow.GetFromWindowId(windowId);
+            // フォーカスを奪わず即座に表示＆アニメーション開始（不要な50ms待機を削除）
+            _animGeneration++;
+            ContentBorder.Opacity = 1;
+            _appWindow.Show();
+            NotificationNativeMethods.SetWindowPos(_hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0200);
 
-            // タスクバーから除外
-            var exStyle = (long)NotificationNativeMethods.GetWindowLongPtr(hwnd, NotificationNativeMethods.GWL_EXSTYLE);
-            exStyle |= 0x00000080L; // WS_EX_TOOLWINDOW
-            NotificationNativeMethods.SetWindowLongPtr(hwnd, NotificationNativeMethods.GWL_EXSTYLE, (IntPtr)exStyle);
+            AnimateIn();
 
-            // フォーカスを奪わず表示
-            appWindow.Show();
-            NotificationNativeMethods.SetWindowPos(hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0200);
-
-            // アニメーション開始（レンダリング完了を待つ）
-            DispatcherQueue.TryEnqueue(async () =>
-            {
-                await System.Threading.Tasks.Task.Delay(50);
-                AnimateIn();
-
-                _timer.Stop();
-                _timer.Interval = TimeSpan.FromMilliseconds(durationMs);
-                _timer.Start();
-            });
+            _timer.Stop();
+            _timer.Interval = TimeSpan.FromMilliseconds(durationMs);
+            _timer.Start();
         }
 
         private void SetIconColors(string bgKey, string fgKey, Windows.UI.Color fallbackFg)
@@ -213,49 +215,24 @@ namespace Caiqelle.Views
 
         private void AnimateIn()
         {
-            var compositor = ElementCompositionPreview.GetElementVisual(RootGrid).Compositor;
-            var visual = ElementCompositionPreview.GetElementVisual(ContentBorder);
-
-            var springAnim = compositor.CreateSpringVector3Animation();
-            springAnim.Target = "Scale";
-            springAnim.InitialValue = new Vector3(0.8f, 0.8f, 1.0f);
-            springAnim.FinalValue = new Vector3(1.0f, 1.0f, 1.0f);
-            springAnim.DampingRatio = 0.6f;
-            springAnim.Period = TimeSpan.FromMilliseconds(50);
-
-            var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
-            opacityAnim.Target = "Opacity";
-            opacityAnim.InsertKeyFrame(0.0f, 0.0f);
-            opacityAnim.InsertKeyFrame(1.0f, 1.0f);
-            opacityAnim.Duration = TimeSpan.FromMilliseconds(200);
-
-            visual.CenterPoint = new Vector3((float)ContentBorder.ActualWidth / 2, (float)ContentBorder.ActualHeight / 2, 0);
-            visual.StartAnimation("Scale", springAnim);
-            visual.StartAnimation("Opacity", opacityAnim);
-
-            ContentBorder.Opacity = 1;
+            float w = (float)ContentBorder.ActualWidth;
+            float h = (float)ContentBorder.ActualHeight;
+            _contentVisual.CenterPoint = new Vector3(w > 0 ? w / 2 : 160, h > 0 ? h / 2 : 24, 0);
+            _contentVisual.StartAnimation("Scale", _showScaleAnim);
+            _contentVisual.StartAnimation("Opacity", _showOpacityAnim);
         }
 
         private void AnimateOut()
         {
-            var compositor = ElementCompositionPreview.GetElementVisual(RootGrid).Compositor;
-            var visual = ElementCompositionPreview.GetElementVisual(ContentBorder);
-
-            var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
-            opacityAnim.Target = "Opacity";
-            opacityAnim.InsertKeyFrame(1.0f, 0.0f);
-            opacityAnim.Duration = TimeSpan.FromMilliseconds(300);
-
-            var batch = compositor.CreateScopedBatch(Microsoft.UI.Composition.CompositionBatchTypes.Animation);
-            visual.StartAnimation("Opacity", opacityAnim);
+            int gen = _animGeneration;
+            var batch = _compositor.CreateScopedBatch(Microsoft.UI.Composition.CompositionBatchTypes.Animation);
+            _contentVisual.StartAnimation("Opacity", _hideOpacityAnim);
             batch.End();
 
             batch.Completed += (s, e) =>
             {
-                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-                var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-                var appWindow = AppWindow.GetFromWindowId(windowId);
-                appWindow.Hide();
+                if (gen != _animGeneration) return;
+                _appWindow.Hide();
             };
         }
     }

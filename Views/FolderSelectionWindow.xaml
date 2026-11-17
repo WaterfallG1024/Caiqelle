@@ -9,7 +9,7 @@
     mc:Ignorable="d"
     Title="Select Folder">
 
-    <Grid x:Name="RootGrid" DataContext="{x:Bind ViewModel}" Background="Transparent" CornerRadius="0" BorderThickness="0" KeyDown="Grid_KeyDown" CharacterReceived="Grid_CharacterReceived" IsTabStop="True">
+    <Grid x:Name="RootGrid" DataContext="{x:Bind ViewModel}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" CornerRadius="0" BorderThickness="0" KeyDown="Grid_KeyDown" CharacterReceived="Grid_CharacterReceived" IsTabStop="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -73,14 +73,14 @@
                                            HorizontalAlignment="Left"
                                            FontSize="12" />
                                 <Border Grid.Column="1" 
-                                        Background="{StaticResource M3SurfaceContainerHighestBrush}" 
+                                        Background="{StaticResource M3PrimaryContainerGlassBrush}" 
                                         CornerRadius="6" 
                                         Padding="6,2" 
                                         Margin="4,0,0,0" 
                                         VerticalAlignment="Center" 
                                         HorizontalAlignment="Right">
                                     <TextBlock Text="{x:Bind Key}" 
-                                               Foreground="{StaticResource AfterGlowTextPrimaryBrush}" 
+                                               Foreground="{StaticResource M3PrimaryBrush}" 
                                                FontWeight="Bold" 
                                                FontSize="11" />
                                 </Border>

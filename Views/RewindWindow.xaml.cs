@@ -20,6 +20,7 @@ namespace Caiqelle.Views
             ViewModel.RequestClose = () => this.Close();
 
             this.InitializeComponent();
+            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
             ExtendsContentIntoTitleBar = true;
 
             // プレビュー表示中はリワインド録画を一時停止（映り込み防止）

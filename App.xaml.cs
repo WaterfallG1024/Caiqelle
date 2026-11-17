@@ -204,6 +204,11 @@ namespace Caiqelle
                     _floatingWindow?.CloseWithAnimation();
                     CaptureManager?.CancelCapture();
                 }
+                else if (key == CapturedKey.R)
+                {
+                    _floatingWindow?.HideInstantlyAndClose();
+                    ShowMainWindowAtTab(ViewModels.MainTab.Rewind);
+                }
                 else if (key == CapturedKey.C || key == CapturedKey.W || key == CapturedKey.F || key == CapturedKey.E || key == CapturedKey.P)
                 {
                     System.Diagnostics.Debug.WriteLine($"Action: {key}");
@@ -327,13 +332,14 @@ namespace Caiqelle
                     });
                 }
 
-                // アイドル時にフローティングUIとオーバーレイウィンドウを事前生成して初回起動を爆速化
+                // アイドル時にフローティングUI・オーバーレイ・通知ウィンドウを事前生成して初回起動を爆速化
                 _hiddenTrayWindow?.DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
                 {
                     try
                     {
                         _ = GetFloatingWindow();
                         CaptureManager?.Prewarm();
+                        Services.GetService<NotificationService>()?.Prewarm();
                     }
                     catch (Exception prewarmEx)
                     {
@@ -388,6 +394,29 @@ namespace Caiqelle
                 catch { }
                 
                 System.Diagnostics.Process.GetCurrentProcess().Kill();
+            }
+        }
+
+        public void ShowMainWindowAtTab(ViewModels.MainTab tab)
+        {
+            PositionAndShowWindow();
+            if (_window is MainWindow mainWindow)
+            {
+                switch (tab)
+                {
+                    case ViewModels.MainTab.Home:
+                        mainWindow.ViewModel.NavigateToHomeCommand.Execute(null);
+                        break;
+                    case ViewModels.MainTab.Folder:
+                        mainWindow.ViewModel.NavigateToFolderCommand.Execute(null);
+                        break;
+                    case ViewModels.MainTab.Rewind:
+                        mainWindow.ViewModel.NavigateToRewindCommand.Execute(null);
+                        break;
+                    case ViewModels.MainTab.Settings:
+                        mainWindow.ViewModel.NavigateToSettingsCommand.Execute(null);
+                        break;
+                }
             }
         }
 

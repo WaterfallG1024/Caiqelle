@@ -8,14 +8,11 @@
     Title="Notification">
 
     <Grid x:Name="RootGrid" Background="Transparent" Loaded="RootGrid_Loaded">
-        <!-- M3 Expressive Snackbar Container -->
-        <Border x:Name="ContentBorder" Background="Transparent" CornerRadius="0" 
-                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+        <!-- Floating Pill Toast Container (大枠背景なし・カード本体のみ表示) -->
+        <Border x:Name="ContentBorder" Background="{StaticResource M3SurfaceContainerBrush}" CornerRadius="16" 
+                HorizontalAlignment="Center" VerticalAlignment="Center"
                 BorderThickness="0"
-                Opacity="0" RenderTransformOrigin="0.5,0.5" Padding="18,12">
-            <Border.RenderTransform>
-                <ScaleTransform x:Name="ContentScale" ScaleX="0.95" ScaleY="0.95" />
-            </Border.RenderTransform>
+                Opacity="0" Padding="18,12">
             <Grid HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="320">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>

@@ -100,6 +100,15 @@ namespace Caiqelle.Services
                 gradBrush.GradientStops[1].Color = secondary;
             }
 
+            // 半透明ダーク＋テーマカラーグラデーション背景を更新
+            if (resources.TryGetValue("ThemeWindowBackgroundGradientBrush", out var bgGradObj) && bgGradObj is LinearGradientBrush bgGrad && bgGrad.GradientStops.Count >= 3)
+            {
+                var darkBase = Color.FromArgb(255, 10, 10, 12);
+                bgGrad.GradientStops[0].Color = BlendDarkWithAccent(darkBase, primary, 0.22, 0xC6);
+                bgGrad.GradientStops[1].Color = BlendDarkWithAccent(darkBase, primary, 0.06, 0xBC);
+                bgGrad.GradientStops[2].Color = BlendDarkWithAccent(darkBase, secondary, 0.14, 0xC8);
+            }
+
             // WinUI 標準コントロール（ToggleSwitch / ComboBox / Slider 等）にもテーマカラーを適用
             resources["SystemAccentColor"] = primary;
             resources["SystemAccentColorLight1"] = BlendWithWhite(primary, 0.20);
@@ -155,6 +164,14 @@ namespace Caiqelle.Services
             byte r = (byte)Math.Clamp(c.R * factor, 0, 255);
             byte g = (byte)Math.Clamp(c.G * factor, 0, 255);
             byte b = (byte)Math.Clamp(c.B * factor, 0, 255);
+            return Color.FromArgb(alpha, r, g, b);
+        }
+
+        private static Color BlendDarkWithAccent(Color darkBase, Color accent, double ratio, byte alpha)
+        {
+            byte r = (byte)Math.Clamp(darkBase.R + (accent.R - darkBase.R) * ratio, 0, 255);
+            byte g = (byte)Math.Clamp(darkBase.G + (accent.G - darkBase.G) * ratio, 0, 255);
+            byte b = (byte)Math.Clamp(darkBase.B + (accent.B - darkBase.B) * ratio, 0, 255);
             return Color.FromArgb(alpha, r, g, b);
         }
     }

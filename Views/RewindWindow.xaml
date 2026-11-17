@@ -9,11 +9,7 @@
     mc:Ignorable="d"
     Title="Rewind Viewer">
 
-    <Window.SystemBackdrop>
-        <DesktopAcrylicBackdrop />
-    </Window.SystemBackdrop>
-
-    <Grid Background="Transparent" KeyDown="Grid_KeyDown" PointerWheelChanged="Window_PointerWheelChanged">
+    <Grid Background="{StaticResource ThemeWindowBackgroundGradientBrush}" KeyDown="Grid_KeyDown" PointerWheelChanged="Window_PointerWheelChanged">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>

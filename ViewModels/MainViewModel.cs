@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -173,11 +174,14 @@ namespace Caiqelle.ViewModels
             new SelectableOption("20秒", "20"),
             new SelectableOption("30秒", "30"),
             new SelectableOption("60秒", "60"),
-            new SelectableOption("90秒", "90"),
-            new SelectableOption("120秒", "120"),
-            new SelectableOption("180秒", "180"),
-            new SelectableOption("240秒", "240"),
-            new SelectableOption("300秒", "300")
+            new SelectableOption("1分30秒", "90"),
+            new SelectableOption("2分", "120"),
+            new SelectableOption("3分", "180"),
+            new SelectableOption("4分", "240"),
+            new SelectableOption("5分", "300"),
+            new SelectableOption("10分", "600"),
+            new SelectableOption("15分", "900"),
+            new SelectableOption("20分", "1200")
         };
 
         public ObservableCollection<SelectableOption> RewindQualityOptions { get; } = new()
@@ -341,9 +345,21 @@ namespace Caiqelle.ViewModels
             }
 
             IsRewindStatusVisible = true;
+            string durationLabel = FormatDuration(_settings.RewindDurationSeconds);
             RewindStatusText = _rewindService.IsPaused
-                ? $"リワインド一時停止中 ({_settings.RewindDurationSeconds}秒 / {_settings.RewindQuality})"
-                : $"リワインド録画中 ({_settings.RewindDurationSeconds}秒 / {_settings.RewindQuality})";
+                ? $"リワインド一時停止中 ({durationLabel} / {_settings.RewindQuality})"
+                : $"リワインド録画中 ({durationLabel} / {_settings.RewindQuality})";
+        }
+
+        /// <summary>
+        /// 秒数を表示用文字列へ変換する（61秒以上は○分○秒表記）
+        /// </summary>
+        public static string FormatDuration(int seconds)
+        {
+            if (seconds <= 60) return $"{seconds}秒";
+            int mins = seconds / 60;
+            int secs = seconds % 60;
+            return secs == 0 ? $"{mins}分" : $"{mins}分{secs}秒";
         }
 
         // --- ナビゲーションコマンド ---
@@ -731,75 +747,69 @@ namespace Caiqelle.ViewModels
 
                 double totalMemoryGB = memStatus.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
 
-                int maxDuration = int.MaxValue;
-                bool allowHighQuality = true;
-                bool allow4KOnlyShort = false;
+                // メモリ帯ごとの許可画質と最大秒数マップ
+                Dictionary<string, int> qualityMaxDurations;
 
                 if (totalMemoryGB < 7.0)
                 {
-                    IsRewindEnabled = false;
-                    CanEnableRewind = false;
-                    RewindMemoryInfoTitle = "メモリ不足";
-                    RewindMemoryInfoMessage = "メモリが8GB未満のため、この機能は使用できません。";
-                    RewindMemoryInfoSeverity = InfoBarSeverity.Error;
-                    return;
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 10 }
+                    };
+                    RewindMemoryInfoTitle = "メモリ8GB未満制限";
+                    RewindMemoryInfoMessage = "メモリが8GB未満のため、720p・最大10秒に制限されています。";
+                    RewindMemoryInfoSeverity = InfoBarSeverity.Warning;
                 }
                 else if (totalMemoryGB < 14.0)
                 {
-                    maxDuration = 10;
-                    allowHighQuality = false;
-                    RewindMemoryInfoTitle = "メモリ8GB制限";
-                    RewindMemoryInfoMessage = "メモリが8GBのため、最大10秒・720p/FullHDに制限されています。";
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 90 },
+                        { "FulHD", 60 }
+                    };
+                    RewindMemoryInfoTitle = "メモリ16GB未満制限";
+                    RewindMemoryInfoMessage = "メモリが16GB未満のため、720pは最大1分30秒、FullHDは最大60秒に制限されています。";
                     RewindMemoryInfoSeverity = InfoBarSeverity.Warning;
                 }
                 else if (totalMemoryGB < 28.0)
                 {
-                    maxDuration = 60;
-                    allowHighQuality = true;
-                    RewindMemoryInfoTitle = "メモリ16GB制限";
-                    RewindMemoryInfoMessage = "メモリが16GBのため、最大60秒までに制限されています。";
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 300 },
+                        { "FulHD", 180 }
+                    };
+                    RewindMemoryInfoTitle = "メモリ32GB未満制限";
+                    RewindMemoryInfoMessage = "メモリが32GB未満のため、720pは最大5分、FullHDは最大3分に制限されています。";
                     RewindMemoryInfoSeverity = InfoBarSeverity.Informational;
                 }
                 else if (totalMemoryGB < 56.0)
                 {
-                    maxDuration = 300;
-                    allowHighQuality = true;
-                    allow4KOnlyShort = true;
-                    RewindMemoryInfoTitle = "メモリ32GB推奨構成";
-                    RewindMemoryInfoMessage = "4K録画時は最大180秒、2K以下は最大300秒まで設定可能です。";
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 1200 },
+                        { "FulHD", 1200 },
+                        { "2K", 300 },
+                        { "4K", 180 }
+                    };
+                    RewindMemoryInfoTitle = "メモリ64GB未満構成";
+                    RewindMemoryInfoMessage = "720p/FullHDは最大20分、2Kは最大5分、4Kは最大3分まで設定可能です。";
                     RewindMemoryInfoSeverity = InfoBarSeverity.Informational;
                 }
                 else
                 {
-                    maxDuration = 300;
-                    allowHighQuality = true;
-                    allow4KOnlyShort = false;
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 1200 },
+                        { "FulHD", 1200 },
+                        { "2K", 1200 },
+                        { "4K", 300 }
+                    };
                     RewindMemoryInfoTitle = "フルパフォーマンス構成";
-                    RewindMemoryInfoMessage = "大容量メモリが搭載されています。すべての画質・秒数を制限なくご利用いただけます。";
+                    RewindMemoryInfoMessage = "720p〜2Kは最大20分、4Kは最大5分まで設定可能です。";
                     RewindMemoryInfoSeverity = InfoBarSeverity.Success;
                 }
 
                 CanEnableRewind = true;
-                string currentQuality = string.IsNullOrEmpty(SelectedRewindQuality) ? "FulHD" : SelectedRewindQuality;
-
-                int currentMaxDuration = maxDuration;
-                if (allow4KOnlyShort && currentQuality == "4K")
-                {
-                    currentMaxDuration = Math.Min(maxDuration, 180);
-                }
-
-                foreach (var option in RewindDurationOptions)
-                {
-                    if (int.TryParse(option.Value, out int dur))
-                    {
-                        option.IsEnabled = dur <= currentMaxDuration;
-                        if (SelectedRewindDuration == option.Value && !option.IsEnabled)
-                        {
-                            SelectedRewindDuration = currentMaxDuration.ToString();
-                            _settings.RewindDurationSeconds = currentMaxDuration;
-                        }
-                    }
-                }
 
                 int screenHeight = _screenshotService.GetVirtualScreenBounds().Height;
                 foreach (var option in RewindQualityOptions)
@@ -814,14 +824,34 @@ namespace Caiqelle.ViewModels
                     };
 
                     bool isResolutionAllowed = screenHeight >= requiredHeight;
-                    bool isMemoryAllowed = (option.Value == "2K" || option.Value == "4K") ? allowHighQuality : true;
+                    bool isMemoryAllowed = qualityMaxDurations.ContainsKey(option.Value);
                     option.IsEnabled = isResolutionAllowed && isMemoryAllowed;
 
                     if (SelectedRewindQuality == option.Value && !option.IsEnabled)
                     {
-                        string fallback = (screenHeight >= 1080 && allowHighQuality) ? "FulHD" : "720p";
+                        string fallback = (screenHeight >= 1080 && qualityMaxDurations.ContainsKey("FulHD"))
+                            ? "FulHD"
+                            : "720p";
                         SelectedRewindQuality = fallback;
                         _settings.RewindQuality = fallback;
+                    }
+                }
+
+                string currentQuality = string.IsNullOrEmpty(SelectedRewindQuality) ? "FulHD" : SelectedRewindQuality;
+                int currentMaxDuration = qualityMaxDurations.TryGetValue(currentQuality, out int maxForQuality)
+                    ? maxForQuality
+                    : 10;
+
+                foreach (var option in RewindDurationOptions)
+                {
+                    if (int.TryParse(option.Value, out int dur))
+                    {
+                        option.IsEnabled = dur <= currentMaxDuration;
+                        if (SelectedRewindDuration == option.Value && !option.IsEnabled)
+                        {
+                            SelectedRewindDuration = currentMaxDuration.ToString();
+                            _settings.RewindDurationSeconds = currentMaxDuration;
+                        }
                     }
                 }
             }

@@ -14,6 +14,7 @@ namespace Caiqelle.Services
         F,
         E,
         P,
+        R,
         Esc,
         OpenDashboard,
         ToggleRewind
@@ -75,6 +76,7 @@ namespace Caiqelle.Services
         private const uint SC_S = 0x1F;
         private const uint SC_E = 0x12;
         private const uint SC_P = 0x19;
+        private const uint SC_R = 0x13;
         private const uint SC_ESC = 0x01;
 
         public event Action<CapturedKey>? OnKeyPressed;
@@ -168,6 +170,7 @@ namespace Caiqelle.Services
                     else if (scanCode == SC_F) capturedKey = CapturedKey.F;
                     else if (scanCode == SC_E) capturedKey = CapturedKey.E;
                     else if (scanCode == SC_P) capturedKey = CapturedKey.P;
+                    else if (scanCode == SC_R) capturedKey = CapturedKey.R;
                     else if (scanCode == SC_ESC) capturedKey = CapturedKey.Esc;
 
                     if (capturedKey.HasValue)

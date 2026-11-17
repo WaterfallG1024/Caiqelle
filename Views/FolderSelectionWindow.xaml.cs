@@ -25,7 +25,7 @@ namespace Caiqelle.Views
             this.InitializeComponent();
 
             ExtendsContentIntoTitleBar = true;
-            this.SystemBackdrop = new DesktopAcrylicBackdrop();
+            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
 
             var hwnd = WindowNative.GetWindowHandle(this);
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);

@@ -55,6 +55,7 @@ namespace Caiqelle.Views
 
             this.InitializeComponent();
 
+            // 大枠の背景を完全透過にしてカードのみを浮かせる
             this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
 
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
@@ -71,7 +72,7 @@ namespace Caiqelle.Views
                 presenter.IsAlwaysOnTop = true;
             }
 
-            // 透明ウィンドウの影・角丸・枠線を完全に無効化（5枚のカードのみを浮かせる）
+            // 透明ウィンドウの影・角丸・枠線を完全に無効化（大枠背景・影を出さない）
             int DWMWA_NCRENDERING_POLICY = 2;
             int DWMNCRP_DISABLED = 1;
             NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_NCRENDERING_POLICY, ref DWMNCRP_DISABLED, sizeof(int));
@@ -94,7 +95,7 @@ namespace Caiqelle.Views
             // Composition アニメーションを事前構築してキャッシュ
             _compositor = ElementCompositionPreview.GetElementVisual(this.RootGrid).Compositor;
             _contentVisual = ElementCompositionPreview.GetElementVisual(ContentBorder);
-            _contentVisual.CenterPoint = new Vector3(330, 82, 0);
+            _contentVisual.CenterPoint = new Vector3(387, 76, 0);
 
             _showScaleAnim = _compositor.CreateSpringVector3Animation();
             _showScaleAnim.Target = "Scale";
@@ -120,8 +121,8 @@ namespace Caiqelle.Views
         private void UpdatePositionAndSize()
         {
             double dpiScale = GetDpiForWindow(_hwnd) / 96.0;
-            int targetWidth = (int)(660 * dpiScale);
-            int targetHeight = (int)(164 * dpiScale);
+            int targetWidth = (int)(774 * dpiScale);
+            int targetHeight = (int)(152 * dpiScale);
             if (targetWidth != _lastTargetWidth || targetHeight != _lastTargetHeight)
             {
                 _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
@@ -208,6 +209,10 @@ namespace Caiqelle.Views
                     break;
                 case Windows.System.VirtualKey.E:
                     ViewModel.CaptureOcrCommand.Execute(null);
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.R:
+                    ViewModel.OpenRewindCommand.Execute(null);
                     e.Handled = true;
                     break;
                 case Windows.System.VirtualKey.Escape:

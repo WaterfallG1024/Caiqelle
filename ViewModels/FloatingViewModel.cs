@@ -37,6 +37,13 @@ namespace Caiqelle.ViewModels
         private Task CaptureOcrAsync() => ExecuteCaptureAsync(CapturedKey.E);
 
         [RelayCommand]
+        private void OpenRewind()
+        {
+            RequestHideWindow?.Invoke();
+            ((App)Microsoft.UI.Xaml.Application.Current).ShowMainWindowAtTab(MainTab.Rewind);
+        }
+
+        [RelayCommand]
         private void Hide() => RequestHideWindow?.Invoke();
 
         private async Task ExecuteCaptureAsync(CapturedKey key)

@@ -613,7 +613,16 @@ namespace Caiqelle.Views
                 }
 
                 using var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                await renderTarget.SaveAsync(ms, Microsoft.Graphics.Canvas.CanvasBitmapFileFormat.Png);
+                var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.SettingsManager>(((App)Application.Current).Services);
+                if (settings.ImageFormat == "JPEG")
+                {
+                    float quality = Math.Clamp(settings.JpegQuality, 1, 100) / 100.0f;
+                    await renderTarget.SaveAsync(ms, Microsoft.Graphics.Canvas.CanvasBitmapFileFormat.Jpeg, quality);
+                }
+                else
+                {
+                    await renderTarget.SaveAsync(ms, Microsoft.Graphics.Canvas.CanvasBitmapFileFormat.Png);
+                }
 
                 var outBuffer = new byte[ms.Size];
                 using (var dataReader = new Windows.Storage.Streams.DataReader(ms.GetInputStreamAt(0)))

@@ -9,11 +9,7 @@
     mc:Ignorable="d"
     Title="Caiqelle">
 
-    <Window.SystemBackdrop>
-        <DesktopAcrylicBackdrop />
-    </Window.SystemBackdrop>
-
-    <Grid x:Name="RootGrid" DataContext="{x:Bind ViewModel}" Background="Transparent" BorderThickness="0" CornerRadius="0" KeyDown="Grid_KeyDown">
+    <Grid x:Name="RootGrid" DataContext="{x:Bind ViewModel}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" BorderThickness="0" CornerRadius="0" KeyDown="Grid_KeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

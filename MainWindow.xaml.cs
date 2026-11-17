@@ -25,6 +25,9 @@ namespace Caiqelle
 
             this.InitializeComponent();
 
+            // 完全透過ベースに RootGrid の半透明テーマグラデーション背景を重ねる
+            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
+
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
 

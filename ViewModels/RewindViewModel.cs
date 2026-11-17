@@ -126,9 +126,9 @@ namespace Caiqelle.ViewModels
         {
             if (_frames.Length == 0) return;
 
-            IndexText = $"{_currentIndex + 1}/{_frames.Length}";
-
             var frame = _frames[_currentIndex];
+            int elapsedSeconds = (int)Math.Max(0, Math.Round((_frames[0].Timestamp - frame.Timestamp).TotalSeconds));
+            IndexText = $"{_currentIndex + 1}/{_frames.Length}({MainViewModel.FormatDuration(elapsedSeconds)}前)";
             TimestampText = $"記録時刻: {frame.Timestamp:yyyy/MM/dd HH:mm:ss}  •  矢印キー / ホイールで移動";
 
             CanGoOlder = _currentIndex < _frames.Length - 1;

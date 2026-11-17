@@ -10,13 +10,13 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Pure Black / Neutral Dark Surface Hierarchy -->
-            <SolidColorBrush x:Key="M3SurfaceBrush" Color="#D90A0A0A" />
-            <SolidColorBrush x:Key="M3SurfaceContainerLowestBrush" Color="#CC050505" />
-            <SolidColorBrush x:Key="M3SurfaceContainerLowBrush" Color="#CC121212" />
-            <SolidColorBrush x:Key="M3SurfaceContainerBrush" Color="#D91A1A1A" />
-            <SolidColorBrush x:Key="M3SurfaceContainerHighBrush" Color="#E6242424" />
-            <SolidColorBrush x:Key="M3SurfaceContainerHighestBrush" Color="#E6303030" />
+            <!-- Pure Black / Neutral Dark Surface Hierarchy (ブラーが透ける半透明設計) -->
+            <SolidColorBrush x:Key="M3SurfaceBrush" Color="#9E0A0A0A" />
+            <SolidColorBrush x:Key="M3SurfaceContainerLowestBrush" Color="#88050505" />
+            <SolidColorBrush x:Key="M3SurfaceContainerLowBrush" Color="#90121212" />
+            <SolidColorBrush x:Key="M3SurfaceContainerBrush" Color="#9E1A1A1A" />
+            <SolidColorBrush x:Key="M3SurfaceContainerHighBrush" Color="#B8242424" />
+            <SolidColorBrush x:Key="M3SurfaceContainerHighestBrush" Color="#CC303030" />
 
             <!-- Dynamic Accent Palette (Primary, Secondary, Tertiary) -->
             <SolidColorBrush x:Key="M3PrimaryBrush" Color="#00FF7F" />
@@ -47,6 +47,13 @@
             <LinearGradientBrush x:Key="AfterGlowAccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#00FF7F" Offset="0.0" />
                 <GradientStop Color="#47FFA3" Offset="1.0" />
+            </LinearGradientBrush>
+
+            <!-- 半透明ダーク＋テーマカラーグラデーション背景 -->
+            <LinearGradientBrush x:Key="ThemeWindowBackgroundGradientBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#C60B2217" Offset="0.0" />
+                <GradientStop Color="#BC0B0D0C" Offset="0.55" />
+                <GradientStop Color="#C80D1C14" Offset="1.0" />
             </LinearGradientBrush>
             
             <SolidColorBrush x:Key="AfterGlowAccentBrush" Color="#00FF7F" />
@@ -88,6 +95,7 @@
                 <Setter Property="VerticalAlignment" Value="Stretch" />
                 <Setter Property="Padding" Value="12,16" />
                 <Setter Property="Margin" Value="4" />
+                <Setter Property="UseSystemFocusVisuals" Value="False" />
             </Style>
 
             <!-- M3 Tonal Button Style -->
