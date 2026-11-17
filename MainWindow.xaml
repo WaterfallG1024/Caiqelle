@@ -32,6 +32,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -149,8 +150,28 @@
                         </StackPanel>
                     </Button>
 
+                    <Button Grid.Row="4" Grid.ColumnSpan="3" Style="{StaticResource CardButtonStyle}" Padding="16,12" Command="{x:Bind ViewModel.CaptureLivePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                        <Grid HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="12" Background="{StaticResource M3PrimaryContainerGlassBrush}" Margin="0,0,12,0">
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8A3;" FontSize="18" Foreground="{StaticResource M3PrimaryBrush}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="ライブピン留め" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}"/>
+                                <TextBlock Text="指定領域をリアルタイム拡大表示" FontSize="11" Foreground="{StaticResource AfterGlowTextSecondaryBrush}"/>
+                            </StackPanel>
+                            <Border Grid.Column="2" Background="{StaticResource M3SurfaceContainerHighestBrush}" CornerRadius="6" Padding="8,3" VerticalAlignment="Center">
+                                <TextBlock Text="L" FontSize="11" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontWeight="Bold"/>
+                            </Border>
+                        </Grid>
+                    </Button>
+
                     <!-- Shortcut Guide Card (M3 Surface Container) -->
-                    <Border Grid.Row="4" Grid.ColumnSpan="3" Background="{StaticResource M3SurfaceContainerBrush}" CornerRadius="16" BorderThickness="0" Margin="4,16,4,4" Padding="16,14">
+                    <Border Grid.Row="5" Grid.ColumnSpan="3" Background="{StaticResource M3SurfaceContainerBrush}" CornerRadius="16" BorderThickness="0" Margin="4,16,4,4" Padding="16,14">
                         <StackPanel Spacing="12">
                             <!-- Card Header -->
                             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">

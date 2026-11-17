@@ -48,6 +48,15 @@
                             <TextBlock Text="ピン留め (P)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
+
+                    <Button Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Width="104" Height="104" Command="{x:Bind ViewModel.CaptureLivePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                            <Border Width="46" Height="46" CornerRadius="16" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8A3;" FontSize="18" Foreground="{StaticResource M3PrimaryBrush}" />
+                            </Border>
+                            <TextBlock Text="ライブピン (L)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     
                     <Button Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Width="104" Height="104" Command="{x:Bind ViewModel.CaptureOcrCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">

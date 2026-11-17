@@ -95,7 +95,7 @@ namespace Caiqelle.Views
             // Composition アニメーションを事前構築してキャッシュ
             _compositor = ElementCompositionPreview.GetElementVisual(this.RootGrid).Compositor;
             _contentVisual = ElementCompositionPreview.GetElementVisual(ContentBorder);
-            _contentVisual.CenterPoint = new Vector3(387, 76, 0);
+            _contentVisual.CenterPoint = new Vector3(448, 76, 0);
 
             _showScaleAnim = _compositor.CreateSpringVector3Animation();
             _showScaleAnim.Target = "Scale";
@@ -121,7 +121,7 @@ namespace Caiqelle.Views
         private void UpdatePositionAndSize()
         {
             double dpiScale = GetDpiForWindow(_hwnd) / 96.0;
-            int targetWidth = (int)(774 * dpiScale);
+            int targetWidth = (int)(896 * dpiScale);
             int targetHeight = (int)(152 * dpiScale);
             if (targetWidth != _lastTargetWidth || targetHeight != _lastTargetHeight)
             {
@@ -205,6 +205,10 @@ namespace Caiqelle.Views
                     break;
                 case Windows.System.VirtualKey.P:
                     ViewModel.CapturePinCommand.Execute(null);
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.L:
+                    ViewModel.CaptureLivePinCommand.Execute(null);
                     e.Handled = true;
                     break;
                 case Windows.System.VirtualKey.E:

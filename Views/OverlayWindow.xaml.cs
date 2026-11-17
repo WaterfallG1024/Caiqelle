@@ -49,6 +49,7 @@ namespace Caiqelle.Views
         public enum CaptureAction { None, Copy, Save }
         public CaptureAction ActionTaken { get; private set; } = CaptureAction.None;
         private bool _isOcrMode = false;
+        private bool _isLivePinMode = false;
 
         public event Action? CaptureCompleted;
 
@@ -103,11 +104,17 @@ namespace Caiqelle.Views
             this.Activated += OverlayWindow_Activated;
         }
 
-        public void UpdateAndShow(Microsoft.UI.Xaml.Media.ImageSource frozenImage, System.Drawing.Rectangle bounds, bool isOcrMode = false, bool isPinMode = false)
+        public void UpdateAndShow(Microsoft.UI.Xaml.Media.ImageSource frozenImage, System.Drawing.Rectangle bounds, bool isOcrMode = false, bool isPinMode = false, bool isLivePinMode = false)
         {
             _isOcrMode = isOcrMode;
+            _isLivePinMode = isLivePinMode;
             
-            if (isPinMode)
+            if (isLivePinMode)
+            {
+                ToolTipService.SetToolTip(SaveButton, "ライブピン留め(またはCtrl + S)");
+                if (SaveButton.Content is FontIcon icon) icon.Glyph = "\uE8A3"; // ZoomIn / Live Pin icon
+            }
+            else if (isPinMode)
             {
                 ToolTipService.SetToolTip(SaveButton, "ピン留め(またはCtrl + S)");
                 if (SaveButton.Content is FontIcon icon) icon.Glyph = "\uE718"; // Pin icon
@@ -570,6 +577,13 @@ namespace Caiqelle.Views
             SelectionBox.Visibility = Visibility.Collapsed;
             FloatingToolbar.Visibility = Visibility.Collapsed;
             SetHandlesVisibility(Visibility.Collapsed);
+
+            if (_isLivePinMode)
+            {
+                CapturedBytes = null;
+                HideAndComplete();
+                return;
+            }
 
             await Task.Delay(50);
 

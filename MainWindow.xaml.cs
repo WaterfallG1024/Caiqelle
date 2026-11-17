@@ -162,6 +162,10 @@ namespace Caiqelle
                         ViewModel.CapturePinCommand.Execute(null);
                         e.Handled = true;
                         break;
+                    case VirtualKey.L:
+                        ViewModel.CaptureLivePinCommand.Execute(null);
+                        e.Handled = true;
+                        break;
                     case VirtualKey.E:
                         ViewModel.CaptureOcrCommand.Execute(null);
                         e.Handled = true;

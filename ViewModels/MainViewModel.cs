@@ -423,6 +423,9 @@ namespace Caiqelle.ViewModels
         private Task CapturePinAsync() => ExecuteCaptureAsync(CapturedKey.P);
 
         [RelayCommand]
+        private Task CaptureLivePinAsync() => ExecuteCaptureAsync(CapturedKey.L);
+
+        [RelayCommand]
         private Task CaptureOcrAsync() => ExecuteCaptureAsync(CapturedKey.E);
 
         private async Task ExecuteCaptureAsync(CapturedKey key)

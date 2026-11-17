@@ -79,7 +79,7 @@ namespace Caiqelle.Services
                 byte[]? overlayCapturedBytes = null;
                 OverlayWindow.CaptureAction overlayAction = OverlayWindow.CaptureAction.None;
 
-                if (key == CapturedKey.C || key == CapturedKey.E || key == CapturedKey.P)
+                if (key == CapturedKey.C || key == CapturedKey.E || key == CapturedKey.P || key == CapturedKey.L)
                 {
                     var overlay = GetOverlayWindow();
                     var tcs = new TaskCompletionSource<Rectangle?>();
@@ -101,7 +101,7 @@ namespace Caiqelle.Services
                     };
                     
                     overlay.CaptureCompleted += handler;
-                    overlay.UpdateAndShow(frozenImage, bounds, key == CapturedKey.E, key == CapturedKey.P);
+                    overlay.UpdateAndShow(frozenImage, bounds, key == CapturedKey.E, key == CapturedKey.P, key == CapturedKey.L);
                     
                     selectedRegion = await tcs.Task;
                 }
@@ -133,6 +133,19 @@ namespace Caiqelle.Services
 
                 if (selectedRegion.HasValue)
                 {
+                    if (key == CapturedKey.L)
+                    {
+                        var liveRect = new Rectangle(
+                            selectedRegion.Value.X + bounds.X,
+                            selectedRegion.Value.Y + bounds.Y,
+                            selectedRegion.Value.Width,
+                            selectedRegion.Value.Height
+                        );
+                        var livePinWindow = new LivePinWindow(liveRect, _screenshotService);
+                        livePinWindow.Activate();
+                        return;
+                    }
+
                     byte[]? finalBytes = overlayCapturedBytes;
 
                     if (finalBytes == null || finalBytes.Length == 0)

@@ -102,7 +102,16 @@ namespace Caiqelle.Services
             return source;
         }
 
-        private static unsafe SoftwareBitmap? CaptureBoundsToSoftwareBitmap(Rectangle bounds)
+        /// <summary>
+        /// 指定領域をゼロエンコードで SoftwareBitmap へ直接キャプチャする（reuseBitmap 指定時は再利用してGC負荷を削減）
+        /// </summary>
+        public SoftwareBitmap? CaptureRegionToSoftwareBitmap(Rectangle bounds, SoftwareBitmap? reuseBitmap = null)
+        {
+            if (bounds.Width <= 0 || bounds.Height <= 0) return null;
+            return CaptureBoundsToSoftwareBitmap(bounds, reuseBitmap);
+        }
+
+        private static unsafe SoftwareBitmap? CaptureBoundsToSoftwareBitmap(Rectangle bounds, SoftwareBitmap? reuseBitmap = null)
         {
             IntPtr hdcScreen = IntPtr.Zero;
             IntPtr hdcMem = IntPtr.Zero;
@@ -138,7 +147,9 @@ namespace Caiqelle.Services
                 SelectObject(hdcMem, hOldBitmap);
                 hOldBitmap = IntPtr.Zero;
 
-                var softwareBitmap = new SoftwareBitmap(BitmapPixelFormat.Bgra8, bounds.Width, bounds.Height, BitmapAlphaMode.Premultiplied);
+                var softwareBitmap = (reuseBitmap != null && reuseBitmap.PixelWidth == bounds.Width && reuseBitmap.PixelHeight == bounds.Height)
+                    ? reuseBitmap
+                    : new SoftwareBitmap(BitmapPixelFormat.Bgra8, bounds.Width, bounds.Height, BitmapAlphaMode.Premultiplied);
                 using (var buffer = softwareBitmap.LockBuffer(BitmapBufferAccessMode.Write))
                 using (var reference = buffer.CreateReference())
                 {

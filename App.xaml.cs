@@ -209,7 +209,7 @@ namespace Caiqelle
                     _floatingWindow?.HideInstantlyAndClose();
                     ShowMainWindowAtTab(ViewModels.MainTab.Rewind);
                 }
-                else if (key == CapturedKey.C || key == CapturedKey.W || key == CapturedKey.F || key == CapturedKey.E || key == CapturedKey.P)
+                else if (key == CapturedKey.C || key == CapturedKey.W || key == CapturedKey.F || key == CapturedKey.E || key == CapturedKey.P || key == CapturedKey.L)
                 {
                     System.Diagnostics.Debug.WriteLine($"Action: {key}");
                     _floatingWindow?.HideInstantlyAndClose();
