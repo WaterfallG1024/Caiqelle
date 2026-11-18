@@ -134,10 +134,16 @@ namespace Caiqelle.Services
             set => _data.AccentTheme = value;
         }
 
-        public SettingsManager()
+        [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
+        public SettingsManager() : this(null)
         {
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string appFolder = Path.Combine(appData, "Caiqelle");
+        }
+
+        public SettingsManager(string? settingsDirectory)
+        {
+            string appFolder = string.IsNullOrWhiteSpace(settingsDirectory)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Caiqelle")
+                : settingsDirectory;
             Directory.CreateDirectory(appFolder);
             _settingsFilePath = Path.Combine(appFolder, "settings.json");
             

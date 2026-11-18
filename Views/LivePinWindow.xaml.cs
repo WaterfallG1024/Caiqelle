@@ -295,20 +295,8 @@ namespace Caiqelle.Views
                 byte[] bytes = await _screenshotService.CaptureRegionToBytesAsync(_targetBounds);
                 if (bytes == null || bytes.Length == 0) return;
 
-                var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
-                var stream = new InMemoryRandomAccessStream();
-                using (var writer = new DataWriter(stream.GetOutputStreamAt(0)))
-                {
-                    writer.WriteBytes(bytes);
-                    await writer.StoreAsync();
-                }
-                var rsr = RandomAccessStreamReference.CreateFromStream(stream);
-                dataPackage.SetBitmap(rsr);
-                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
-                Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
-
-                var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<NotificationService>(((App)Application.Current).Services);
-                notificationService.ShowNotification("クリップボードにコピーしました", "\uE8C8");
+                var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ClipboardService>(((App)Application.Current).Services);
+                await clipboardService.CopyImageAsync(bytes, showNotification: true, DispatcherQueue);
             }
             catch { }
         }
@@ -320,8 +308,16 @@ namespace Caiqelle.Views
                 byte[] bytes = await _screenshotService.CaptureRegionToBytesAsync(_targetBounds);
                 if (bytes != null && bytes.Length > 0)
                 {
-                    var folderWindow = new FolderSelectionWindow((App)Application.Current);
-                    await folderWindow.ShowAsync(bytes);
+                    var app = (App)Application.Current;
+                    if (app.CaptureManager != null)
+                    {
+                        await app.CaptureManager.ShowFolderSelectionAsync(bytes);
+                    }
+                    else
+                    {
+                        var folderWindow = new FolderSelectionWindow(app);
+                        await folderWindow.ShowAsync(bytes);
+                    }
                 }
             }
             catch { }

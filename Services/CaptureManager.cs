@@ -30,12 +30,21 @@ namespace Caiqelle.Services
         public EditorWindow GetEditorWindow() => _editorWindow ??= new EditorWindow();
 
         /// <summary>
-        /// 初回キャプチャ時の遅延をなくすため、オーバーレイ用ウィンドウを事前に生成しておく
+        /// キャッシュ済みのフォルダ選択ウィンドウを再利用して表示する
+        /// </summary>
+        public Task<bool> ShowFolderSelectionAsync(byte[] imageBytes)
+        {
+            return GetFolderSelectionWindow().ShowAsync(imageBytes);
+        }
+
+        /// <summary>
+        /// 初回キャプチャ時の遅延をなくすため、オーバーレイ・保存ウィンドウを事前に生成しておく
         /// </summary>
         public void Prewarm()
         {
             _ = GetOverlayWindow();
             _ = GetWindowSelectionOverlay();
+            _ = GetFolderSelectionWindow();
         }
 
         public void CancelCapture()
@@ -157,7 +166,7 @@ namespace Caiqelle.Services
                             selectedRegion.Value.Height
                         );
                         
-                        await Task.Delay(50);
+                        await Task.Run(() => DwmFlush());
                         finalBytes = await _screenshotService.CaptureRegionToBytesAsync(absRect);
                     }
                     
@@ -190,46 +199,12 @@ namespace Caiqelle.Services
             }
         }
 
-        private async Task CopyToClipboardAsync(byte[] imageBytes, bool showNotification)
+        private Task CopyToClipboardAsync(byte[] imageBytes, bool showNotification)
         {
-            var tcs = new TaskCompletionSource<bool>();
             var app = (App)Microsoft.UI.Xaml.Application.Current;
+            var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ClipboardService>(app.Services);
             var dispatcher = app.MainWindow?.DispatcherQueue ?? _editorWindow?.DispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-            
-            if (dispatcher == null) return;
-
-            dispatcher.TryEnqueue(async () =>
-            {
-                try
-                {
-                    var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
-                    dataPackage.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-                    
-                    var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                    using (var writer = new Windows.Storage.Streams.DataWriter(stream.GetOutputStreamAt(0)))
-                    {
-                        writer.WriteBytes(imageBytes);
-                        await writer.StoreAsync();
-                    }
-                    var rsr = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream);
-                    dataPackage.SetBitmap(rsr);
-                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
-                    Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
-                    
-                    if (showNotification)
-                    {
-                        var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<NotificationService>(app.Services);
-                        notificationService.ShowNotification("クリップボードにコピーしました", "\uE8C8");
-                    }
-                    tcs.SetResult(true);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Clipboard Copy Error: {ex.Message}");
-                    tcs.SetResult(false);
-                }
-            });
-            await tcs.Task;
+            return clipboardService.CopyImageAsync(imageBytes, showNotification, dispatcher);
         }
 
         private void SaveAndShowNotification(byte[] imageBytes)

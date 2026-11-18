@@ -167,7 +167,7 @@ namespace Caiqelle.Views
             if (currentTool == EditorTool.Erase)
             {
                 var hostPos = e.GetCurrentPoint(null).Position;
-                TryEraseAtPoint(DrawCanvas, hostPos);
+                AnnotationHelper.TryEraseAtPoint(DrawCanvas, hostPos);
                 e.Handled = true;
                 return;
             }
@@ -212,7 +212,7 @@ namespace Caiqelle.Views
             else if (currentTool == EditorTool.Arrow)
             {
                 _currentArrow = new Microsoft.UI.Xaml.Shapes.Path { Stroke = brush, StrokeThickness = 4, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
-                UpdateArrowPath(_startPoint, _startPoint);
+                AnnotationHelper.UpdateArrowPath(_currentArrow, _startPoint, _startPoint);
                 DrawCanvas.Children.Add(_currentArrow);
                 _undoStack.Push(_currentArrow);
             }
@@ -297,7 +297,7 @@ namespace Caiqelle.Views
             }
             else if (currentTool == EditorTool.Arrow && _currentArrow != null)
             {
-                UpdateArrowPath(_startPoint, pos);
+                AnnotationHelper.UpdateArrowPath(_currentArrow, _startPoint, pos);
             }
             else if (currentTool == EditorTool.Rect && _currentRect != null)
             {
@@ -327,30 +327,6 @@ namespace Caiqelle.Views
             _currentRect = null;
             _currentEllipse = null;
             e.Handled = true;
-        }
-
-        private void UpdateArrowPath(Windows.Foundation.Point p1, Windows.Foundation.Point p2)
-        {
-            if (_currentArrow == null) return;
-            var geom = new Microsoft.UI.Xaml.Media.PathGeometry();
-            var fig = new Microsoft.UI.Xaml.Media.PathFigure { StartPoint = p1, IsClosed = false };
-            fig.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment { Point = p2 });
-
-            double angle = Math.Atan2(p2.Y - p1.Y, p2.X - p1.X);
-            double arrowLength = 15;
-            double arrowAngle = Math.PI / 6; // 30 degrees
-
-            var p3 = new Windows.Foundation.Point(p2.X - arrowLength * Math.Cos(angle - arrowAngle), p2.Y - arrowLength * Math.Sin(angle - arrowAngle));
-            var p4 = new Windows.Foundation.Point(p2.X - arrowLength * Math.Cos(angle + arrowAngle), p2.Y - arrowLength * Math.Sin(angle + arrowAngle));
-
-            fig.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment { Point = p3 });
-            
-            var fig2 = new Microsoft.UI.Xaml.Media.PathFigure { StartPoint = p2, IsClosed = false };
-            fig2.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment { Point = p4 });
-
-            geom.Figures.Add(fig);
-            geom.Figures.Add(fig2);
-            _currentArrow.Data = geom;
         }
 
         private void DrawStepNumber(Windows.Foundation.Point position)
@@ -384,26 +360,6 @@ namespace Caiqelle.Views
             _stepNumber++;
         }
 
-        private static bool TryEraseAtPoint(Canvas canvas, Windows.Foundation.Point hostPos)
-        {
-            var hitRect = new Windows.Foundation.Rect(hostPos.X - 6, hostPos.Y - 6, 12, 12);
-            var hits = VisualTreeHelper.FindElementsInHostCoordinates(hitRect, canvas);
-            foreach (var hit in hits)
-            {
-                DependencyObject? current = hit;
-                while (current != null && current != canvas)
-                {
-                    if (current is UIElement el && canvas.Children.Contains(el))
-                    {
-                        canvas.Children.Remove(el);
-                        return true;
-                    }
-                    current = VisualTreeHelper.GetParent(current);
-                }
-            }
-            return false;
-        }
-
         private void PerformClear()
         {
             DrawCanvas.Children.Clear();
@@ -415,12 +371,23 @@ namespace Caiqelle.Views
 
         private async Task PerformSaveAsync()
         {
-            var settings = ((App)Application.Current).Services.GetRequiredService<Caiqelle.Services.SettingsManager>();
+            var app = (App)Application.Current;
+            var settings = app.Services.GetRequiredService<Caiqelle.Services.SettingsManager>();
+            string format = settings.ImageFormat;
+            int quality = settings.JpegQuality;
+
             using var bmp = GetCompositedBitmap();
-            byte[] finalBytes = EncodeBitmap(bmp, settings.ImageFormat, settings.JpegQuality);
-            
-            var folderWindow = new FolderSelectionWindow((App)Application.Current);
-            await folderWindow.ShowAsync(finalBytes);
+            byte[] finalBytes = await Task.Run(() => EncodeBitmap(bmp, format, quality));
+
+            if (app.CaptureManager != null)
+            {
+                await app.CaptureManager.ShowFolderSelectionAsync(finalBytes);
+            }
+            else
+            {
+                var folderWindow = new FolderSelectionWindow(app);
+                await folderWindow.ShowAsync(finalBytes);
+            }
         }
 
         private static System.Drawing.Color ToDrawingColor(Brush? brush, System.Drawing.Color fallback)
@@ -600,19 +567,16 @@ namespace Caiqelle.Views
 
         private async Task PerformCopyAsync()
         {
-            var settings = ((App)Application.Current).Services.GetRequiredService<Caiqelle.Services.SettingsManager>();
+            var app = (App)Application.Current;
+            var settings = app.Services.GetRequiredService<Caiqelle.Services.SettingsManager>();
+            var clipboardService = app.Services.GetRequiredService<Caiqelle.Services.ClipboardService>();
+            string format = settings.ImageFormat;
+            int quality = settings.JpegQuality;
+
             using var bmp = GetCompositedBitmap();
-            byte[] finalBytes = EncodeBitmap(bmp, settings.ImageFormat, settings.JpegQuality);
-            
-            var dataPackage = new DataPackage();
-            dataPackage.RequestedOperation = DataPackageOperation.Copy;
-            
-            var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-            await stream.WriteAsync(finalBytes.AsBuffer());
-            stream.Seek(0);
-            
-            dataPackage.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
-            Clipboard.SetContent(dataPackage);
+            byte[] finalBytes = await Task.Run(() => EncodeBitmap(bmp, format, quality));
+
+            await clipboardService.CopyImageAsync(finalBytes, showNotification: false, DispatcherQueue);
         }
     }
     

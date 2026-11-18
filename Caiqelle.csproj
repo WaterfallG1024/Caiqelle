@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
@@ -19,6 +19,7 @@
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
     <FileVersion>0.1.0.0</FileVersion>
     <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Caiqelle.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

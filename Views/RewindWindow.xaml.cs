@@ -116,44 +116,17 @@ namespace Caiqelle.Views
             ViewModel.OpenInEditorCommand.Execute(null);
         }
 
-        private static void AnimateButtonScale(object sender, float scale, float damping, int periodMs)
-        {
-            if (sender is UIElement element)
-            {
-                var visual = ElementCompositionPreview.GetElementVisual(element);
-                var compositor = visual.Compositor;
-
-                var animation = compositor.CreateSpringVector3Animation();
-                animation.Target = "Scale";
-                animation.FinalValue = new Vector3(scale, scale, 1.0f);
-                animation.DampingRatio = damping;
-                animation.Period = TimeSpan.FromMilliseconds(periodMs);
-
-                visual.CenterPoint = new Vector3((float)element.ActualSize.X / 2, (float)element.ActualSize.Y / 2, 0);
-                visual.StartAnimation("Scale", animation);
-            }
-        }
-
         private void ActionBtn_PointerEntered(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Microsoft.UI.Xaml.Controls.Control c && !c.IsEnabled) return;
-            AnimateButtonScale(sender, 1.05f, 0.5f, 40);
-        }
+            => AnimationHelper.OnPointerEnteredScale(sender, e);
 
         private void ActionBtn_PointerExited(object sender, PointerRoutedEventArgs e)
-            => AnimateButtonScale(sender, 1.0f, 0.6f, 50);
+            => AnimationHelper.OnPointerExitedScale(sender, e);
 
         private void ActionBtn_PointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Microsoft.UI.Xaml.Controls.Control c && !c.IsEnabled) return;
-            AnimateButtonScale(sender, 0.95f, 0.4f, 30);
-        }
+            => AnimationHelper.OnPointerPressedScale(sender, e);
 
         private void ActionBtn_PointerReleased(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Microsoft.UI.Xaml.Controls.Control c && !c.IsEnabled) return;
-            AnimateButtonScale(sender, 1.05f, 0.5f, 40);
-        }
+            => AnimationHelper.OnPointerReleasedScale(sender, e);
 
         private static void BringToForeground(IntPtr hWnd)
         {

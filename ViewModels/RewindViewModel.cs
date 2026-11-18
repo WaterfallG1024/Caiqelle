@@ -2,8 +2,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Storage.Streams;
 using Caiqelle.Services;
@@ -20,6 +22,10 @@ namespace Caiqelle.ViewModels
         private readonly EditorWindow _editorWindow;
         private RewindFrame[] _frames = Array.Empty<RewindFrame>();
         private int _currentIndex;
+        private CancellationTokenSource? _previewCts;
+        private readonly Dictionary<int, byte[]> _decodedFrameCache = new();
+        private readonly Queue<int> _cacheOrder = new();
+        private const int MaxCachedFrames = 5;
 
         /// <summary>
         /// ウィンドウを閉じるためのコールバック
@@ -84,6 +90,11 @@ namespace Caiqelle.ViewModels
         /// </summary>
         public void ClearFrames()
         {
+            _previewCts?.Cancel();
+            _previewCts?.Dispose();
+            _previewCts = null;
+            _decodedFrameCache.Clear();
+            _cacheOrder.Clear();
             _frames = Array.Empty<RewindFrame>();
             PreviewImageSource = null;
         }
@@ -105,17 +116,35 @@ namespace Caiqelle.ViewModels
             _ = UpdatePreviewAsync();
         }
 
-        private async Task<byte[]?> GetCurrentFrameBytesAsync()
+        private async Task<byte[]?> GetFrameBytesAsync(int index, CancellationToken ct = default)
         {
-            if (_frames.Length == 0) return null;
+            if (index < 0 || index >= _frames.Length) return null;
 
-            var frame = _frames[_currentIndex];
+            if (_decodedFrameCache.TryGetValue(index, out var cached))
+            {
+                return cached;
+            }
+
+            var frame = _frames[index];
             byte[] imageBytes = frame.IsTiled
-                ? await Task.Run(() => _rewindService.GetFrameImageBytes(frame))
+                ? await Task.Run(() => _rewindService.GetFrameImageBytes(frame), ct)
                 : frame.JpegBytes;
+
+            if (imageBytes.Length > 0 && !ct.IsCancellationRequested)
+            {
+                if (_decodedFrameCache.Count >= MaxCachedFrames && _cacheOrder.Count > 0)
+                {
+                    int oldest = _cacheOrder.Dequeue();
+                    _decodedFrameCache.Remove(oldest);
+                }
+                _decodedFrameCache[index] = imageBytes;
+                _cacheOrder.Enqueue(index);
+            }
 
             return imageBytes.Length > 0 ? imageBytes : null;
         }
+
+        private Task<byte[]?> GetCurrentFrameBytesAsync() => GetFrameBytesAsync(_currentIndex);
 
         [RelayCommand]
         private async Task OpenInEditorAsync()
@@ -134,23 +163,9 @@ namespace Caiqelle.ViewModels
             byte[]? imageBytes = await GetCurrentFrameBytesAsync();
             if (imageBytes == null) return;
 
-            try
-            {
-                var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
-                var stream = new InMemoryRandomAccessStream();
-                await stream.WriteAsync(imageBytes.AsBuffer());
-                stream.Seek(0);
-                dataPackage.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
-                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
-                Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
-
-                var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<NotificationService>(((App)Microsoft.UI.Xaml.Application.Current).Services);
-                notificationService.ShowNotification("クリップボードにコピーしました", "\uE8C8");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[RewindViewModel] Copy error: {ex.Message}");
-            }
+            var app = (App)Microsoft.UI.Xaml.Application.Current;
+            var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ClipboardService>(app.Services);
+            await clipboardService.CopyImageAsync(imageBytes, showNotification: true);
         }
 
         [RelayCommand]
@@ -160,8 +175,15 @@ namespace Caiqelle.ViewModels
             if (imageBytes == null) return;
 
             var app = (App)Microsoft.UI.Xaml.Application.Current;
-            var folderWindow = new Views.FolderSelectionWindow(app);
-            await folderWindow.ShowAsync(imageBytes);
+            if (app.CaptureManager != null)
+            {
+                await app.CaptureManager.ShowFolderSelectionAsync(imageBytes);
+            }
+            else
+            {
+                var folderWindow = new Views.FolderSelectionWindow(app);
+                await folderWindow.ShowAsync(imageBytes);
+            }
         }
 
         [RelayCommand]
@@ -174,32 +196,40 @@ namespace Caiqelle.ViewModels
         {
             if (_frames.Length == 0) return;
 
-            var frame = _frames[_currentIndex];
+            _previewCts?.Cancel();
+            _previewCts?.Dispose();
+            _previewCts = new CancellationTokenSource();
+            var ct = _previewCts.Token;
+
+            int targetIndex = _currentIndex;
+            var frame = _frames[targetIndex];
             // 1秒1フレームで録画しているため、インデックスがそのまま経過秒数に対応し数字飛びを防ぐ
-            int elapsedSeconds = _currentIndex;
-            IndexText = $"{_currentIndex + 1}/{_frames.Length}({MainViewModel.FormatDuration(elapsedSeconds)}前)";
+            int elapsedSeconds = targetIndex;
+            IndexText = $"{targetIndex + 1}/{_frames.Length}({MainViewModel.FormatDuration(elapsedSeconds)}前)";
             TimestampText = $"記録時刻: {frame.Timestamp:yyyy/MM/dd HH:mm:ss}  •  矢印キー / ホイールで移動";
 
-            CanGoOlder = _currentIndex < _frames.Length - 1;
-            CanGoNewer = _currentIndex > 0;
+            CanGoOlder = targetIndex < _frames.Length - 1;
+            CanGoNewer = targetIndex > 0;
 
             try
             {
-                byte[] imageBytes = frame.IsTiled
-                    ? await Task.Run(() => _rewindService.GetFrameImageBytes(frame))
-                    : frame.JpegBytes;
+                byte[]? imageBytes = await GetFrameBytesAsync(targetIndex, ct);
+                if (ct.IsCancellationRequested || targetIndex != _currentIndex) return;
 
                 if (imageBytes != null && imageBytes.Length > 0)
                 {
-                    var stream = new InMemoryRandomAccessStream();
+                    using var stream = new InMemoryRandomAccessStream();
                     await stream.WriteAsync(imageBytes.AsBuffer());
+                    if (ct.IsCancellationRequested || targetIndex != _currentIndex) return;
                     stream.Seek(0);
 
                     var bitmap = new BitmapImage();
                     await bitmap.SetSourceAsync(stream);
+                    if (ct.IsCancellationRequested || targetIndex != _currentIndex) return;
                     PreviewImageSource = bitmap;
                 }
             }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[RewindViewModel] Image render error: {ex.Message}");

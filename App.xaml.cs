@@ -90,7 +90,13 @@ namespace Caiqelle
         {
             this.UnhandledException += (s, e) => 
             {
-                System.IO.File.WriteAllText(@"C:\Dev\personal\Caiqelle\crash_log.txt", "UnhandledException: " + e.Exception.ToString());
+                try
+                {
+                    string logDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Caiqelle");
+                    System.IO.Directory.CreateDirectory(logDir);
+                    System.IO.File.WriteAllText(System.IO.Path.Combine(logDir, "crash_log.txt"), "UnhandledException: " + e.Exception.ToString());
+                }
+                catch { }
             };
 
             Services = ConfigureServices();
@@ -241,6 +247,7 @@ namespace Caiqelle
             services.AddSingleton<ScreenshotService>();
             services.AddSingleton<StartupService>();
             services.AddSingleton<NotificationService>();
+            services.AddSingleton<ClipboardService>();
             services.AddSingleton<UpdateService>();
             services.AddTransient<ViewModels.MainViewModel>();
             services.AddTransient<ViewModels.FolderSelectionViewModel>();
@@ -295,6 +302,14 @@ namespace Caiqelle
 
                 // 軽量な CaptureManager 初期化（内部ウィンドウは遅延生成）
                 CaptureManager = new CaptureManager(Services.GetRequiredService<ScreenshotService>());
+
+                // 起動直後のUI応答性を損なわないよう、アイドル時にオーバーレイウィンドウを事前生成
+                var prewarmDispatcher = _hiddenTrayWindow.DispatcherQueue;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1500);
+                    prewarmDispatcher?.TryEnqueue(() => CaptureManager?.Prewarm());
+                });
 
                 // トレイアイコンの初期化（右クリックメニューはWin32ネイティブで処理）
                 _trayIcon = new H.NotifyIcon.TaskbarIcon

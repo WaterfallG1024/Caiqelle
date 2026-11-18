@@ -184,31 +184,35 @@ namespace Caiqelle.Services
             }
         }
 
-        public async Task<byte[]> CaptureRegionToBytesAsync(Rectangle bounds)
+        public Task<byte[]> CaptureRegionToBytesAsync(Rectangle bounds)
         {
-            if (bounds.Width <= 0 || bounds.Height <= 0) return Array.Empty<byte>();
-
-            using Bitmap bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
-            using Graphics graphics = Graphics.FromImage(bitmap);
-            
-            IntPtr hdcDest = graphics.GetHdc();
-            IntPtr hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
-            BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY | CAPTUREBLT);
-            DeleteDC(hdcSrc);
-            graphics.ReleaseHdc(hdcDest);
+            if (bounds.Width <= 0 || bounds.Height <= 0) return Task.FromResult(Array.Empty<byte>());
 
             var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<SettingsManager>(((App)Microsoft.UI.Xaml.Application.Current).Services);
-            
-            if (settings.ImageFormat == "JPEG")
+            string format = settings.ImageFormat;
+            int jpegQuality = settings.JpegQuality;
+
+            // BitBlt と画像エンコードをバックグラウンドスレッドで実行し、UIスレッドのブロックを防ぐ
+            return Task.Run(() =>
             {
-                return SaveJpeg(bitmap, settings.JpegQuality);
-            }
-            else
-            {
+                using Bitmap bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
+                using Graphics graphics = Graphics.FromImage(bitmap);
+
+                IntPtr hdcDest = graphics.GetHdc();
+                IntPtr hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
+                BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY | CAPTUREBLT);
+                DeleteDC(hdcSrc);
+                graphics.ReleaseHdc(hdcDest);
+
+                if (format == "JPEG")
+                {
+                    return SaveJpeg(bitmap, jpegQuality);
+                }
+
                 using MemoryStream ms = new MemoryStream();
                 bitmap.Save(ms, ImageFormat.Png);
                 return ms.ToArray();
-            }
+            });
         }
 
         public byte[] CaptureRegionToJpegBytes(Rectangle bounds, int targetHeight, long quality = 75L)

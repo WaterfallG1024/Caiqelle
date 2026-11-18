@@ -242,7 +242,7 @@ namespace Caiqelle.Views
                     if (_currentTool == EditorTool.Erase)
                     {
                         var hostPos = e.GetCurrentPoint(null).Position;
-                        TryEraseAtPoint(AnnotationCanvas, hostPos);
+                        AnnotationHelper.TryEraseAtPoint(AnnotationCanvas, hostPos);
                     }
                     else
                     {
@@ -541,26 +541,6 @@ namespace Caiqelle.Views
             EraseModeBtn.IsChecked = true;
         }
 
-        private static bool TryEraseAtPoint(Canvas canvas, Windows.Foundation.Point hostPos)
-        {
-            var hitRect = new Windows.Foundation.Rect(hostPos.X - 6, hostPos.Y - 6, 12, 12);
-            var hits = VisualTreeHelper.FindElementsInHostCoordinates(hitRect, canvas);
-            foreach (var hit in hits)
-            {
-                DependencyObject? current = hit;
-                while (current != null && current != canvas)
-                {
-                    if (current is UIElement el && canvas.Children.Contains(el))
-                    {
-                        canvas.Children.Remove(el);
-                        return true;
-                    }
-                    current = VisualTreeHelper.GetParent(current);
-                }
-            }
-            return false;
-        }
-
         private void PenThicknessSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
             _penThickness = e.NewValue;
@@ -756,14 +736,15 @@ namespace Caiqelle.Views
             FloatingToolbar.Visibility = Visibility.Collapsed;
             SetHandlesVisibility(Visibility.Collapsed);
 
-            if (_isLivePinMode)
+            // アノテーションがない場合は RenderTargetBitmap をスキップし、高速な直接キャプチャへ委ねる
+            if (_isLivePinMode || AnnotationCanvas.Children.Count == 0)
             {
                 CapturedBytes = null;
                 HideAndComplete();
                 return;
             }
 
-            await Task.Delay(50);
+            await Task.Delay(16);
 
             CapturedBytes = await GetCompositedImageBytesAsync();
 
@@ -853,7 +834,7 @@ namespace Caiqelle.Views
             else if (_currentTool == EditorTool.Arrow)
             {
                 _currentArrow = new Microsoft.UI.Xaml.Shapes.Path { Stroke = _currentBrush, StrokeThickness = 4, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
-                UpdateArrowPath(p, p);
+                AnnotationHelper.UpdateArrowPath(_currentArrow, p, p);
                 AnnotationCanvas.Children.Add(_currentArrow);
                 _undoStack.Push(_currentArrow);
             }
@@ -892,7 +873,7 @@ namespace Caiqelle.Views
         {
             if (_currentTool == EditorTool.Pen && _currentPolyline != null) _currentPolyline.Points.Add(p);
             else if ((_currentTool == EditorTool.Line || _currentTool == EditorTool.DashedLine) && _currentLine != null) { _currentLine.X2 = p.X; _currentLine.Y2 = p.Y; }
-            else if (_currentTool == EditorTool.Arrow && _currentArrow != null) UpdateArrowPath(_startPoint, p);
+            else if (_currentTool == EditorTool.Arrow && _currentArrow != null) AnnotationHelper.UpdateArrowPath(_currentArrow, _startPoint, p);
             else if (_currentTool == EditorTool.Rect && _currentRect != null)
             {
                 Canvas.SetLeft(_currentRect, Math.Min(_startPoint.X, p.X)); Canvas.SetTop(_currentRect, Math.Min(_startPoint.Y, p.Y));
@@ -902,26 +883,6 @@ namespace Caiqelle.Views
             {
                 Canvas.SetLeft(_currentEllipse, Math.Min(_startPoint.X, p.X)); Canvas.SetTop(_currentEllipse, Math.Min(_startPoint.Y, p.Y));
                 _currentEllipse.Width = Math.Abs(p.X - _startPoint.X); _currentEllipse.Height = Math.Abs(p.Y - _startPoint.Y);
-            }
-        }
-
-        private void UpdateArrowPath(Windows.Foundation.Point p1, Windows.Foundation.Point p2)
-        {
-            double headLen = 15;
-            double headAngle = Math.PI / 6;
-            double angle = Math.Atan2(p2.Y - p1.Y, p2.X - p1.X);
-            var p3 = new Windows.Foundation.Point(p2.X - headLen * Math.Cos(angle - headAngle), p2.Y - headLen * Math.Sin(angle - headAngle));
-            var p4 = new Windows.Foundation.Point(p2.X - headLen * Math.Cos(angle + headAngle), p2.Y - headLen * Math.Sin(angle + headAngle));
-            var pg = new PathGeometry();
-            var pf = new PathFigure { StartPoint = p1, IsClosed = false };
-            pf.Segments.Add(new LineSegment { Point = p2 });
-            pf.Segments.Add(new LineSegment { Point = p3 });
-            var pf2 = new PathFigure { StartPoint = p2, IsClosed = false };
-            pf2.Segments.Add(new LineSegment { Point = p4 });
-            pg.Figures.Add(pf); pg.Figures.Add(pf2);
-            if (_currentArrow != null)
-            {
-                _currentArrow.Data = pg;
             }
         }
     }
