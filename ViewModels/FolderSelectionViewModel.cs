@@ -221,12 +221,7 @@ namespace Caiqelle.ViewModels
             {
                 bool saved = await Task.Run(() =>
                 {
-                    string finalFolderPath = folderPath;
-                    if (!Path.IsPathRooted(finalFolderPath))
-                    {
-                        string myPictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-                        finalFolderPath = Path.Combine(myPictures, "Caiqelle", folderPath);
-                    }
+                    string finalFolderPath = SettingsManager.ResolveFolderPath(folderPath);
 
                     if (!Directory.Exists(finalFolderPath))
                     {
@@ -237,27 +232,36 @@ namespace Caiqelle.ViewModels
                     bool isJpeg = imageBytes.Length >= 2 && imageBytes[0] == 0xFF && imageBytes[1] == 0xD8;
                     string defaultExt = isJpeg ? ".jpg" : ".png";
 
-                    string fileName;
+                    string fileName = string.Empty;
                     if (!string.IsNullOrEmpty(inputName))
                     {
                         foreach (char c in Path.GetInvalidFileNameChars())
                         {
                             inputName = inputName.Replace(c, '_');
                         }
+                        inputName = inputName.Trim().TrimEnd('.');
 
-                        bool hasMatchingExt = isJpeg
-                            ? (inputName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || inputName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
-                            : inputName.EndsWith(".png", StringComparison.OrdinalIgnoreCase);
+                        if (SettingsManager.IsSafeEntryName(inputName))
+                        {
+                            bool hasMatchingExt = isJpeg
+                                ? (inputName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || inputName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                                : inputName.EndsWith(".png", StringComparison.OrdinalIgnoreCase);
 
-                        fileName = hasMatchingExt ? inputName : $"{inputName}{defaultExt}";
+                            fileName = hasMatchingExt ? inputName : $"{inputName}{defaultExt}";
+                        }
                     }
-                    else
+
+                    if (string.IsNullOrEmpty(fileName))
                     {
                         string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                         fileName = $"Caiqelle_{timestamp}{defaultExt}";
                     }
 
                     string fullPath = Path.Combine(finalFolderPath, fileName);
+                    if (!SettingsManager.IsPathWithinDirectory(finalFolderPath, fullPath))
+                    {
+                        return false;
+                    }
                     if (File.Exists(fullPath))
                     {
                         return false;

@@ -559,11 +559,13 @@ namespace Caiqelle.ViewModels
         [RelayCommand]
         private async Task OpenWhatsNewDetailAsync()
         {
-            if (_latestRelease != null && !string.IsNullOrEmpty(_latestRelease.HtmlUrl))
+            if (_latestRelease != null &&
+                Uri.TryCreate(_latestRelease.HtmlUrl, UriKind.Absolute, out var uri) &&
+                uri.Scheme == Uri.UriSchemeHttps)
             {
                 try
                 {
-                    await Launcher.LaunchUriAsync(new Uri(_latestRelease.HtmlUrl));
+                    await Launcher.LaunchUriAsync(uri);
                 }
                 catch { }
             }

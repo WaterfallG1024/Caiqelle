@@ -384,7 +384,13 @@ namespace Caiqelle
             }
             catch (Exception ex)
             {
-                System.IO.File.WriteAllText(@"C:\Dev\personal\Caiqelle\crash_log.txt", "OnLaunched: " + ex.ToString());
+                try
+                {
+                    string logDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Caiqelle");
+                    System.IO.Directory.CreateDirectory(logDir);
+                    System.IO.File.WriteAllText(System.IO.Path.Combine(logDir, "crash_log.txt"), "OnLaunched: " + ex.ToString());
+                }
+                catch { }
                 throw;
             }
         }

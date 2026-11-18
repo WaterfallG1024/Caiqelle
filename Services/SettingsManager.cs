@@ -237,6 +237,38 @@ namespace Caiqelle.Services
 
         public event Action? MappingsChanged;
 
+        private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        };
+
+        /// <summary>
+        /// 単一のファイル名・フォルダ名として安全に使用できるか検証する
+        /// </summary>
+        public static bool IsSafeEntryName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            string trimmed = name.Trim();
+            if (trimmed == "." || trimmed == ".." || trimmed.EndsWith('.')) return false;
+            if (trimmed.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
+
+            string baseName = Path.GetFileNameWithoutExtension(trimmed);
+            return !ReservedDeviceNames.Contains(trimmed) && !ReservedDeviceNames.Contains(baseName);
+        }
+
+        /// <summary>
+        /// 指定パスが基準ディレクトリ配下に収まっているか検証する
+        /// </summary>
+        public static bool IsPathWithinDirectory(string baseDir, string candidatePath)
+        {
+            string normalizedBase = Path.GetFullPath(baseDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                                    + Path.DirectorySeparatorChar;
+            string normalizedTarget = Path.GetFullPath(candidatePath);
+            return normalizedTarget.StartsWith(normalizedBase, StringComparison.OrdinalIgnoreCase);
+        }
+
         public static string ResolveFolderPath(string folderName)
         {
             if (Path.IsPathRooted(folderName))
@@ -244,7 +276,9 @@ namespace Caiqelle.Services
                 return folderName;
             }
             string myPictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-            return Path.Combine(myPictures, "Caiqelle", folderName);
+            string baseDir = Path.Combine(myPictures, "Caiqelle");
+            string resolved = Path.Combine(baseDir, folderName);
+            return IsPathWithinDirectory(baseDir, resolved) ? resolved : baseDir;
         }
 
         /// <summary>
@@ -266,6 +300,12 @@ namespace Caiqelle.Services
             if (folder.IndexOfAny(invalidChars) >= 0)
             {
                 errorMessage = "フォルダ名に \\ / : * ? \" < > | は使用できません。";
+                return false;
+            }
+
+            if (!IsSafeEntryName(folder))
+            {
+                errorMessage = "そのフォルダ名はシステム予約名または無効な形式のため使用できません。";
                 return false;
             }
 
