@@ -69,6 +69,7 @@ namespace Caiqelle.ViewModels
         private readonly StartupService _startupService;
         private readonly NotificationService _notificationService;
         private readonly ThemeService _themeService;
+        private readonly StickyTextService _stickyTextService;
         private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
         private bool _isInitializing = true;
@@ -252,6 +253,15 @@ namespace Caiqelle.ViewModels
         public partial bool IsIgnoreOutsideSelectionClick { get; set; } = true;
 
         [ObservableProperty]
+        public partial bool IsStickyTextStealthMode { get; set; } = false;
+
+        [ObservableProperty]
+        public partial bool IsStickyTextSaveEnabled { get; set; } = false;
+
+        [ObservableProperty]
+        public partial bool IsStickyTextRestoreOnOpen { get; set; } = true;
+
+        [ObservableProperty]
         public partial bool IsAutoUpdateEnabled { get; set; }
 
         [ObservableProperty]
@@ -287,7 +297,8 @@ namespace Caiqelle.ViewModels
             ScreenshotService screenshotService,
             StartupService startupService,
             NotificationService notificationService,
-            ThemeService themeService)
+            ThemeService themeService,
+            StickyTextService stickyTextService)
         {
             _settings = settings;
             _rewindService = rewindService;
@@ -296,6 +307,7 @@ namespace Caiqelle.ViewModels
             _startupService = startupService;
             _notificationService = notificationService;
             _themeService = themeService;
+            _stickyTextService = stickyTextService;
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
             foreach (var info in ThemeService.AvailableThemes)
@@ -338,6 +350,9 @@ namespace Caiqelle.ViewModels
                 IsRunAtStartup = _settings.IsRunAtStartup;
                 IsAutoCopyToClipboard = _settings.IsAutoCopyToClipboard;
                 IsIgnoreOutsideSelectionClick = _settings.IsIgnoreOutsideSelectionClick;
+                IsStickyTextStealthMode = _settings.IsStickyTextStealthMode;
+                IsStickyTextSaveEnabled = _settings.IsStickyTextSaveEnabled;
+                IsStickyTextRestoreOnOpen = _settings.IsStickyTextRestoreOnOpen;
                 IsAutoUpdateEnabled = _settings.IsAutoUpdateEnabled;
 
                 VersionText = $"v{GetCurrentVersionString()}";
@@ -444,6 +459,22 @@ namespace Caiqelle.ViewModels
 
         [RelayCommand]
         private Task CaptureOcrAsync() => ExecuteCaptureAsync(CapturedKey.E);
+
+        [RelayCommand]
+        private void OpenStickyText()
+        {
+            var mainWin = ((App)Microsoft.UI.Xaml.Application.Current).MainWindow;
+            if (mainWin != null) Caiqelle.Views.WindowExtensions.Hide(mainWin);
+            _stickyTextService.OpenStickyText();
+        }
+
+        [RelayCommand]
+        private void OpenStickyTextList()
+        {
+            var mainWin = ((App)Microsoft.UI.Xaml.Application.Current).MainWindow;
+            if (mainWin != null) Caiqelle.Views.WindowExtensions.Hide(mainWin);
+            _stickyTextService.OpenStickyTextList();
+        }
 
         private async Task ExecuteCaptureAsync(CapturedKey key)
         {
@@ -716,6 +747,29 @@ namespace Caiqelle.ViewModels
         {
             if (_isInitializing) return;
             _settings.IsIgnoreOutsideSelectionClick = value;
+            _settings.SaveSettings();
+        }
+
+        partial void OnIsStickyTextStealthModeChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsStickyTextStealthMode = value;
+            _settings.SaveSettings();
+            _stickyTextService.SetAllStealthMode(value);
+        }
+
+        partial void OnIsStickyTextSaveEnabledChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsStickyTextSaveEnabled = value;
+            _settings.SaveSettings();
+            _stickyTextService.SetSaveEnabled(value);
+        }
+
+        partial void OnIsStickyTextRestoreOnOpenChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsStickyTextRestoreOnOpen = value;
             _settings.SaveSettings();
         }
 

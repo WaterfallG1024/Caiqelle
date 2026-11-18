@@ -174,6 +174,14 @@ namespace Caiqelle
                         ViewModel.NavigateToRewindCommand.Execute(null);
                         e.Handled = true;
                         break;
+                    case VirtualKey.S:
+                        ViewModel.OpenStickyTextCommand.Execute(null);
+                        e.Handled = true;
+                        break;
+                    case VirtualKey.V:
+                        ViewModel.OpenStickyTextListCommand.Execute(null);
+                        e.Handled = true;
+                        break;
                     case VirtualKey.Escape:
                         this.Hide();
                         e.Handled = true;

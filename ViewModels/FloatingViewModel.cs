@@ -47,6 +47,20 @@ namespace Caiqelle.ViewModels
         }
 
         [RelayCommand]
+        private void OpenStickyText()
+        {
+            RequestHideWindow?.Invoke();
+            ((StickyTextService)((App)Microsoft.UI.Xaml.Application.Current).Services.GetService(typeof(StickyTextService))!).OpenStickyText();
+        }
+
+        [RelayCommand]
+        private void OpenStickyTextList()
+        {
+            RequestHideWindow?.Invoke();
+            ((StickyTextService)((App)Microsoft.UI.Xaml.Application.Current).Services.GetService(typeof(StickyTextService))!).OpenStickyTextList();
+        }
+
+        [RelayCommand]
         private void Hide() => RequestHideWindow?.Invoke();
 
         private async Task ExecuteCaptureAsync(CapturedKey key)

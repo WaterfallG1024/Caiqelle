@@ -1,0 +1,96 @@
+<Window
+    x:Class="Caiqelle.Views.StickyTextToolbarWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Sticky Text Toolbar">
+
+    <Grid x:Name="RootGrid"
+          Background="Transparent"
+          PointerEntered="RootGrid_PointerEntered"
+          PointerExited="RootGrid_PointerExited">
+        <Border x:Name="ToolbarBorder"
+                Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                BorderBrush="#33FFFFFF"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="6,4"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top">
+            <StackPanel x:Name="ToolbarStack" Orientation="Horizontal" Spacing="2">
+                <ToggleButton x:Name="BoldBtn" ToolTipService.ToolTip="太字" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="BoldBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8DD;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </ToggleButton>
+                <ToggleButton x:Name="ItalicBtn" ToolTipService.ToolTip="斜体" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="ItalicBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8DB;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </ToggleButton>
+                <ToggleButton x:Name="UnderlineBtn" ToolTipService.ToolTip="下線" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="UnderlineBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8DC;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </ToggleButton>
+
+                <Button x:Name="ColorBtn" ToolTipService.ToolTip="文字色" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0">
+                    <Border x:Name="ColorPreviewBorder" Width="14" Height="14" CornerRadius="4" Background="White" BorderBrush="#66FFFFFF" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Button.Flyout>
+                        <Flyout ShouldConstrainToRootBounds="False" Opened="ColorFlyout_Opened" Closed="ColorFlyout_Closed">
+                            <ColorPicker x:Name="TextColorPicker"
+                                         Color="White"
+                                         ColorChanged="TextColorPicker_ColorChanged"
+                                         ColorSpectrumShape="Ring"
+                                         IsMoreButtonVisible="False"
+                                         IsColorSliderVisible="True"
+                                         IsColorChannelTextInputVisible="False"
+                                         IsHexInputVisible="True"
+                                         IsAlphaEnabled="True"
+                                         IsAlphaSliderVisible="True"
+                                         IsAlphaTextInputVisible="False" />
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+
+                <Rectangle Width="1" Height="16" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
+
+                <Button x:Name="FontDownBtn" ToolTipService.ToolTip="文字を小さく" Width="24" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="FontDownBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE738;" FontSize="11" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </Button>
+                <TextBlock x:Name="FontSizeText" Text="24" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" MinWidth="22" TextAlignment="Center" VerticalAlignment="Center" />
+                <Button x:Name="FontUpBtn" ToolTipService.ToolTip="文字を大きく" Width="24" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="FontUpBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE710;" FontSize="11" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </Button>
+
+                <Rectangle Width="1" Height="16" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
+
+                <Button x:Name="BgModeBtn" ToolTipService.ToolTip="背景: 半透明（クリックで不透明へ）" Height="28" Padding="8,0" Background="Transparent" BorderThickness="0" CornerRadius="6" Click="BgModeBtn_Click">
+                    <TextBlock x:Name="BgModeText" Text="半透明" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
+                </Button>
+
+                <ToggleButton x:Name="StealthBtn" ToolTipService.ToolTip="カンペモード（画面共有・録画に非表示）" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="StealthBtn_Click">
+                    <FontIcon x:Name="StealthIcon" FontFamily="Segoe Fluent Icons" Glyph="&#xE890;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </ToggleButton>
+
+                <Button x:Name="EditToggleBtn" ToolTipService.ToolTip="確定 (Ctrl + Enter)" Width="30" Height="28" Background="{StaticResource M3PrimaryContainerGlassBrush}" BorderThickness="0" CornerRadius="6" Padding="0" Click="EditToggleBtn_Click">
+                    <FontIcon x:Name="EditToggleIcon" FontFamily="Segoe Fluent Icons" Glyph="&#xE73E;" FontSize="15" Foreground="{StaticResource M3PrimaryBrush}" />
+                </Button>
+
+                <Button x:Name="AddBtn" ToolTipService.ToolTip="新しい Sticky Text を追加" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="AddBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xECC8;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </Button>
+
+                <Button x:Name="ListBtn" ToolTipService.ToolTip="Sticky View" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="ListBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8FD;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </Button>
+
+                <Rectangle x:Name="DeleteSeparator" Width="1" Height="16" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
+
+                <Button x:Name="DeleteBtn" ToolTipService.ToolTip="完全に削除（保存データからも削除）" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="DeleteBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="13" Foreground="#FFFF6B6B" />
+                </Button>
+
+                <Button x:Name="CloseBtn" ToolTipService.ToolTip="閉じる / 非表示 (Esc)" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="CloseBtn_Click">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE711;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

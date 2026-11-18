@@ -215,6 +215,16 @@ namespace Caiqelle
                     _floatingWindow?.HideInstantlyAndClose();
                     ShowMainWindowAtTab(ViewModels.MainTab.Rewind);
                 }
+                else if (key == CapturedKey.S)
+                {
+                    _floatingWindow?.HideInstantlyAndClose();
+                    Services.GetRequiredService<StickyTextService>().OpenStickyText();
+                }
+                else if (key == CapturedKey.V)
+                {
+                    _floatingWindow?.HideInstantlyAndClose();
+                    Services.GetRequiredService<StickyTextService>().OpenStickyTextList();
+                }
                 else if (key == CapturedKey.C || key == CapturedKey.W || key == CapturedKey.F || key == CapturedKey.E || key == CapturedKey.P || key == CapturedKey.L)
                 {
                     System.Diagnostics.Debug.WriteLine($"Action: {key}");
@@ -248,6 +258,7 @@ namespace Caiqelle
             services.AddSingleton<StartupService>();
             services.AddSingleton<NotificationService>();
             services.AddSingleton<ClipboardService>();
+            services.AddSingleton<StickyTextService>();
             services.AddSingleton<UpdateService>();
             services.AddTransient<ViewModels.MainViewModel>();
             services.AddTransient<ViewModels.FolderSelectionViewModel>();
@@ -344,6 +355,15 @@ namespace Caiqelle
                     dispatcher?.TryEnqueue(() =>
                     {
                         PositionAndShowWindow();
+                    });
+                }
+
+                // 保存有効かつ「Sticky Text起動時に復元」がOFFの場合は、アプリ起動と同時に自動復元
+                if (settings.IsStickyTextSaveEnabled && !settings.IsStickyTextRestoreOnOpen && settings.SavedStickyTexts.Count > 0)
+                {
+                    _hiddenTrayWindow?.DispatcherQueue?.TryEnqueue(() =>
+                    {
+                        Services.GetRequiredService<StickyTextService>().RestoreSavedStickyTexts();
                     });
                 }
 

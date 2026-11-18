@@ -150,24 +150,40 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="4" Grid.ColumnSpan="3" Style="{StaticResource CardButtonStyle}" Padding="16,12" Command="{x:Bind ViewModel.CaptureLivePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
-                        <Grid HorizontalAlignment="Stretch" VerticalAlignment="Center">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="12" Background="{StaticResource M3PrimaryContainerGlassBrush}" Margin="0,0,12,0">
-                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8A3;" FontSize="18" Foreground="{StaticResource M3PrimaryBrush}"/>
+                    <Button Grid.Row="4" Grid.Column="0" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.CaptureLivePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                            <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8A3;" FontSize="20" Foreground="{StaticResource M3PrimaryBrush}"/>
                             </Border>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="ライブピン留め" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}"/>
-                                <TextBlock Text="指定領域をリアルタイム拡大表示" FontSize="11" Foreground="{StaticResource AfterGlowTextSecondaryBrush}"/>
-                            </StackPanel>
-                            <Border Grid.Column="2" Background="{StaticResource M3SurfaceContainerHighestBrush}" CornerRadius="6" Padding="8,3" VerticalAlignment="Center">
+                            <TextBlock Text="ライブピン留め" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center"/>
+                            <Border Background="{StaticResource M3SurfaceContainerHighestBrush}" CornerRadius="6" Padding="6,2" HorizontalAlignment="Center">
                                 <TextBlock Text="L" FontSize="11" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontWeight="Bold"/>
                             </Border>
-                        </Grid>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Row="4" Grid.Column="1" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.OpenStickyTextCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                            <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70B;" FontSize="20" Foreground="{StaticResource M3PrimaryBrush}"/>
+                            </Border>
+                            <TextBlock Text="Sticky Text" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center"/>
+                            <Border Background="{StaticResource M3SurfaceContainerHighestBrush}" CornerRadius="6" Padding="6,2" HorizontalAlignment="Center">
+                                <TextBlock Text="S" FontSize="11" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontWeight="Bold"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Row="4" Grid.Column="2" Style="{StaticResource CardButtonStyle}" Command="{x:Bind ViewModel.OpenStickyTextListCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerCanceled="Card_PointerExited" PointerCaptureLost="Card_PointerExited">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                            <Border Width="48" Height="48" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8FD;" FontSize="20" Foreground="{StaticResource M3PrimaryBrush}"/>
+                            </Border>
+                            <TextBlock Text="Sticky View" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center"/>
+                            <Border Background="{StaticResource M3SurfaceContainerHighestBrush}" CornerRadius="6" Padding="6,2" HorizontalAlignment="Center">
+                                <TextBlock Text="V" FontSize="11" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontWeight="Bold"/>
+                            </Border>
+                        </StackPanel>
                     </Button>
 
                     <!-- Shortcut Guide Card (M3 Surface Container) -->
@@ -390,147 +406,199 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Settings Tab (M3 Expressive) -->
+                <!-- Settings Tab (M3 Expressive Grouped Sections) -->
                 <Grid x:Name="SettingsTab" Visibility="{x:Bind ViewModel.IsSettingsTabVisible, Mode=OneWay}">
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="全体設定" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" Margin="4,0,0,8"/>
+                    <StackPanel Spacing="14">
+                        <!-- 外観 -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="外観" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" Margin="6,0,0,0"/>
+                            <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="カラーテーマ" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                    <ComboBox Grid.Column="1" x:Name="AccentThemeCombo" Width="170" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              ItemsSource="{x:Bind ViewModel.AccentThemeOptions}"
+                                              SelectedIndex="{x:Bind ViewModel.SelectedAccentThemeIndex, Mode=TwoWay}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AccentThemeOption" xmlns:vm="using:Caiqelle.ViewModels">
+                                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <Ellipse Width="12" Height="12" Fill="{x:Bind ColorBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" FontSize="13"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
 
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="カラーテーマ" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ComboBox Grid.Column="1" x:Name="AccentThemeCombo" Width="170" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                          ItemsSource="{x:Bind ViewModel.AccentThemeOptions}"
-                                          SelectedIndex="{x:Bind ViewModel.SelectedAccentThemeIndex, Mode=TwoWay}">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:AccentThemeOption" xmlns:vm="using:Caiqelle.ViewModels">
-                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                <Ellipse Width="12" Height="12" Fill="{x:Bind ColorBrush}" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" FontSize="13"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                            </Grid>
-                        </Border>
-                        
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="画像保存形式" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ComboBox Grid.Column="1" x:Name="ImageFormatCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                          ItemsSource="{x:Bind ViewModel.ImageFormatOptions}"
-                                          DisplayMemberPath="Label"
-                                          SelectedValuePath="Value"
-                                          SelectedValue="{x:Bind ViewModel.SelectedImageFormat, Mode=TwoWay}"/>
-                            </Grid>
-                        </Border>
-                        
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="画像圧縮 (JPEG)" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ComboBox Grid.Column="1" x:Name="ImageCompressionCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                          IsEnabled="{x:Bind ViewModel.IsImageCompressionEnabled, Mode=OneWay}"
-                                          ItemsSource="{x:Bind ViewModel.ImageCompressionOptions}"
-                                          DisplayMemberPath="Label"
-                                          SelectedValuePath="Value"
-                                          SelectedValue="{x:Bind ViewModel.SelectedJpegQuality, Mode=TwoWay}"/>
-                            </Grid>
-                        </Border>
-                        
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="PrintScreen乗っ取り" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="PrintScreenHookSwitch" IsOn="{x:Bind ViewModel.IsHijackPrintScreen, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
-                            </Grid>
-                        </Border>
-                        
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Win+Shift+S乗っ取り" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="WinShiftSHookSwitch" IsOn="{x:Bind ViewModel.IsHijackWinShiftS, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
-                            </Grid>
-                        </Border>
-
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Windows起動時に自動実行する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="RunAtStartupSwitch" IsOn="{x:Bind ViewModel.IsRunAtStartup, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
-                            </Grid>
-                        </Border>
-
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="自動クリップボードコピー" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="AutoCopyToClipboardSwitch" IsOn="{x:Bind ViewModel.IsAutoCopyToClipboard, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
-                            </Grid>
-                        </Border>
-
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
-                                    <TextBlock Text="範囲選択外のクリック・ドラッグを無効化" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" TextWrapping="Wrap"/>
-                                    <TextBlock Text="範囲確定後、枠外の操作で選択がやり直されるのを防ぎます" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <!-- キャプチャ・保存 -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="キャプチャ・保存" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" Margin="6,0,0,0"/>
+                            <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16">
+                                <StackPanel>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="画像保存形式" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        <ComboBox Grid.Column="1" x:Name="ImageFormatCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                  ItemsSource="{x:Bind ViewModel.ImageFormatOptions}"
+                                                  DisplayMemberPath="Label"
+                                                  SelectedValuePath="Value"
+                                                  SelectedValue="{x:Bind ViewModel.SelectedImageFormat, Mode=TwoWay}"/>
+                                    </Grid>
+                                    <Border Height="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" Margin="16,0"/>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="画像圧縮 (JPEG)" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        <ComboBox Grid.Column="1" x:Name="ImageCompressionCombo" Width="150" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                  IsEnabled="{x:Bind ViewModel.IsImageCompressionEnabled, Mode=OneWay}"
+                                                  ItemsSource="{x:Bind ViewModel.ImageCompressionOptions}"
+                                                  DisplayMemberPath="Label"
+                                                  SelectedValuePath="Value"
+                                                  SelectedValue="{x:Bind ViewModel.SelectedJpegQuality, Mode=TwoWay}"/>
+                                    </Grid>
+                                    <Border Height="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" Margin="16,0"/>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="自動クリップボードコピー" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        <ToggleSwitch Grid.Column="1" x:Name="AutoCopyToClipboardSwitch" IsOn="{x:Bind ViewModel.IsAutoCopyToClipboard, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
+                                    <Border Height="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" Margin="16,0"/>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="範囲選択外のクリック・ドラッグを無効化" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" TextWrapping="Wrap"/>
+                                            <TextBlock Text="範囲確定後、枠外の操作で選択がやり直されるのを防ぎます" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="IgnoreOutsideSelectionSwitch" IsOn="{x:Bind ViewModel.IsIgnoreOutsideSelectionClick, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
                                 </StackPanel>
-                                <ToggleSwitch Grid.Column="1" x:Name="IgnoreOutsideSelectionSwitch" IsOn="{x:Bind ViewModel.IsIgnoreOutsideSelectionClick, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
-                            </Grid>
-                        </Border>
+                            </Border>
+                        </StackPanel>
 
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="起動時に自動でアップデートを確認する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <ToggleSwitch Grid.Column="1" x:Name="AutoUpdateSwitch" IsOn="{x:Bind ViewModel.IsAutoUpdateEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
-                            </Grid>
-                        </Border>
-
-                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-                                    <TextBlock Text="バージョン情報" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="VersionText" Text="{x:Bind ViewModel.VersionText, Mode=OneWay}" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12"/>
-                                    <TextBlock x:Name="UpdateStatusText" Text="{x:Bind ViewModel.UpdateStatusText, Mode=OneWay}" Foreground="{StaticResource FuncCyanBrush}" FontSize="12" Visibility="{x:Bind ViewModel.IsUpdateStatusVisible, Mode=OneWay}"/>
+                        <!-- Sticky Text -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Sticky Text" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" Margin="6,0,0,0"/>
+                            <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16">
+                                <StackPanel>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="Sticky Text の内容を保存する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" TextWrapping="Wrap"/>
+                                            <TextBlock Text="テキスト・書式・配置を保存し、次回復元できるようにします" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="StickyTextSaveSwitch" IsOn="{x:Bind ViewModel.IsStickyTextSaveEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
+                                    <Border Height="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" Margin="16,0"/>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="Sticky Text 起動時に復元する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" TextWrapping="Wrap"/>
+                                            <TextBlock Text="ON時はSticky Text起動時に復元し、OFF時はアプリ起動と同時に自動復元します" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="StickyTextRestoreOnOpenSwitch" IsOn="{x:Bind ViewModel.IsStickyTextRestoreOnOpen, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.IsStickyTextSaveEnabled, Mode=OneWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
+                                    <Border Height="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" Margin="16,0"/>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="Sticky Text をカンペモードにする" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" TextWrapping="Wrap"/>
+                                            <TextBlock Text="ON時は画面共有・録画に映らず、すべてのSticky Textへ一括反映されます" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" x:Name="StickyTextStealthSwitch" IsOn="{x:Bind ViewModel.IsStickyTextStealthMode, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
                                 </StackPanel>
-                                <Button Grid.Column="1" x:Name="CheckUpdateBtn" Content="更新を確認" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.CheckUpdateCommand}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="14,6"/>
-                            </Grid>
-                        </Border>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ホットキー -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="ホットキー" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" Margin="6,0,0,0"/>
+                            <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16">
+                                <StackPanel>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="PrintScreen乗っ取り" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        <ToggleSwitch Grid.Column="1" x:Name="PrintScreenHookSwitch" IsOn="{x:Bind ViewModel.IsHijackPrintScreen, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
+                                    <Border Height="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" Margin="16,0"/>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Win+Shift+S乗っ取り" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        <ToggleSwitch Grid.Column="1" x:Name="WinShiftSHookSwitch" IsOn="{x:Bind ViewModel.IsHijackWinShiftS, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- システム・アプリ情報 -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="システム・アプリ情報" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" Margin="6,0,0,0"/>
+                            <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16">
+                                <StackPanel>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Windows起動時に自動実行する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        <ToggleSwitch Grid.Column="1" x:Name="RunAtStartupSwitch" IsOn="{x:Bind ViewModel.IsRunAtStartup, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
+                                    <Border Height="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" Margin="16,0"/>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="起動時に自動でアップデートを確認する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                        <ToggleSwitch Grid.Column="1" x:Name="AutoUpdateSwitch" IsOn="{x:Bind ViewModel.IsAutoUpdateEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                                    </Grid>
+                                    <Border Height="1" Background="{StaticResource M3SurfaceContainerHighestBrush}" Margin="16,0"/>
+                                    <Grid Padding="16,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                                            <TextBlock Text="バージョン情報" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="VersionText" Text="{x:Bind ViewModel.VersionText, Mode=OneWay}" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12"/>
+                                            <TextBlock x:Name="UpdateStatusText" Text="{x:Bind ViewModel.UpdateStatusText, Mode=OneWay}" Foreground="{StaticResource FuncCyanBrush}" FontSize="12" Visibility="{x:Bind ViewModel.IsUpdateStatusVisible, Mode=OneWay}"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" x:Name="CheckUpdateBtn" Content="更新を確認" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.CheckUpdateCommand}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="14,6"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </Grid>

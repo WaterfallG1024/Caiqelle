@@ -17,6 +17,25 @@ namespace Caiqelle.Services
         public string FormattedKey => string.IsNullOrEmpty(Key) ? "" : $"({Key})";
     }
 
+    public class StickyTextItemData
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString("N");
+        public bool IsOpen { get; set; } = true;
+        public string Text { get; set; } = string.Empty;
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public double FontSize { get; set; } = 24.0;
+        public bool IsBold { get; set; } = false;
+        public bool IsItalic { get; set; } = false;
+        public bool IsUnderline { get; set; } = false;
+        public string ColorHex { get; set; } = "#FFFFFFFF";
+        public int BackgroundMode { get; set; } = 0; // 0: 半透明, 1: 不透明, 2: 透過
+        public bool IsStealth { get; set; } = false;
+        public bool IsEditing { get; set; } = false;
+    }
+
     public class SettingsData
     {
         public List<FolderMapping> ImageFolderMappings { get; set; } = new();
@@ -30,6 +49,10 @@ namespace Caiqelle.Services
         public bool IsHijackWinShiftS { get; set; } = true;
         public bool IsAutoCopyToClipboard { get; set; } = true;
         public bool IsIgnoreOutsideSelectionClick { get; set; } = true;
+        public bool IsStickyTextStealthMode { get; set; } = false;
+        public bool IsStickyTextSaveEnabled { get; set; } = false;
+        public bool IsStickyTextRestoreOnOpen { get; set; } = true;
+        public List<StickyTextItemData> SavedStickyTexts { get; set; } = new();
         public bool IsShiftCapsLockRewindEnabled { get; set; } = false;
         public bool IsRewindTileCompressionEnabled { get; set; } = true;
         public bool IsAutoUpdateEnabled { get; set; } = true;
@@ -104,6 +127,26 @@ namespace Caiqelle.Services
             set => _data.IsIgnoreOutsideSelectionClick = value;
         }
 
+        public bool IsStickyTextStealthMode
+        {
+            get => _data.IsStickyTextStealthMode;
+            set => _data.IsStickyTextStealthMode = value;
+        }
+
+        public bool IsStickyTextSaveEnabled
+        {
+            get => _data.IsStickyTextSaveEnabled;
+            set => _data.IsStickyTextSaveEnabled = value;
+        }
+
+        public bool IsStickyTextRestoreOnOpen
+        {
+            get => _data.IsStickyTextRestoreOnOpen;
+            set => _data.IsStickyTextRestoreOnOpen = value;
+        }
+
+        public List<StickyTextItemData> SavedStickyTexts => _data.SavedStickyTexts;
+
         public bool IsShiftCapsLockRewindEnabled
         {
             get => _data.IsShiftCapsLockRewindEnabled;
@@ -176,6 +219,13 @@ namespace Caiqelle.Services
                     if (loaded != null)
                     {
                         _data = loaded;
+                        foreach (var item in _data.SavedStickyTexts)
+                        {
+                            if (string.IsNullOrWhiteSpace(item.Id))
+                            {
+                                item.Id = Guid.NewGuid().ToString("N");
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)

@@ -121,7 +121,7 @@ namespace Caiqelle.Views
         private void UpdatePositionAndSize()
         {
             double dpiScale = GetDpiForWindow(_hwnd) / 96.0;
-            int targetWidth = (int)(520 * dpiScale);
+            int targetWidth = (int)(620 * dpiScale);
             int targetHeight = (int)(268 * dpiScale);
             if (targetWidth != _lastTargetWidth || targetHeight != _lastTargetHeight)
             {
@@ -217,6 +217,14 @@ namespace Caiqelle.Views
                     break;
                 case Windows.System.VirtualKey.R:
                     ViewModel.OpenRewindCommand.Execute(null);
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.S:
+                    ViewModel.OpenStickyTextCommand.Execute(null);
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.V:
+                    ViewModel.OpenStickyTextListCommand.Execute(null);
                     e.Handled = true;
                     break;
                 case Windows.System.VirtualKey.Escape:
