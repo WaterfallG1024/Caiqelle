@@ -80,9 +80,22 @@ namespace Caiqelle.Views
             var bitmap = new BitmapImage();
             await bitmap.SetSourceAsync(randomAccessStream);
             CapturedImage.Source = bitmap;
-            
-            DrawCanvas.Width = bitmap.PixelWidth;
-            DrawCanvas.Height = bitmap.PixelHeight;
+
+            // BitmapImage.PixelWidth は描画前だと 0 になる場合があるため、元画像データから実サイズを取得
+            int imgWidth = bitmap.PixelWidth;
+            int imgHeight = bitmap.PixelHeight;
+            if (imgWidth <= 0 || imgHeight <= 0)
+            {
+                using var sizeMs = new MemoryStream(imageBytes);
+                using var img = System.Drawing.Image.FromStream(sizeMs, false, false);
+                imgWidth = img.Width;
+                imgHeight = img.Height;
+            }
+
+            CapturedImage.Width = imgWidth;
+            CapturedImage.Height = imgHeight;
+            DrawCanvas.Width = imgWidth;
+            DrawCanvas.Height = imgHeight;
 
             // Reset tools
             DrawCanvas.Children.Clear();
@@ -102,6 +115,7 @@ namespace Caiqelle.Views
             }
 
             // Show window
+            this.Show();
             this.Activate();
         }
 
@@ -139,9 +153,11 @@ namespace Caiqelle.Views
             if (!ptr.Properties.IsLeftButtonPressed) return;
 
             var rawStart = ptr.Position;
+            double canvasW = DrawCanvas.ActualWidth > 0 ? DrawCanvas.ActualWidth : DrawCanvas.Width;
+            double canvasH = DrawCanvas.ActualHeight > 0 ? DrawCanvas.ActualHeight : DrawCanvas.Height;
             _startPoint = new Windows.Foundation.Point(
-                Math.Max(0, Math.Min(rawStart.X, DrawCanvas.ActualWidth)),
-                Math.Max(0, Math.Min(rawStart.Y, DrawCanvas.ActualHeight))
+                Math.Max(0, Math.Min(rawStart.X, canvasW)),
+                Math.Max(0, Math.Min(rawStart.Y, canvasH))
             );
 
             _isDrawing = true;
@@ -208,17 +224,21 @@ namespace Caiqelle.Views
 
             DrawCanvas.CapturePointer(e.Pointer);
             UpdateUndoRedoButtons();
+            e.Handled = true;
         }
 
         private void DrawCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
             if (!_isDrawing) return;
+            e.Handled = true;
             var ptr = e.GetCurrentPoint(DrawCanvas);
             var rawPos = ptr.Position;
-            
+            double canvasW = DrawCanvas.ActualWidth > 0 ? DrawCanvas.ActualWidth : DrawCanvas.Width;
+            double canvasH = DrawCanvas.ActualHeight > 0 ? DrawCanvas.ActualHeight : DrawCanvas.Height;
+
             var pos = new Windows.Foundation.Point(
-                Math.Max(0, Math.Min(rawPos.X, DrawCanvas.ActualWidth)),
-                Math.Max(0, Math.Min(rawPos.Y, DrawCanvas.ActualHeight))
+                Math.Max(0, Math.Min(rawPos.X, canvasW)),
+                Math.Max(0, Math.Min(rawPos.Y, canvasH))
             );
 
             var currentTool = ViewModel.CurrentTool;
@@ -254,6 +274,7 @@ namespace Caiqelle.Views
             _currentLine = null;
             _currentArrow = null;
             _currentRect = null;
+            e.Handled = true;
         }
 
         private void UpdateArrowPath(Windows.Foundation.Point p1, Windows.Foundation.Point p2)
@@ -330,31 +351,48 @@ namespace Caiqelle.Views
             await folderWindow.ShowAsync(finalBytes);
         }
 
-        private System.Drawing.Bitmap GetCompositedBitmap()
+        private static System.Drawing.Color ToDrawingColor(Brush? brush, System.Drawing.Color fallback)
         {
-            if (_currentImageBytes == null) return new System.Drawing.Bitmap(1, 1);
-            
-            var ms = new MemoryStream(_currentImageBytes);
-            var bmp = new System.Drawing.Bitmap(ms);
-            
-            if (DrawCanvas.Children.Count == 0) return bmp;
+            if (brush is SolidColorBrush sb)
+            {
+                return System.Drawing.Color.FromArgb(sb.Color.A, sb.Color.R, sb.Color.G, sb.Color.B);
+            }
+            return fallback;
+        }
 
-            using var g = System.Drawing.Graphics.FromImage(bmp);
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            
-            using var pen = new System.Drawing.Pen(System.Drawing.Color.Red, 4);
+        private static System.Drawing.Pen CreateRoundedPen(Brush? brush, double thickness)
+        {
+            var color = ToDrawingColor(brush, System.Drawing.Color.Red);
+            var pen = new System.Drawing.Pen(color, (float)(thickness > 0 ? thickness : 4));
             pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
             pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
             pen.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
+            return pen;
+        }
+
+        private System.Drawing.Bitmap GetCompositedBitmap()
+        {
+            if (_currentImageBytes == null) return new System.Drawing.Bitmap(1, 1);
+
+            using var ms = new MemoryStream(_currentImageBytes);
+            using var src = new System.Drawing.Bitmap(ms);
+            // Stream 依存やインデックス形式を回避するため 32bppArgb の独立した Bitmap に複製
+            var bmp = new System.Drawing.Bitmap(src.Width, src.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using var g = System.Drawing.Graphics.FromImage(bmp);
+            g.DrawImage(src, 0, 0, src.Width, src.Height);
+
+            if (DrawCanvas.Children.Count == 0) return bmp;
+
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             using var font = new System.Drawing.Font("Arial", 18, System.Drawing.FontStyle.Bold);
             using var brushText = new System.Drawing.SolidBrush(System.Drawing.Color.White);
-            using var brushBg = new System.Drawing.SolidBrush(System.Drawing.Color.Red);
 
             foreach (var child in DrawCanvas.Children)
             {
                 if (child is Polyline polyline && polyline.Points.Count > 1)
                 {
+                    using var pen = CreateRoundedPen(polyline.Stroke, polyline.StrokeThickness);
                     var pts = new System.Drawing.PointF[polyline.Points.Count];
                     for (int i = 0; i < polyline.Points.Count; i++)
                     {
@@ -364,23 +402,25 @@ namespace Caiqelle.Views
                 }
                 else if (child is Microsoft.UI.Xaml.Shapes.Line line)
                 {
+                    using var pen = CreateRoundedPen(line.Stroke, line.StrokeThickness);
                     g.DrawLine(pen, (float)line.X1, (float)line.Y1, (float)line.X2, (float)line.Y2);
                 }
                 else if (child is Microsoft.UI.Xaml.Shapes.Rectangle rect)
                 {
-                    if (rect.Fill is SolidColorBrush sb)
+                    if (rect.Fill is SolidColorBrush sb && sb.Color.A > 0)
                     {
-                        var b = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(sb.Color.A, sb.Color.R, sb.Color.G, sb.Color.B));
+                        using var b = new System.Drawing.SolidBrush(ToDrawingColor(sb, System.Drawing.Color.Red));
                         g.FillRectangle(b, (float)Canvas.GetLeft(rect), (float)Canvas.GetTop(rect), (float)rect.Width, (float)rect.Height);
                     }
-                    if (rect.Stroke is SolidColorBrush sbStroke && rect.StrokeThickness > 0)
+                    if (rect.Stroke is SolidColorBrush sbStroke && sbStroke.Color.A > 0 && rect.StrokeThickness > 0)
                     {
-                        var p = new System.Drawing.Pen(System.Drawing.Color.FromArgb(sbStroke.Color.A, sbStroke.Color.R, sbStroke.Color.G, sbStroke.Color.B), (float)rect.StrokeThickness);
+                        using var p = new System.Drawing.Pen(ToDrawingColor(sbStroke, System.Drawing.Color.Red), (float)rect.StrokeThickness);
                         g.DrawRectangle(p, (float)Canvas.GetLeft(rect), (float)Canvas.GetTop(rect), (float)rect.Width, (float)rect.Height);
                     }
                 }
                 else if (child is Microsoft.UI.Xaml.Shapes.Path path && path.Data is Microsoft.UI.Xaml.Media.PathGeometry pg)
                 {
+                    using var pen = CreateRoundedPen(path.Stroke, path.StrokeThickness);
                     foreach (var fig in pg.Figures)
                     {
                         var start = fig.StartPoint;
@@ -398,11 +438,12 @@ namespace Caiqelle.Views
                 {
                     float x = (float)Canvas.GetLeft(grid);
                     float y = (float)Canvas.GetTop(grid);
+                    using var brushBg = new System.Drawing.SolidBrush(ToDrawingColor(grid.Background, System.Drawing.Color.Red));
                     g.FillEllipse(brushBg, x, y, 32, 32);
-                    
+
                     if (grid.Children.Count > 0 && grid.Children[0] is TextBlock tb)
                     {
-                        var sf = new System.Drawing.StringFormat { Alignment = System.Drawing.StringAlignment.Center, LineAlignment = System.Drawing.StringAlignment.Center };
+                        using var sf = new System.Drawing.StringFormat { Alignment = System.Drawing.StringAlignment.Center, LineAlignment = System.Drawing.StringAlignment.Center };
                         g.DrawString(tb.Text, font, brushText, new System.Drawing.RectangleF(x, y, 32, 32), sf);
                     }
                 }
@@ -467,7 +508,7 @@ namespace Caiqelle.Views
             }
         }
 
-        private Task PerformCopyAsync()
+        private async Task PerformCopyAsync()
         {
             var settings = ((App)Application.Current).Services.GetRequiredService<Caiqelle.Services.SettingsManager>();
             using var bmp = GetCompositedBitmap();
@@ -477,12 +518,11 @@ namespace Caiqelle.Views
             dataPackage.RequestedOperation = DataPackageOperation.Copy;
             
             var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-            stream.WriteAsync(finalBytes.AsBuffer()).AsTask().Wait();
+            await stream.WriteAsync(finalBytes.AsBuffer());
             stream.Seek(0);
             
             dataPackage.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
             Clipboard.SetContent(dataPackage);
-            return Task.CompletedTask;
         }
     }
     

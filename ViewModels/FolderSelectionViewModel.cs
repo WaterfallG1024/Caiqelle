@@ -127,7 +127,6 @@ namespace Caiqelle.ViewModels
             _totalPages = Math.Max(1, (int)Math.Ceiling(_allMappings.Count / 10.0));
             LoadPage(_totalPages);
 
-            _notificationService.ShowNotification("フォルダとキーを追加しました", "\uE8F4");
             RequestRestoreDummyFocus?.Invoke();
         }
 

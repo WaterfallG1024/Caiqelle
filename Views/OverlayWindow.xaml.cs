@@ -287,6 +287,12 @@ namespace Caiqelle.Views
                         // Direct OCR processing
                         StartOcrScanAnimation();
                     }
+                    else if (_isLivePinMode)
+                    {
+                        // ライブピン留め時は描画ツールを表示せず即座に開始する
+                        ActionTaken = CaptureAction.Save;
+                        CompleteCapture();
+                    }
                     else
                     {
                         _state = OverlayState.Adjusting;

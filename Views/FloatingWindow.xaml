@@ -10,9 +10,9 @@
     <Grid x:Name="RootGrid" Background="Transparent" Loaded="RootGrid_Loaded" KeyDown="RootGrid_KeyDown">
         <!-- Spring Animation setup in Code Behind -->
         <Border x:Name="ContentBorder" Background="Transparent" BorderThickness="0" Opacity="0" CornerRadius="0">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20,14">
-                <!-- Capture Buttons Panel (M3 Expressive Cards) -->
-                <StackPanel x:Name="CaptureButtonsPanel" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Visibility="Visible">
+            <StackPanel x:Name="CaptureButtonsPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20,14" Spacing="10" Visibility="Visible">
+                <!-- Capture Buttons Row 1 (4 Cards) -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
                     <Button Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Width="104" Height="104" Command="{x:Bind ViewModel.CaptureRegionCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="46" Height="46" CornerRadius="16" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
@@ -48,7 +48,10 @@
                             <TextBlock Text="ピン留め (P)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
+                </StackPanel>
 
+                <!-- Capture Buttons Row 2 (3 Cards) -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
                     <Button Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Width="104" Height="104" Command="{x:Bind ViewModel.CaptureLivePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <Border Width="46" Height="46" CornerRadius="16" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">

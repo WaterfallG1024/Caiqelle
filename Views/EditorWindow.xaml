@@ -109,13 +109,15 @@
 
         <!-- Image Editor Canvas -->
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ZoomMode="Enabled" MinZoomFactor="0.1" MaxZoomFactor="5.0">
-            <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+            <Grid Background="Transparent" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
                 <Grid.Shadow>
                     <ThemeShadow />
                 </Grid.Shadow>
                 
-                <Image x:Name="CapturedImage" Stretch="None" />
-                <Canvas x:Name="DrawCanvas" Background="Transparent" 
+                <Image x:Name="CapturedImage" Stretch="Fill" />
+                <Canvas x:Name="DrawCanvas"
+                        Background="#01000000"
+                        ManipulationMode="None"
                         PointerPressed="DrawCanvas_PointerPressed" 
                         PointerMoved="DrawCanvas_PointerMoved" 
                         PointerReleased="DrawCanvas_PointerReleased" />

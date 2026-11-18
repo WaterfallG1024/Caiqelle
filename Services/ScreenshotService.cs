@@ -159,18 +159,16 @@ namespace Caiqelle.Services
                     var plane = buffer.GetPlaneDescription(0);
                     int srcStride = bounds.Width * 4;
                     byte* srcPtr = (byte*)pBits.ToPointer();
+                    byte* dstBase = destPtr + plane.StartIndex;
 
-                    if (plane.Stride == srcStride)
+                    // BitBlt 出力は Alpha=0 になる場合があるため、Premultiplied 用に全ピクセルの Alpha を 0xFF に強制する
+                    for (int y = 0; y < bounds.Height; y++)
                     {
-                        long totalBytes = (long)srcStride * bounds.Height;
-                        Buffer.MemoryCopy(srcPtr, destPtr + plane.StartIndex, capacity - (uint)plane.StartIndex, totalBytes);
-                    }
-                    else
-                    {
-                        byte* dstRow = destPtr + plane.StartIndex;
-                        for (int y = 0; y < bounds.Height; y++)
+                        uint* s = (uint*)(srcPtr + (long)y * srcStride);
+                        uint* d = (uint*)(dstBase + (long)y * plane.Stride);
+                        for (int x = 0; x < bounds.Width; x++)
                         {
-                            Buffer.MemoryCopy(srcPtr + (long)y * srcStride, dstRow + (long)y * plane.Stride, srcStride, srcStride);
+                            d[x] = s[x] | 0xFF000000u;
                         }
                     }
                 }

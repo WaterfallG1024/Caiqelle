@@ -27,9 +27,13 @@ namespace Caiqelle.Views
         private readonly SoftwareBitmapSource _bitmapSource;
         private readonly CancellationTokenSource _cts = new();
 
-        private SoftwareBitmap? _reuseBitmap;
+        private SoftwareBitmap? _reuseBitmapA;
+        private SoftwareBitmap? _reuseBitmapB;
+        private bool _useBufferA = true;
         private bool _isPaused = false;
         private bool _isClosed = false;
+        private static readonly double[] AllowedScales = { 1.0, 2.0, 3.0 };
+        private int _scaleIndex = 1; // 初期倍率: 2x
 
         public LivePinWindow(Rectangle targetBounds, ScreenshotService screenshotService)
         {
@@ -85,6 +89,8 @@ namespace Caiqelle.Views
             }
 
             _appWindow.Resize(new Windows.Graphics.SizeInt32(Math.Max(160, initW), Math.Max(120, initH)));
+            SyncNearestScaleIndex(Math.Max(160, initW));
+            UpdateScaleText();
 
             // 対象領域の近くに配置（ディスプレイ作業領域内に収める）
             var displayArea = DisplayArea.GetFromPoint(
@@ -102,6 +108,12 @@ namespace Caiqelle.Views
             LiveImage.Source = _bitmapSource;
 
             this.Closed += LivePinWindow_Closed;
+            this.SizeChanged += (s, e) =>
+            {
+                if (_isClosed) return;
+                SyncNearestScaleIndex(_appWindow.Size.Width);
+                UpdateScaleText();
+            };
             _ = RunLiveLoopAsync(_cts.Token);
         }
 
@@ -128,10 +140,17 @@ namespace Caiqelle.Views
 
             try
             {
-                var captured = await Task.Run(() => _screenshotService.CaptureRegionToSoftwareBitmap(_targetBounds, _reuseBitmap), ct);
+                // 同一インスタンスの再利用では SoftwareBitmapSource が更新を検知しない場合があるためダブルバッファで交互に描画
+                var targetBuffer = _useBufferA ? _reuseBitmapA : _reuseBitmapB;
+                var captured = await Task.Run(() => _screenshotService.CaptureRegionToSoftwareBitmap(_targetBounds, targetBuffer), ct);
                 if (captured == null || ct.IsCancellationRequested || _isClosed) return;
 
-                _reuseBitmap = captured;
+                if (_useBufferA)
+                    _reuseBitmapA = captured;
+                else
+                    _reuseBitmapB = captured;
+                _useBufferA = !_useBufferA;
+
                 await _bitmapSource.SetBitmapAsync(captured);
             }
             catch (OperationCanceledException) { }
@@ -167,8 +186,10 @@ namespace Caiqelle.Views
             _isClosed = true;
             _cts.Cancel();
             _cts.Dispose();
-            _reuseBitmap?.Dispose();
-            _reuseBitmap = null;
+            _reuseBitmapA?.Dispose();
+            _reuseBitmapA = null;
+            _reuseBitmapB?.Dispose();
+            _reuseBitmapB = null;
             _bitmapSource.Dispose();
         }
 
@@ -187,13 +208,80 @@ namespace Caiqelle.Views
             int delta = e.GetCurrentPoint(RootGrid).Properties.MouseWheelDelta;
             if (delta == 0) return;
 
-            double scaleFactor = delta > 0 ? 1.12 : (1.0 / 1.12);
-            var size = _appWindow.Size;
+            StepScaleIndex(delta > 0 ? 1 : -1);
+        }
+
+        private void StepScaleIndex(int deltaIndex)
+        {
+            int nextIndex = Math.Clamp(_scaleIndex + deltaIndex, 0, AllowedScales.Length - 1);
+            ApplyScaleIndex(nextIndex);
+        }
+
+        private void ApplyScaleIndex(int index)
+        {
+            _scaleIndex = Math.Clamp(index, 0, AllowedScales.Length - 1);
+            double targetScale = AllowedScales[_scaleIndex];
             double aspect = (double)Math.Max(1, _targetBounds.Width) / Math.Max(1, _targetBounds.Height);
 
-            int newW = Math.Clamp((int)Math.Round(size.Width * scaleFactor), 160, 1800);
-            int newH = Math.Clamp((int)Math.Round(newW / aspect), 120, 1400);
-            _appWindow.Resize(new Windows.Graphics.SizeInt32(newW, newH));
+            int newW = (int)Math.Round(_targetBounds.Width * targetScale);
+            int newH = (int)Math.Round(_targetBounds.Height * targetScale);
+
+            // アスペクト比を維持したまま最小・最大サイズ内にクランプ
+            if (newW < 160)
+            {
+                newW = 160;
+                newH = (int)Math.Round(newW / aspect);
+            }
+            if (newH < 120)
+            {
+                newH = 120;
+                newW = (int)Math.Round(newH * aspect);
+            }
+            if (newW > 1800)
+            {
+                newW = 1800;
+                newH = (int)Math.Round(newW / aspect);
+            }
+            if (newH > 1400)
+            {
+                newH = 1400;
+                newW = (int)Math.Round(newH * aspect);
+            }
+
+            _appWindow.Resize(new Windows.Graphics.SizeInt32(Math.Max(160, newW), Math.Max(120, newH)));
+            UpdateScaleText();
+        }
+
+        private void SyncNearestScaleIndex(int currentWidth)
+        {
+            double ratio = (double)currentWidth / Math.Max(1, _targetBounds.Width);
+            int bestIdx = 0;
+            double minDiff = double.MaxValue;
+            for (int i = 0; i < AllowedScales.Length; i++)
+            {
+                double diff = Math.Abs(ratio - AllowedScales[i]);
+                if (diff < minDiff)
+                {
+                    minDiff = diff;
+                    bestIdx = i;
+                }
+            }
+            _scaleIndex = bestIdx;
+        }
+
+        private void UpdateScaleText()
+        {
+            ScaleText.Text = $"{(int)AllowedScales[_scaleIndex]}x";
+        }
+
+        private void ZoomOutBtn_Click(object sender, RoutedEventArgs e) => StepScaleIndex(-1);
+
+        private void ZoomInBtn_Click(object sender, RoutedEventArgs e) => StepScaleIndex(1);
+
+        private void ScaleResetBtn_Click(object sender, RoutedEventArgs e)
+        {
+            // 1x -> 2x -> 3x -> 1x の順に循環切り替え
+            ApplyScaleIndex((_scaleIndex + 1) % AllowedScales.Length);
         }
 
         private void PauseResumeBtn_Click(object sender, RoutedEventArgs e) => TogglePause();
@@ -249,6 +337,31 @@ namespace Caiqelle.Views
             else if (e.Key == VirtualKey.Space)
             {
                 TogglePause();
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Add || (int)e.Key == 187)
+            {
+                StepScaleIndex(1);
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Subtract || (int)e.Key == 189)
+            {
+                StepScaleIndex(-1);
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Number1 || e.Key == VirtualKey.NumberPad1)
+            {
+                ApplyScaleIndex(0);
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Number2 || e.Key == VirtualKey.NumberPad2)
+            {
+                ApplyScaleIndex(1);
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Number3 || e.Key == VirtualKey.NumberPad3)
+            {
+                ApplyScaleIndex(2);
                 e.Handled = true;
             }
             else
