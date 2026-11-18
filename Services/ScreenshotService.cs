@@ -245,6 +245,201 @@ namespace Caiqelle.Services
             }
         }
 
+        public const int RewindTileCols = 4;
+        public const int RewindTileRows = 4;
+        public const int RewindTileCount = RewindTileCols * RewindTileRows;
+
+        private static readonly ImageCodecInfo? _jpegEncoder =
+            ImageCodecInfo.GetImageDecoders().FirstOrDefault(c => c.FormatID == ImageFormat.Jpeg.Guid);
+
+        /// <summary>
+        /// フレーム解像度・比率に応じて16分割(4x4)のタイル矩形を動的に算出する（端数隙間なし）
+        /// </summary>
+        public static Rectangle GetTileRect(int tileIndex, int frameWidth, int frameHeight)
+        {
+            int col = tileIndex % RewindTileCols;
+            int row = tileIndex / RewindTileCols;
+            int x0 = (col * frameWidth) / RewindTileCols;
+            int x1 = ((col + 1) * frameWidth) / RewindTileCols;
+            int y0 = (row * frameHeight) / RewindTileRows;
+            int y1 = ((row + 1) * frameHeight) / RewindTileRows;
+            return new Rectangle(x0, y0, x1 - x0, y1 - y0);
+        }
+
+        /// <summary>
+        /// 画面を16分割して直前フレームと比較し、変化したタイルのみ JPEG エンコードして返す
+        /// </summary>
+        public unsafe byte[]?[] CaptureTiledDiffJpegBytes(
+            Rectangle bounds,
+            int targetHeight,
+            long quality,
+            ref byte[]? prevRawPixels,
+            ref int prevWidth,
+            ref int prevHeight,
+            byte[]?[]? prevTiles,
+            out int outWidth,
+            out int outHeight,
+            out int changedTileCount)
+        {
+            outWidth = 0;
+            outHeight = 0;
+            changedTileCount = 0;
+
+            if (bounds.Width <= 0 || bounds.Height <= 0) return Array.Empty<byte[]?>();
+
+            using Bitmap bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                IntPtr hdcDest = graphics.GetHdc();
+                IntPtr hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
+                BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY);
+                DeleteDC(hdcSrc);
+                graphics.ReleaseHdc(hdcDest);
+            }
+
+            long qualityParam = Math.Clamp(quality, 1L, 100L);
+            Bitmap? resizedBmp = null;
+            Bitmap workingBmp = bitmap;
+
+            try
+            {
+                if (targetHeight > 0 && targetHeight < bounds.Height)
+                {
+                    int targetWidth = (int)((double)bounds.Width / bounds.Height * targetHeight);
+                    resizedBmp = new Bitmap(targetWidth, targetHeight, PixelFormat.Format32bppArgb);
+                    using Graphics g = Graphics.FromImage(resizedBmp);
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+                    g.DrawImage(bitmap, 0, 0, targetWidth, targetHeight);
+                    workingBmp = resizedBmp;
+                }
+
+                outWidth = workingBmp.Width;
+                outHeight = workingBmp.Height;
+
+                var rect = new Rectangle(0, 0, outWidth, outHeight);
+                var bmpData = workingBmp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                int stride = bmpData.Stride;
+                int totalBytes = stride * outHeight;
+
+                bool canDiff = prevRawPixels != null
+                    && prevTiles != null
+                    && prevTiles.Length == RewindTileCount
+                    && prevWidth == outWidth
+                    && prevHeight == outHeight
+                    && prevRawPixels.Length == totalBytes;
+
+                var resultTiles = new byte[]?[RewindTileCount];
+                var changedFlags = new bool[RewindTileCount];
+
+                try
+                {
+                    byte* curBase = (byte*)bmpData.Scan0.ToPointer();
+
+                    if (canDiff)
+                    {
+                        fixed (byte* prevBase = prevRawPixels)
+                        {
+                            for (int i = 0; i < RewindTileCount; i++)
+                            {
+                                var tileRect = GetTileRect(i, outWidth, outHeight);
+                                int rowByteOffset = tileRect.X * 4;
+                                int rowBytes = tileRect.Width * 4;
+                                bool isSame = true;
+
+                                for (int y = tileRect.Y; y < tileRect.Bottom; y++)
+                                {
+                                    int offset = y * stride + rowByteOffset;
+                                    var curSpan = new ReadOnlySpan<byte>(curBase + offset, rowBytes);
+                                    var prevSpan = new ReadOnlySpan<byte>(prevBase + offset, rowBytes);
+                                    if (!curSpan.SequenceEqual(prevSpan))
+                                    {
+                                        isSame = false;
+                                        break;
+                                    }
+                                }
+
+                                if (isSame && prevTiles![i] != null)
+                                {
+                                    resultTiles[i] = prevTiles[i];
+                                }
+                                else
+                                {
+                                    changedFlags[i] = true;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Array.Fill(changedFlags, true);
+                    }
+
+                    // 次回比較用に最新ピクセルを保持（同サイズなら配列を再利用）
+                    if (prevRawPixels == null || prevRawPixels.Length != totalBytes)
+                    {
+                        prevRawPixels = new byte[totalBytes];
+                    }
+                    fixed (byte* prevDst = prevRawPixels)
+                    {
+                        Buffer.MemoryCopy(curBase, prevDst, totalBytes, totalBytes);
+                    }
+                    prevWidth = outWidth;
+                    prevHeight = outHeight;
+                }
+                finally
+                {
+                    workingBmp.UnlockBits(bmpData);
+                }
+
+                // 変化したタイルのみを個別に切り出して JPEG エンコード
+                for (int i = 0; i < RewindTileCount; i++)
+                {
+                    if (!changedFlags[i]) continue;
+                    var tileRect = GetTileRect(i, outWidth, outHeight);
+                    if (tileRect.Width <= 0 || tileRect.Height <= 0) continue;
+
+                    using var tileBmp = workingBmp.Clone(tileRect, PixelFormat.Format32bppArgb);
+                    resultTiles[i] = SaveJpeg(tileBmp, qualityParam);
+                    changedTileCount++;
+                }
+
+                return resultTiles;
+            }
+            finally
+            {
+                resizedBmp?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 16分割タイル配列を1枚のJPEG画像データへ合成する
+        /// </summary>
+        public byte[] ComposeTilesToJpegBytes(byte[]?[] tiles, int width, int height, long quality = 90L)
+        {
+            if (tiles == null || tiles.Length != RewindTileCount || width <= 0 || height <= 0)
+                return Array.Empty<byte>();
+
+            using var canvas = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(canvas))
+            {
+                g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+
+                for (int i = 0; i < RewindTileCount; i++)
+                {
+                    var tileBytes = tiles[i];
+                    if (tileBytes == null || tileBytes.Length == 0) continue;
+
+                    var tileRect = GetTileRect(i, width, height);
+                    using var ms = new MemoryStream(tileBytes);
+                    using var tileImg = Image.FromStream(ms);
+                    g.DrawImage(tileImg, tileRect.X, tileRect.Y, tileRect.Width, tileRect.Height);
+                }
+            }
+
+            return SaveJpeg(canvas, Math.Clamp(quality, 1L, 100L));
+        }
+
         public async Task<byte[]> CaptureRegionToJpegBytesAsync(Rectangle bounds, int targetHeight, long quality = 75L)
         {
             return await Task.Run(() => CaptureRegionToJpegBytes(bounds, targetHeight, quality));
@@ -252,8 +447,7 @@ namespace Caiqelle.Services
 
         private byte[] SaveJpeg(Bitmap bmp, long quality)
         {
-            var encoder = ImageCodecInfo.GetImageDecoders().FirstOrDefault(c => c.FormatID == ImageFormat.Jpeg.Guid);
-            if (encoder == null)
+            if (_jpegEncoder == null)
             {
                 using MemoryStream ms = new MemoryStream();
                 bmp.Save(ms, ImageFormat.Jpeg);
@@ -264,7 +458,7 @@ namespace Caiqelle.Services
             encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
 
             using MemoryStream ms2 = new MemoryStream();
-            bmp.Save(ms2, encoder, encoderParameters);
+            bmp.Save(ms2, _jpegEncoder, encoderParameters);
             return ms2.ToArray();
         }
     }

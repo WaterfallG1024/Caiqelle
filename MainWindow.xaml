@@ -256,6 +256,7 @@
                                         <StackPanel Spacing="8" MaxWidth="320">
                                             <TextBlock Text="フォルダ作成ルール" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}"/>
                                             <TextBlock Text="• フォルダ名には \ / : * ? &quot; &lt; &gt; | は使用できません。" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource AfterGlowTextSecondaryBrush}"/>
+                                            <TextBlock Text="• すでに登録されているフォルダ名やキーは登録できません。" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource AfterGlowTextSecondaryBrush}"/>
                                             <TextBlock Text="• キーは1文字のみ、半角英数字(0-9, A-Z)と / [ ] - ^ ; : @ が使用可能です。" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource AfterGlowTextSecondaryBrush}"/>
                                             <TextBlock Text="• キーの英字の大文字・小文字を区別しません。" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource AfterGlowTextSecondaryBrush}"/>
                                             <TextBlock Text="• リンク解除を行っても、実際のフォルダやファイルが削除されることはありません。" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource AfterGlowTextSecondaryBrush}"/>
@@ -267,7 +268,7 @@
                         
                         <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16">
                             <StackPanel Spacing="12">
-                                <InfoBar x:Name="ValidationErrorBar" IsOpen="{x:Bind ViewModel.IsValidationErrorOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.ValidationErrorMessage, Mode=OneWay}" Severity="Error" Margin="0,0,0,4"/>
+                                <InfoBar x:Name="ValidationErrorBar" IsOpen="{x:Bind ViewModel.IsValidationErrorOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.ValidationErrorMessage, Mode=OneWay}" Severity="Warning" Margin="0,0,0,4"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -337,6 +338,21 @@
                                     <TextBlock Text="オンにすると、本来の機能は無効化されます" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <ToggleSwitch Grid.Column="1" x:Name="ShiftCapsLockRewindSwitch" IsOn="{x:Bind ViewModel.IsShiftCapsLockRewindEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                    <TextBlock Text="省メモリ差分録画 (16分割)" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" TextWrapping="Wrap"/>
+                                    <TextBlock Text="画面を16分割し、変化した部分のみ記録します" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Text="全画面での動画視聴やゲームプレイ時に本機能をONにすると、メモリ消費量が微増します" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" x:Name="RewindTileCompressionSwitch" IsOn="{x:Bind ViewModel.IsRewindTileCompressionEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>
                         </Border>
                         

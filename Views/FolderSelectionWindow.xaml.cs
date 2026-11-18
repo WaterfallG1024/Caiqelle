@@ -22,6 +22,13 @@ namespace Caiqelle.Views
             ViewModel = app.Services.GetRequiredService<FolderSelectionViewModel>();
             ViewModel.RequestCloseWithResult = CloseWithResult;
             ViewModel.RequestRestoreDummyFocus = () => DummyFocus?.Focus(FocusState.Programmatic);
+            ViewModel.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(FolderSelectionViewModel.IsCreateErrorOpen))
+                {
+                    UpdateWindowHeight();
+                }
+            };
 
             this.InitializeComponent();
 
@@ -69,11 +76,22 @@ namespace Caiqelle.Views
             NativeMethods.RemoveWindowBorder(hwnd);
         }
 
+        private void UpdateWindowHeight()
+        {
+            var hwnd = WindowNative.GetWindowHandle(this);
+            double dpiScale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+            int baseHeight = ViewModel.IsCreateErrorOpen ? 595 : 525;
+            int targetWidth = (int)(410 * dpiScale);
+            int targetHeight = (int)(baseHeight * dpiScale);
+            _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
+        }
+
         private void CenterOnCursorDisplay(IntPtr hwnd)
         {
             double dpiScale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+            int baseHeight = ViewModel.IsCreateErrorOpen ? 595 : 525;
             int targetWidth = (int)(410 * dpiScale);
-            int targetHeight = (int)(525 * dpiScale);
+            int targetHeight = (int)(baseHeight * dpiScale);
             _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
 
             NativeMethods.GetCursorPos(out NativeMethods.POINT cursorPos);

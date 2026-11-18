@@ -137,8 +137,18 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         public partial string FolderNameInput { get; set; } = string.Empty;
 
+        partial void OnFolderNameInputChanged(string value)
+        {
+            IsValidationErrorOpen = false;
+        }
+
         [ObservableProperty]
         public partial string KeyInput { get; set; } = string.Empty;
+
+        partial void OnKeyInputChanged(string value)
+        {
+            IsValidationErrorOpen = false;
+        }
 
         [ObservableProperty]
         public partial bool IsValidationErrorOpen { get; set; }
@@ -156,6 +166,9 @@ namespace Caiqelle.ViewModels
 
         [ObservableProperty]
         public partial bool IsShiftCapsLockRewindEnabled { get; set; }
+
+        [ObservableProperty]
+        public partial bool IsRewindTileCompressionEnabled { get; set; } = true;
 
         [ObservableProperty]
         public partial string RewindMemoryInfoTitle { get; set; } = "メモリ搭載量に応じた制限について";
@@ -608,6 +621,17 @@ namespace Caiqelle.ViewModels
             _hookService.IsShiftCapsLockRewindEnabled = value;
         }
 
+        partial void OnIsRewindTileCompressionEnabledChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsRewindTileCompressionEnabled = value;
+            _settings.SaveSettings();
+            if (_settings.IsRewindEnabled)
+            {
+                _rewindService.Restart(clearBuffer: false);
+            }
+        }
+
         partial void OnSelectedRewindDurationChanged(string value)
         {
             if (_isInitializing || _isUpdatingConstraints || string.IsNullOrEmpty(value)) return;
@@ -631,7 +655,7 @@ namespace Caiqelle.ViewModels
             _settings.SaveSettings();
             if (_settings.IsRewindEnabled)
             {
-                _rewindService.Restart();
+                _rewindService.Restart(clearBuffer: false);
             }
             UpdateRewindStatusCard();
         }
@@ -706,6 +730,7 @@ namespace Caiqelle.ViewModels
         {
             IsRewindEnabled = _settings.IsRewindEnabled;
             IsShiftCapsLockRewindEnabled = _settings.IsShiftCapsLockRewindEnabled;
+            IsRewindTileCompressionEnabled = _settings.IsRewindTileCompressionEnabled;
             SelectedRewindDuration = _settings.RewindDurationSeconds.ToString();
             SelectedRewindQuality = string.IsNullOrEmpty(_settings.RewindQuality) ? "FulHD" : _settings.RewindQuality;
         }

@@ -8,6 +8,10 @@ namespace Caiqelle.Services
     public class RewindFrame
     {
         public byte[] JpegBytes { get; set; } = Array.Empty<byte>();
+        public byte[]?[]? Tiles { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public bool IsTiled => Tiles != null;
         public DateTime Timestamp { get; set; }
     }
 
@@ -21,6 +25,12 @@ namespace Caiqelle.Services
         private bool _isRunning = false;
         private volatile bool _isPaused = false;
         private int _gcCounter = 0;
+
+        // 16分割タイル差分記録用の直前フレーム状態
+        private byte[]? _prevRawPixels;
+        private int _prevWidth;
+        private int _prevHeight;
+        private byte[]?[]? _prevTiles;
 
         public event EventHandler? StateChanged;
         public bool IsRunning => _isRunning;
@@ -54,6 +64,7 @@ namespace Caiqelle.Services
             if (clearBuffer)
             {
                 while (_frames.TryDequeue(out _)) { }
+                ClearDiffCache();
             }
 
             _isPaused = false;
@@ -79,6 +90,7 @@ namespace Caiqelle.Services
             _timer?.Change(Timeout.Infinite, Timeout.Infinite);
             _timer?.Dispose();
             _timer = null;
+            ClearDiffCache();
 
             System.Diagnostics.Debug.WriteLine($"[RewindService] Stopped. BufferedFrames={_frames.Count}");
 
@@ -88,10 +100,30 @@ namespace Caiqelle.Services
             });
         }
 
-        public void Restart()
+        public void Restart(bool clearBuffer = true)
         {
             Stop();
-            Start();
+            Start(clearBuffer);
+        }
+
+        private void ClearDiffCache()
+        {
+            _prevRawPixels = null;
+            _prevTiles = null;
+            _prevWidth = 0;
+            _prevHeight = 0;
+        }
+
+        /// <summary>
+        /// フレームから1枚の画像データ（JPEGバイト列）を取得・合成する
+        /// </summary>
+        public byte[] GetFrameImageBytes(RewindFrame frame)
+        {
+            if (frame.IsTiled && frame.Tiles != null)
+            {
+                return _screenshotService.ComposeTilesToJpegBytes(frame.Tiles, frame.Width, frame.Height);
+            }
+            return frame.JpegBytes;
         }
 
         /// <summary>
@@ -143,16 +175,50 @@ namespace Caiqelle.Services
                 // アップスケールを防止
                 if (targetHeight > bounds.Height) targetHeight = bounds.Height;
 
-                byte[] bytes = _screenshotService.CaptureRegionToJpegBytes(bounds, targetHeight, quality);
+                RewindFrame? frame = null;
 
-                if (bytes != null && bytes.Length > 0 && _isRunning && !_isPaused)
+                if (_settingsManager.IsRewindTileCompressionEnabled)
                 {
-                    var frame = new RewindFrame
-                    {
-                        JpegBytes = bytes,
-                        Timestamp = DateTime.Now
-                    };
+                    var tiles = _screenshotService.CaptureTiledDiffJpegBytes(
+                        bounds,
+                        targetHeight,
+                        quality,
+                        ref _prevRawPixels,
+                        ref _prevWidth,
+                        ref _prevHeight,
+                        _prevTiles,
+                        out int outW,
+                        out int outH,
+                        out int changedCount);
 
+                    if (tiles.Length == ScreenshotService.RewindTileCount && _isRunning && !_isPaused)
+                    {
+                        _prevTiles = tiles;
+                        frame = new RewindFrame
+                        {
+                            Tiles = tiles,
+                            Width = outW,
+                            Height = outH,
+                            Timestamp = DateTime.Now
+                        };
+                        System.Diagnostics.Debug.WriteLine($"[RewindService] Tiled frame captured. Changed={changedCount}/16");
+                    }
+                }
+                else
+                {
+                    byte[] bytes = _screenshotService.CaptureRegionToJpegBytes(bounds, targetHeight, quality);
+                    if (bytes != null && bytes.Length > 0 && _isRunning && !_isPaused)
+                    {
+                        frame = new RewindFrame
+                        {
+                            JpegBytes = bytes,
+                            Timestamp = DateTime.Now
+                        };
+                    }
+                }
+
+                if (frame != null)
+                {
                     _frames.Enqueue(frame);
 
                     // 最大フレーム数を超えたら古いフレームを削除
@@ -170,7 +236,7 @@ namespace Caiqelle.Services
                         }
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"[RewindService] Frame captured. Total={_frames.Count}/{maxFrames}, Size={bytes.Length} bytes");
+                    System.Diagnostics.Debug.WriteLine($"[RewindService] Frame enqueued. Total={_frames.Count}/{maxFrames}");
                 }
             }
             catch (Exception ex)

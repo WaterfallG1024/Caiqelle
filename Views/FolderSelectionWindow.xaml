@@ -83,6 +83,11 @@
                             FontSize="13"/>
                 </Grid>
             </Border>
+
+            <InfoBar x:Name="CreateFolderErrorBar"
+                     IsOpen="{x:Bind ViewModel.IsCreateErrorOpen, Mode=TwoWay}"
+                     Message="{x:Bind ViewModel.CreateErrorMessage, Mode=OneWay}"
+                     Severity="Warning"/>
         </StackPanel>
 
         <!-- 2 Columns x 5 Rows Grid for Buttons (Horizontal Layout with 2 Columns) -->

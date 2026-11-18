@@ -111,7 +111,12 @@ namespace Caiqelle.ViewModels
             if (_frames.Length == 0) return;
 
             var frame = _frames[_currentIndex];
-            await _editorWindow.LoadImageAsync(frame.JpegBytes);
+            byte[] imageBytes = frame.IsTiled
+                ? await Task.Run(() => _rewindService.GetFrameImageBytes(frame))
+                : frame.JpegBytes;
+
+            if (imageBytes.Length == 0) return;
+            await _editorWindow.LoadImageAsync(imageBytes);
             _editorWindow.Activate();
             RequestClose?.Invoke();
         }
@@ -136,10 +141,14 @@ namespace Caiqelle.ViewModels
 
             try
             {
-                if (frame.JpegBytes != null && frame.JpegBytes.Length > 0)
+                byte[] imageBytes = frame.IsTiled
+                    ? await Task.Run(() => _rewindService.GetFrameImageBytes(frame))
+                    : frame.JpegBytes;
+
+                if (imageBytes != null && imageBytes.Length > 0)
                 {
                     var stream = new InMemoryRandomAccessStream();
-                    await stream.WriteAsync(frame.JpegBytes.AsBuffer());
+                    await stream.WriteAsync(imageBytes.AsBuffer());
                     stream.Seek(0);
 
                     var bitmap = new BitmapImage();

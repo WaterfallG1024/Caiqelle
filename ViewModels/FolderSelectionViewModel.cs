@@ -61,8 +61,24 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         public partial string NewFolderName { get; set; } = string.Empty;
 
+        partial void OnNewFolderNameChanged(string value)
+        {
+            IsCreateErrorOpen = false;
+        }
+
         [ObservableProperty]
         public partial string NewFolderKey { get; set; } = string.Empty;
+
+        partial void OnNewFolderKeyChanged(string value)
+        {
+            IsCreateErrorOpen = false;
+        }
+
+        [ObservableProperty]
+        public partial bool IsCreateErrorOpen { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateErrorMessage { get; set; } = string.Empty;
 
         [ObservableProperty]
         public partial bool IsSaving { get; set; }
@@ -83,6 +99,8 @@ namespace Caiqelle.ViewModels
             FileNameInput = string.Empty;
             NewFolderName = string.Empty;
             NewFolderKey = string.Empty;
+            IsCreateErrorOpen = false;
+            CreateErrorMessage = string.Empty;
             IsErrorState = false;
             IsSaving = false;
             ReloadMappings();
@@ -91,10 +109,12 @@ namespace Caiqelle.ViewModels
         [RelayCommand]
         private void CreateFolder()
         {
+            IsCreateErrorOpen = false;
+
             if (!_settings.TryAddFolderMapping(NewFolderName, NewFolderKey, createDirectory: true, out string errorMessage))
             {
-                IsErrorState = true;
-                PageIndicatorText = errorMessage;
+                CreateErrorMessage = errorMessage;
+                IsCreateErrorOpen = true;
                 return;
             }
 

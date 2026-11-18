@@ -30,6 +30,7 @@ namespace Caiqelle.Services
         public bool IsHijackWinShiftS { get; set; } = true;
         public bool IsAutoCopyToClipboard { get; set; } = true;
         public bool IsShiftCapsLockRewindEnabled { get; set; } = false;
+        public bool IsRewindTileCompressionEnabled { get; set; } = true;
         public bool IsAutoUpdateEnabled { get; set; } = true;
         public string LastDismissedReleaseTag { get; set; } = string.Empty;
         public AccentTheme AccentTheme { get; set; } = AccentTheme.Emerald;
@@ -100,6 +101,12 @@ namespace Caiqelle.Services
         {
             get => _data.IsShiftCapsLockRewindEnabled;
             set => _data.IsShiftCapsLockRewindEnabled = value;
+        }
+
+        public bool IsRewindTileCompressionEnabled
+        {
+            get => _data.IsRewindTileCompressionEnabled;
+            set => _data.IsRewindTileCompressionEnabled = value;
         }
 
         public bool IsAutoUpdateEnabled
@@ -214,13 +221,37 @@ namespace Caiqelle.Services
                 return false;
             }
 
+            bool folderExists = false;
+            bool keyExists = false;
+            string resolvedFolder = ResolveFolderPath(folder);
+
             foreach (var m in _data.ImageFolderMappings)
             {
+                if (string.Equals(m.FolderName, folder, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(ResolveFolderPath(m.FolderName), resolvedFolder, StringComparison.OrdinalIgnoreCase))
+                {
+                    folderExists = true;
+                }
                 if (string.Equals(m.Key, key, StringComparison.OrdinalIgnoreCase))
                 {
-                    errorMessage = $"キー '{key}' はすでに登録されています。";
-                    return false;
+                    keyExists = true;
                 }
+            }
+
+            if (folderExists && keyExists)
+            {
+                errorMessage = $"フォルダ名 '{folder}' とキー '{key}' はすでに登録されています。";
+                return false;
+            }
+            if (folderExists)
+            {
+                errorMessage = $"フォルダ名 '{folder}' はすでに登録されています。";
+                return false;
+            }
+            if (keyExists)
+            {
+                errorMessage = $"キー '{key}' はすでに登録されています。";
+                return false;
             }
 
             if (createDirectory)
