@@ -150,6 +150,7 @@ namespace Caiqelle.Services
                 return;
             }
 
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 var bounds = _screenshotService.GetVirtualScreenBounds();
@@ -244,8 +245,9 @@ namespace Caiqelle.Services
                 System.Diagnostics.Debug.WriteLine($"[RewindService] Capture Error: {ex.GetType().Name}: {ex.Message}");
             }
 
-            // 次のキャプチャをスケジュール（キャプチャの成否に関わらず必ず実行）
-            ScheduleNextCapture(1000);
+            // 処理時間分を差し引いて平均1000ms間隔を維持する
+            int nextDelay = Math.Max(50, 1000 - (int)sw.ElapsedMilliseconds);
+            ScheduleNextCapture(nextDelay);
         }
 
         public RewindFrame[] GetBufferedFrames()

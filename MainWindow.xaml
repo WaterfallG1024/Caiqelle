@@ -498,6 +498,20 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                    <TextBlock Text="範囲選択外のクリック・ドラッグを無効化" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" TextWrapping="Wrap"/>
+                                    <TextBlock Text="範囲確定後、枠外の操作で選択がやり直されるのを防ぎます" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" x:Name="IgnoreOutsideSelectionSwitch" IsOn="{x:Bind ViewModel.IsIgnoreOutsideSelectionClick, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Background="{StaticResource M3SurfaceContainerBrush}" BorderThickness="0" CornerRadius="16" Padding="16,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="起動時に自動でアップデートを確認する" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" TextWrapping="Wrap"/>
                                 <ToggleSwitch Grid.Column="1" x:Name="AutoUpdateSwitch" IsOn="{x:Bind ViewModel.IsAutoUpdateEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                             </Grid>

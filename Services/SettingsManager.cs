@@ -29,6 +29,7 @@ namespace Caiqelle.Services
         public bool IsHijackPrintScreen { get; set; } = true;
         public bool IsHijackWinShiftS { get; set; } = true;
         public bool IsAutoCopyToClipboard { get; set; } = true;
+        public bool IsIgnoreOutsideSelectionClick { get; set; } = true;
         public bool IsShiftCapsLockRewindEnabled { get; set; } = false;
         public bool IsRewindTileCompressionEnabled { get; set; } = true;
         public bool IsAutoUpdateEnabled { get; set; } = true;
@@ -95,6 +96,12 @@ namespace Caiqelle.Services
         {
             get => _data.IsAutoCopyToClipboard;
             set => _data.IsAutoCopyToClipboard = value;
+        }
+
+        public bool IsIgnoreOutsideSelectionClick
+        {
+            get => _data.IsIgnoreOutsideSelectionClick;
+            set => _data.IsIgnoreOutsideSelectionClick = value;
         }
 
         public bool IsShiftCapsLockRewindEnabled

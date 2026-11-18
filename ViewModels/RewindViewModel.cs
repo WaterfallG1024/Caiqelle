@@ -105,20 +105,63 @@ namespace Caiqelle.ViewModels
             _ = UpdatePreviewAsync();
         }
 
-        [RelayCommand]
-        private async Task OpenInEditorAsync()
+        private async Task<byte[]?> GetCurrentFrameBytesAsync()
         {
-            if (_frames.Length == 0) return;
+            if (_frames.Length == 0) return null;
 
             var frame = _frames[_currentIndex];
             byte[] imageBytes = frame.IsTiled
                 ? await Task.Run(() => _rewindService.GetFrameImageBytes(frame))
                 : frame.JpegBytes;
 
-            if (imageBytes.Length == 0) return;
+            return imageBytes.Length > 0 ? imageBytes : null;
+        }
+
+        [RelayCommand]
+        private async Task OpenInEditorAsync()
+        {
+            byte[]? imageBytes = await GetCurrentFrameBytesAsync();
+            if (imageBytes == null) return;
+
             await _editorWindow.LoadImageAsync(imageBytes);
             _editorWindow.Activate();
             RequestClose?.Invoke();
+        }
+
+        [RelayCommand]
+        private async Task CopyToClipboardAsync()
+        {
+            byte[]? imageBytes = await GetCurrentFrameBytesAsync();
+            if (imageBytes == null) return;
+
+            try
+            {
+                var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                var stream = new InMemoryRandomAccessStream();
+                await stream.WriteAsync(imageBytes.AsBuffer());
+                stream.Seek(0);
+                dataPackage.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
+                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
+                Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+
+                var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<NotificationService>(((App)Microsoft.UI.Xaml.Application.Current).Services);
+                notificationService.ShowNotification("クリップボードにコピーしました", "\uE8C8");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RewindViewModel] Copy error: {ex.Message}");
+            }
+        }
+
+        [RelayCommand]
+        private async Task SaveAsync()
+        {
+            byte[]? imageBytes = await GetCurrentFrameBytesAsync();
+            if (imageBytes == null) return;
+
+            var app = (App)Microsoft.UI.Xaml.Application.Current;
+            var folderWindow = new Views.FolderSelectionWindow(app);
+            await folderWindow.ShowAsync(imageBytes);
         }
 
         [RelayCommand]
@@ -132,7 +175,8 @@ namespace Caiqelle.ViewModels
             if (_frames.Length == 0) return;
 
             var frame = _frames[_currentIndex];
-            int elapsedSeconds = (int)Math.Max(0, Math.Round((_frames[0].Timestamp - frame.Timestamp).TotalSeconds));
+            // 1秒1フレームで録画しているため、インデックスがそのまま経過秒数に対応し数字飛びを防ぐ
+            int elapsedSeconds = _currentIndex;
             IndexText = $"{_currentIndex + 1}/{_frames.Length}({MainViewModel.FormatDuration(elapsedSeconds)}前)";
             TimestampText = $"記録時刻: {frame.Timestamp:yyyy/MM/dd HH:mm:ss}  •  矢印キー / ホイールで移動";
 

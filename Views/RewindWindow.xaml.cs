@@ -2,8 +2,10 @@ using Caiqelle.Services;
 using Caiqelle.ViewModels;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using System;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Caiqelle.Views
@@ -78,6 +80,8 @@ namespace Caiqelle.Views
 
             ViewModel.LoadFrames();
             BringToForeground(hWnd);
+            RootGrid.Loaded += (s, e) => RootGrid.Focus(FocusState.Programmatic);
+            RootGrid.Focus(FocusState.Programmatic);
         }
 
         private void Window_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -88,7 +92,20 @@ namespace Caiqelle.Views
 
         private void Grid_KeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key == Windows.System.VirtualKey.Left) ViewModel.Navigate(1);
+            var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control);
+            bool isCtrl = (ctrlState & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+            if (isCtrl && e.Key == Windows.System.VirtualKey.C)
+            {
+                ViewModel.CopyToClipboardCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (isCtrl && e.Key == Windows.System.VirtualKey.S)
+            {
+                ViewModel.SaveCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Left) ViewModel.Navigate(1);
             else if (e.Key == Windows.System.VirtualKey.Right) ViewModel.Navigate(-1);
             else if (e.Key == Windows.System.VirtualKey.Enter) ViewModel.OpenInEditorCommand.Execute(null);
             else if (e.Key == Windows.System.VirtualKey.Escape) ViewModel.CloseCommand.Execute(null);
@@ -97,6 +114,45 @@ namespace Caiqelle.Views
         private void PreviewImage_Tapped(object sender, TappedRoutedEventArgs e)
         {
             ViewModel.OpenInEditorCommand.Execute(null);
+        }
+
+        private static void AnimateButtonScale(object sender, float scale, float damping, int periodMs)
+        {
+            if (sender is UIElement element)
+            {
+                var visual = ElementCompositionPreview.GetElementVisual(element);
+                var compositor = visual.Compositor;
+
+                var animation = compositor.CreateSpringVector3Animation();
+                animation.Target = "Scale";
+                animation.FinalValue = new Vector3(scale, scale, 1.0f);
+                animation.DampingRatio = damping;
+                animation.Period = TimeSpan.FromMilliseconds(periodMs);
+
+                visual.CenterPoint = new Vector3((float)element.ActualSize.X / 2, (float)element.ActualSize.Y / 2, 0);
+                visual.StartAnimation("Scale", animation);
+            }
+        }
+
+        private void ActionBtn_PointerEntered(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Microsoft.UI.Xaml.Controls.Control c && !c.IsEnabled) return;
+            AnimateButtonScale(sender, 1.05f, 0.5f, 40);
+        }
+
+        private void ActionBtn_PointerExited(object sender, PointerRoutedEventArgs e)
+            => AnimateButtonScale(sender, 1.0f, 0.6f, 50);
+
+        private void ActionBtn_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Microsoft.UI.Xaml.Controls.Control c && !c.IsEnabled) return;
+            AnimateButtonScale(sender, 0.95f, 0.4f, 30);
+        }
+
+        private void ActionBtn_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (sender is Microsoft.UI.Xaml.Controls.Control c && !c.IsEnabled) return;
+            AnimateButtonScale(sender, 1.05f, 0.5f, 40);
         }
 
         private static void BringToForeground(IntPtr hWnd)

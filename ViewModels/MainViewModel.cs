@@ -249,6 +249,9 @@ namespace Caiqelle.ViewModels
         public partial bool IsAutoCopyToClipboard { get; set; }
 
         [ObservableProperty]
+        public partial bool IsIgnoreOutsideSelectionClick { get; set; } = true;
+
+        [ObservableProperty]
         public partial bool IsAutoUpdateEnabled { get; set; }
 
         [ObservableProperty]
@@ -334,6 +337,7 @@ namespace Caiqelle.ViewModels
                 IsHijackWinShiftS = _settings.IsHijackWinShiftS;
                 IsRunAtStartup = _settings.IsRunAtStartup;
                 IsAutoCopyToClipboard = _settings.IsAutoCopyToClipboard;
+                IsIgnoreOutsideSelectionClick = _settings.IsIgnoreOutsideSelectionClick;
                 IsAutoUpdateEnabled = _settings.IsAutoUpdateEnabled;
 
                 VersionText = $"v{GetCurrentVersionString()}";
@@ -705,6 +709,13 @@ namespace Caiqelle.ViewModels
         {
             if (_isInitializing) return;
             _settings.IsAutoCopyToClipboard = value;
+            _settings.SaveSettings();
+        }
+
+        partial void OnIsIgnoreOutsideSelectionClickChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsIgnoreOutsideSelectionClick = value;
             _settings.SaveSettings();
         }
 

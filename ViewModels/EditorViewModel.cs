@@ -15,9 +15,12 @@ namespace Caiqelle.ViewModels
     {
         Pen,
         Line,
+        DashedLine,
         Arrow,
         Rect,
-        Number
+        Ellipse,
+        Number,
+        Erase
     }
 
     /// <summary>
@@ -34,19 +37,37 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsPenSelected))]
         [NotifyPropertyChangedFor(nameof(IsLineSelected))]
+        [NotifyPropertyChangedFor(nameof(IsDashedLineSelected))]
         [NotifyPropertyChangedFor(nameof(IsArrowSelected))]
         [NotifyPropertyChangedFor(nameof(IsRectSelected))]
+        [NotifyPropertyChangedFor(nameof(IsEllipseSelected))]
         [NotifyPropertyChangedFor(nameof(IsNumberSelected))]
-        public partial EditorTool CurrentTool { get; set; } = EditorTool.Pen;
+        [NotifyPropertyChangedFor(nameof(IsEraseSelected))]
+        [NotifyPropertyChangedFor(nameof(IsShapeSelected))]
+        [NotifyPropertyChangedFor(nameof(IsFillCapable))]
+        public partial EditorTool CurrentTool { get; set; } = EditorTool.Rect;
+
+        private EditorTool _lastShapeTool = EditorTool.Rect;
 
         public bool IsPenSelected => CurrentTool == EditorTool.Pen;
         public bool IsLineSelected => CurrentTool == EditorTool.Line;
+        public bool IsDashedLineSelected => CurrentTool == EditorTool.DashedLine;
         public bool IsArrowSelected => CurrentTool == EditorTool.Arrow;
         public bool IsRectSelected => CurrentTool == EditorTool.Rect;
+        public bool IsEllipseSelected => CurrentTool == EditorTool.Ellipse;
         public bool IsNumberSelected => CurrentTool == EditorTool.Number;
+        public bool IsEraseSelected => CurrentTool == EditorTool.Erase;
+        public bool IsShapeSelected => CurrentTool is EditorTool.Line or EditorTool.DashedLine or EditorTool.Arrow or EditorTool.Rect or EditorTool.Ellipse;
+        public bool IsFillCapable => CurrentTool is EditorTool.Rect or EditorTool.Ellipse;
 
         [ObservableProperty]
         public partial bool IsFillEnabled { get; set; }
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(PenThicknessText))]
+        public partial double PenThickness { get; set; } = 4.0;
+
+        public string PenThicknessText => $"{(int)Math.Round(PenThickness)}px";
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(SelectedColorBrush))]
@@ -65,9 +86,19 @@ namespace Caiqelle.ViewModels
         [RelayCommand]
         private void SelectTool(string? toolName)
         {
+            if (toolName == "Shapes")
+            {
+                CurrentTool = _lastShapeTool;
+                return;
+            }
+
             if (Enum.TryParse<EditorTool>(toolName, out var tool))
             {
                 CurrentTool = tool;
+                if (tool is EditorTool.Line or EditorTool.DashedLine or EditorTool.Arrow or EditorTool.Rect or EditorTool.Ellipse)
+                {
+                    _lastShapeTool = tool;
+                }
             }
         }
 
