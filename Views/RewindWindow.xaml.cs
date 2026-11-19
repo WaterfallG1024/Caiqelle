@@ -22,7 +22,14 @@ namespace Caiqelle.Views
             ViewModel.RequestClose = () => this.Close();
 
             this.InitializeComponent();
-            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
+            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
+            {
+                Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt
+            };
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
             ExtendsContentIntoTitleBar = true;
 
             // プレビュー表示中はリワインド録画を一時停止（映り込み防止）

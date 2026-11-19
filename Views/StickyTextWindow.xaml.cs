@@ -69,6 +69,10 @@ namespace Caiqelle.Views
         {
             this.InitializeComponent();
             this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Colors.Transparent);
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
 
             _hwnd = WindowNative.GetWindowHandle(this);
             var windowId = Win32Interop.GetWindowIdFromWindow(_hwnd);

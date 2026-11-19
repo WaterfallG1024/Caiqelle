@@ -33,7 +33,8 @@ namespace Caiqelle.Views
             this.InitializeComponent();
 
             ExtendsContentIntoTitleBar = true;
-            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
+            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+            app.Services.GetRequiredService<Services.ThemeService>().RegisterWindow(this, RootGrid);
 
             var hwnd = WindowNative.GetWindowHandle(this);
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
@@ -61,11 +62,6 @@ namespace Caiqelle.Views
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
             int DWMWCP_ROUND = 2;
             NativeMethods.DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
-
-            // ウィンドウの白い線を完全に削除
-            int DWMWA_BORDER_COLOR = 34;
-            int DWM_BORDER_COLOR_NONE = -2;
-            NativeMethods.DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
 
             // OS レベルでキャプチャ除外
             const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;

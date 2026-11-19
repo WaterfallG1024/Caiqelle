@@ -34,8 +34,9 @@
                     <ThemeShadow />
                 </Grid.Shadow>
                 <!-- UIElement translation is needed for ThemeShadow to show up in Z space -->
-                <Border Background="{StaticResource M3SurfaceContainerHighestBrush}" 
-                        BorderThickness="0" CornerRadius="14" Padding="6,4" Translation="0,0,16">
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="6,4" Translation="0,0,16">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <!-- Drawing Tools (Top Bar) -->
                         <ToggleButton x:Name="PenBtn" ToolTipService.ToolTip="ペン" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.SelectToolCommand}" CommandParameter="Pen" IsChecked="{x:Bind ViewModel.IsPenSelected, Mode=OneWay}" Click="ToolToggleButton_Click">
@@ -180,10 +181,10 @@
 
                     <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
-                    <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="図形の塗りつぶし（四角形・楕円のみ）" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="10,0" IsChecked="{x:Bind ViewModel.IsFillEnabled, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.IsFillCapable, Mode=OneWay}">
+                    <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="図形の塗りつぶし（四角形・楕円のみ）" Height="34" Background="Transparent" Foreground="{ThemeResource TextFillColorPrimaryBrush}" BorderThickness="0" CornerRadius="8" Padding="10,0" IsChecked="{x:Bind ViewModel.IsFillEnabled, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.IsFillCapable, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEB33;" FontSize="15" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
-                            <TextBlock Text="塗りつぶし" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEB33;" FontSize="15" />
+                            <TextBlock Text="塗りつぶし" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </StackPanel>
                     </ToggleButton>
                 </StackPanel>
@@ -205,10 +206,10 @@
                     Padding="8,4"
                     Translation="0,0,16">
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ToggleButton x:Name="EraseModeBtn" ToolTipService.ToolTip="描画物をクリックして削除" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="10,0" IsChecked="True" Click="ToolToggleButton_Click">
+                    <ToggleButton x:Name="EraseModeBtn" ToolTipService.ToolTip="描画物をクリックして削除" Height="34" Background="Transparent" Foreground="{ThemeResource TextFillColorPrimaryBrush}" BorderThickness="0" CornerRadius="8" Padding="10,0" IsChecked="True" Click="ToolToggleButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="15" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
-                            <TextBlock Text="クリックして削除" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
+                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="15" />
+                            <TextBlock Text="クリックして削除" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </StackPanel>
                     </ToggleButton>
 

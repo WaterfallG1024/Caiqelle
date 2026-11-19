@@ -41,6 +41,10 @@ namespace Caiqelle.Views
             _screenshotService = screenshotService;
 
             this.InitializeComponent();
+            if (((App)Application.Current).Services.GetService(typeof(ThemeService)) is ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
 
             _hwnd = WindowNative.GetWindowHandle(this);
             WindowId wndId = Win32Interop.GetWindowIdFromWindow(_hwnd);

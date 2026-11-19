@@ -2,9 +2,11 @@ using Caiqelle.Services;
 using Caiqelle.ViewModels;
 using Caiqelle.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Numerics;
 using Windows.System;
@@ -14,6 +16,7 @@ namespace Caiqelle
     public sealed partial class MainWindow : Window
     {
         public MainViewModel ViewModel { get; }
+        private bool _isSyncingNav = false;
 
         public MainWindow()
         {
@@ -25,8 +28,9 @@ namespace Caiqelle
 
             this.InitializeComponent();
 
-            // 完全透過ベースに RootGrid の半透明テーマグラデーション背景を重ねる
-            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
+            // Fluent 2 準拠の Mica Backdrop（BaseAlt）を適用
+            this.SystemBackdrop = new MicaBackdrop { Kind = MicaKind.BaseAlt };
+            app.Services.GetRequiredService<ThemeService>().RegisterWindow(this, RootGrid);
 
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
@@ -36,7 +40,7 @@ namespace Caiqelle
             this.Closed += MainWindow_Closed;
             this.Activated += MainWindow_Activated;
 
-            UpdateNavButtonHighlight();
+            SyncTopNavSelection();
         }
 
         private void ConfigureWindowChrome()
@@ -54,72 +58,67 @@ namespace Caiqelle
                 presenter.IsResizable = false;
                 presenter.SetBorderAndTitleBar(false, false);
             }
-            appWindow.Resize(new Windows.Graphics.SizeInt32(360, 500));
+            double dpiScale = Views.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+            appWindow.Resize(new Windows.Graphics.SizeInt32((int)(500 * dpiScale), (int)(580 * dpiScale)));
 
-            // ウィンドウの角を丸くする
+            // Windows 11 標準の角丸を適用
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
             int DWMWCP_ROUND = 2;
             Views.NativeMethods.DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
 
-            // ウィンドウの白い枠線を完全に削除
-            int DWMWA_BORDER_COLOR = 34;
-            int DWM_BORDER_COLOR_NONE = -2;
-            Views.NativeMethods.DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
-
-            // フレームをクライアント領域に拡張して枠線を非表示にする
+            // フレームをクライアント領域に拡張して MicaBackdrop をウィンドウ全面へ表示
             var margins = new Views.NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
             Views.NativeMethods.DwmExtendFrameIntoClientArea(hwnd, ref margins);
-
-            // ウィンドウスタイルから枠線を除去
             Views.NativeMethods.RemoveWindowBorder(hwnd);
         }
 
         private void ViewModel_TabChanged(object? sender, EventArgs e)
         {
-            UpdateNavButtonHighlight();
+            SyncTopNavSelection();
             ContentScrollViewer?.ChangeView(null, 0, null, true);
         }
 
-        private void UpdateNavButtonHighlight()
+        private void SyncTopNavSelection()
         {
-            Button? activeBtn = ViewModel.CurrentTab switch
+            if (TopNavView == null) return;
+            _isSyncingNav = true;
+            try
             {
-                MainTab.Home => NavHomeBtn,
-                MainTab.Folder => NavFolderBtn,
-                MainTab.Settings => NavSettingsBtn,
-                _ => null
-            };
-
-            var activeBg = (Application.Current.Resources.TryGetValue("M3PrimaryContainerGlassBrush", out var brush) && brush is Microsoft.UI.Xaml.Media.Brush m3Brush)
-                ? m3Brush
-                : new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x44, 0x00, 0xFF, 0x7F));
-            var transparentBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-
-            var activeFg = (Application.Current.Resources.TryGetValue("M3PrimaryBrush", out var pBrush) && pBrush is Microsoft.UI.Xaml.Media.Brush primaryBrush)
-                ? primaryBrush
-                : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
-            var defaultFg = (Application.Current.Resources.TryGetValue("AfterGlowTextPrimaryBrush", out var dBrush) && dBrush is Microsoft.UI.Xaml.Media.Brush textBrush)
-                ? textBrush
-                : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
-
-            ApplyNavButtonVisual(NavHomeBtn, NavHomeBtn == activeBtn, activeBg, transparentBg, activeFg, defaultFg);
-            ApplyNavButtonVisual(NavFolderBtn, NavFolderBtn == activeBtn, activeBg, transparentBg, activeFg, defaultFg);
-            ApplyNavButtonVisual(NavSettingsBtn, NavSettingsBtn == activeBtn, activeBg, transparentBg, activeFg, defaultFg);
+                TopNavView.SelectedItem = ViewModel.CurrentTab switch
+                {
+                    MainTab.Home => NavHomeItem,
+                    MainTab.Folder => NavFolderItem,
+                    MainTab.Rewind => NavRewindItem,
+                    MainTab.Settings => NavSettingsItem,
+                    _ => NavHomeItem
+                };
+            }
+            finally
+            {
+                _isSyncingNav = false;
+            }
         }
 
-        private static void ApplyNavButtonVisual(
-            Button? btn,
-            bool isActive,
-            Microsoft.UI.Xaml.Media.Brush activeBg,
-            Microsoft.UI.Xaml.Media.Brush transparentBg,
-            Microsoft.UI.Xaml.Media.Brush activeFg,
-            Microsoft.UI.Xaml.Media.Brush defaultFg)
+        private void TopNavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
         {
-            if (btn == null) return;
-            btn.Background = isActive ? activeBg : transparentBg;
-            if (btn.Content is FontIcon icon)
+            if (_isSyncingNav) return;
+            if (args.SelectedItem is NavigationViewItem item && item.Tag is string tag)
             {
-                icon.Foreground = isActive ? activeFg : defaultFg;
+                switch (tag)
+                {
+                    case "Home":
+                        ViewModel.NavigateToHomeCommand.Execute(null);
+                        break;
+                    case "Folder":
+                        ViewModel.NavigateToFolderCommand.Execute(null);
+                        break;
+                    case "Rewind":
+                        ViewModel.NavigateToRewindCommand.Execute(null);
+                        break;
+                    case "Settings":
+                        ViewModel.NavigateToSettingsCommand.Execute(null);
+                        break;
+                }
             }
         }
 

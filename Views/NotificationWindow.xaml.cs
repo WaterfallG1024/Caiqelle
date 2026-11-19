@@ -30,6 +30,10 @@ namespace Caiqelle.Views
 
             // 大枠のアクリル背景を削除し、完全透過ウィンドウにする
             this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
 
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
             Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hwnd);

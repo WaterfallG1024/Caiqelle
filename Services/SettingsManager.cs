@@ -59,6 +59,7 @@ namespace Caiqelle.Services
         public bool IsAutoUpdateEnabled { get; set; } = true;
         public string LastDismissedReleaseTag { get; set; } = string.Empty;
         public AccentTheme AccentTheme { get; set; } = AccentTheme.Emerald;
+        public AppThemeMode AppThemeMode { get; set; } = AppThemeMode.System;
     }
 
     public class SettingsManager
@@ -176,6 +177,12 @@ namespace Caiqelle.Services
         {
             get => _data.AccentTheme;
             set => _data.AccentTheme = value;
+        }
+
+        public AppThemeMode AppThemeMode
+        {
+            get => _data.AppThemeMode;
+            set => _data.AppThemeMode = value;
         }
 
         [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]

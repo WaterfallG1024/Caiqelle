@@ -58,6 +58,21 @@ namespace Caiqelle.ViewModels
     }
 
     /// <summary>
+    /// アプリテーマ（システム／ライト／ダーク）選択用の表示モデル
+    /// </summary>
+    public class AppThemeOption
+    {
+        public string Label { get; }
+        public AppThemeMode Value { get; }
+
+        public AppThemeOption(AppThemeMode value, string label)
+        {
+            Value = value;
+            Label = label;
+        }
+    }
+
+    /// <summary>
     /// MainWindow の状態・コマンドを管理する ViewModel
     /// </summary>
     public partial class MainViewModel : ObservableObject
@@ -290,6 +305,28 @@ namespace Caiqelle.ViewModels
             }
         }
 
+        public ObservableCollection<AppThemeOption> AppThemeOptions { get; } = new()
+        {
+            new AppThemeOption(AppThemeMode.System, "システム設定に従う"),
+            new AppThemeOption(AppThemeMode.Light, "ライト"),
+            new AppThemeOption(AppThemeMode.Dark, "ダーク")
+        };
+
+        [ObservableProperty]
+        public partial AppThemeMode SelectedAppTheme { get; set; } = AppThemeMode.System;
+
+        public int SelectedAppThemeIndex
+        {
+            get => (int)SelectedAppTheme;
+            set
+            {
+                if (value >= 0 && value < AppThemeOptions.Count)
+                {
+                    SelectedAppTheme = AppThemeOptions[value].Value;
+                }
+            }
+        }
+
         public MainViewModel(
             SettingsManager settings,
             RewindService rewindService,
@@ -360,6 +397,7 @@ namespace Caiqelle.ViewModels
                 SelectedImageFormat = string.IsNullOrEmpty(_settings.ImageFormat) ? "PNG" : _settings.ImageFormat;
                 SelectedJpegQuality = _settings.JpegQuality.ToString();
                 SelectedAccentTheme = _settings.AccentTheme;
+                SelectedAppTheme = _settings.AppThemeMode;
 
                 LoadRewindSettings();
                 UpdateRewindUIConstraints();
@@ -788,7 +826,16 @@ namespace Caiqelle.ViewModels
             if (_isInitializing) return;
             _settings.AccentTheme = value;
             _settings.SaveSettings();
-            _themeService.ApplyTheme(value);
+            _themeService.ApplyTheme(value, SelectedAppTheme);
+        }
+
+        partial void OnSelectedAppThemeChanged(AppThemeMode value)
+        {
+            OnPropertyChanged(nameof(SelectedAppThemeIndex));
+            if (_isInitializing) return;
+            _settings.AppThemeMode = value;
+            _settings.SaveSettings();
+            _themeService.ApplyAppTheme(value);
         }
 
         // --- リワインド設定とハードウェア制約 ---

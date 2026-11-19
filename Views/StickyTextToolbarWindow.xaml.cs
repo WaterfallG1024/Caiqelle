@@ -31,7 +31,11 @@ namespace Caiqelle.Views
         {
             _owner = owner;
             this.InitializeComponent();
-            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Colors.Transparent);
+            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
 
             _hwnd = WindowNative.GetWindowHandle(this);
             var windowId = Win32Interop.GetWindowIdFromWindow(_hwnd);
@@ -140,6 +144,10 @@ namespace Caiqelle.Views
             {
                 StealthBtn.IsChecked = isStealth;
                 StealthIcon.Glyph = isStealth ? "\uED1A" : "\uE890";
+                if (Application.Current.Resources.TryGetValue(isStealth ? "M3PrimaryBrush" : "TextFillColorPrimaryBrush", out var brushObj) && brushObj is Brush iconBrush)
+                {
+                    StealthIcon.Foreground = iconBrush;
+                }
                 ToolTipService.SetToolTip(
                     StealthBtn,
                     isStealth

@@ -9,9 +9,10 @@
     Title="Sticky View">
 
     <Grid x:Name="RootGrid"
-          Background="{StaticResource ThemeWindowBackgroundGradientBrush}"
-          CornerRadius="0"
-          BorderThickness="0"
+          Background="Transparent"
+          CornerRadius="8"
+          BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+          BorderThickness="1"
           KeyDown="RootGrid_KeyDown"
           IsTabStop="True">
         <Grid.RowDefinitions>
@@ -29,13 +30,12 @@
 
             <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
                 <TextBlock Text="Sticky View"
-                           Foreground="{StaticResource AfterGlowTextPrimaryBrush}"
-                           FontFamily="Segoe UI Variable Display"
-                           FontWeight="Bold"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                           FontWeight="SemiBold"
                            FontSize="18" />
                 <TextBlock x:Name="SubtitleText"
                            Text="保存済み: 0 件"
-                           Foreground="{StaticResource AfterGlowTextSecondaryBrush}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            FontSize="11" />
             </StackPanel>
 
@@ -43,7 +43,7 @@
                 <Button x:Name="NewBtn"
                         Style="{StaticResource M3FilledPrimaryButtonStyle}"
                         Padding="12,6"
-                        CornerRadius="10"
+                        CornerRadius="4"
                         Click="NewBtn_Click"
                         ToolTipService.ToolTip="新しい Sticky Text を作成">
                     <StackPanel Orientation="Horizontal" Spacing="5">
@@ -52,15 +52,12 @@
                     </StackPanel>
                 </Button>
                 <Button x:Name="CloseBtn"
+                        Style="{StaticResource FluentIconButtonStyle}"
                         Width="32"
                         Height="32"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        CornerRadius="8"
-                        Padding="0"
                         Click="CloseBtn_Click"
                         ToolTipService.ToolTip="閉じる (Esc)">
-                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE711;" FontSize="13" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" />
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE711;" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </Button>
             </StackPanel>
         </Grid>
@@ -71,8 +68,7 @@
                 <ItemsControl x:Name="ItemsList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="local:StickyTextListItemView">
-                            <Border Background="{StaticResource M3SurfaceContainerBrush}"
-                                    CornerRadius="12"
+                            <Border Style="{StaticResource FluentSettingsCardStyle}"
                                     Padding="12,10"
                                     Margin="0,0,0,8">
                                 <Grid ColumnSpacing="10">
@@ -84,15 +80,15 @@
                                     <StackPanel Grid.Column="0" Spacing="5" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <Border Background="{x:Bind StatusBackground}"
-                                                    CornerRadius="6"
+                                                    CornerRadius="4"
                                                     Padding="7,2">
                                                 <TextBlock Text="{x:Bind StatusLabel}"
                                                            Foreground="{x:Bind StatusForeground}"
                                                            FontSize="10"
-                                                           FontWeight="Bold" />
+                                                           FontWeight="SemiBold" />
                                             </Border>
-                                            <Border Background="{StaticResource M3SurfaceContainerHighestBrush}"
-                                                    CornerRadius="6"
+                                            <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                    CornerRadius="4"
                                                     Padding="7,2"
                                                     Visibility="{x:Bind StealthBadgeVisibility}">
                                                 <TextBlock Text="プライベート"
@@ -103,7 +99,7 @@
                                         </StackPanel>
 
                                         <TextBlock Text="{x:Bind PreviewText}"
-                                                   Foreground="{StaticResource AfterGlowTextPrimaryBrush}"
+                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                    FontSize="13"
                                                    TextWrapping="Wrap"
                                                    MaxLines="2"
@@ -113,13 +109,9 @@
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                         <Button Tag="{x:Bind Id}"
                                                 Click="ToggleShowBtn_Click"
-                                                Background="{StaticResource M3SurfaceContainerHighestBrush}"
-                                                Foreground="{StaticResource AfterGlowTextPrimaryBrush}"
-                                                BorderThickness="0"
-                                                CornerRadius="8"
-                                                Padding="10,6"
+                                                Style="{StaticResource M3PillTonalButtonStyle}"
+                                                Padding="10,5"
                                                 FontSize="12"
-                                                FontWeight="SemiBold"
                                                 Content="{x:Bind ToggleButtonLabel}"
                                                 ToolTipService.ToolTip="{x:Bind ToggleButtonToolTip}" />
 
@@ -128,8 +120,9 @@
                                                 Width="32"
                                                 Height="32"
                                                 Background="{StaticResource FuncPinkBgBrush}"
-                                                BorderThickness="0"
-                                                CornerRadius="8"
+                                                BorderBrush="{StaticResource FuncPinkBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
                                                 Padding="0"
                                                 Visibility="{x:Bind DeleteButtonVisibility}"
                                                 ToolTipService.ToolTip="完全に削除">
@@ -149,10 +142,10 @@
                         HorizontalAlignment="Center"
                         Spacing="8"
                         Visibility="Collapsed">
-                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70B;" FontSize="28" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" />
+                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70B;" FontSize="28" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <TextBlock x:Name="EmptyStateText"
                            Text="保存されている Sticky Text はありません"
-                           Foreground="{StaticResource AfterGlowTextSecondaryBrush}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            FontSize="13"
                            TextAlignment="Center"
                            TextWrapping="Wrap" />
@@ -161,7 +154,9 @@
 
         <!-- Footer -->
         <Border Grid.Row="2"
-                Background="{StaticResource M3SurfaceContainerLowBrush}"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0"
                 Padding="16,10">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -172,7 +167,7 @@
                 <TextBlock Grid.Column="0"
                            x:Name="FooterHintText"
                            Text="Esc で閉じる"
-                           Foreground="{StaticResource AfterGlowTextSecondaryBrush}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            FontSize="11"
                            VerticalAlignment="Center" />
 
@@ -180,9 +175,10 @@
                         x:Name="DeleteAllBtn"
                         Background="{StaticResource FuncPinkBgBrush}"
                         Foreground="{StaticResource FuncPinkBrush}"
-                        BorderThickness="0"
-                        CornerRadius="8"
-                        Padding="12,6"
+                        BorderBrush="{StaticResource FuncPinkBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="12,5"
                         FontSize="12"
                         FontWeight="SemiBold"
                         Content="すべて削除">
@@ -192,12 +188,13 @@
                                 <TextBlock Text="保存されている Sticky Text をすべて削除しますか？"
                                            TextWrapping="Wrap"
                                            FontSize="12"
-                                           Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                                 <Button Content="すべて削除する"
                                         Background="{StaticResource FuncPinkBgBrush}"
                                         Foreground="{StaticResource FuncPinkBrush}"
-                                        BorderThickness="0"
-                                        CornerRadius="8"
+                                        BorderBrush="{StaticResource FuncPinkBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
                                         HorizontalAlignment="Right"
                                         Click="ConfirmDeleteAllBtn_Click" />
                             </StackPanel>

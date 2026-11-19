@@ -213,10 +213,10 @@
 
                         <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
-                        <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="塗りつぶし（四角形・楕円のみ）" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="10,0" Click="FillBtn_Click" IsEnabled="True">
+                        <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="塗りつぶし（四角形・楕円のみ）" Height="34" Background="Transparent" Foreground="{ThemeResource TextFillColorPrimaryBrush}" BorderThickness="0" CornerRadius="8" Padding="10,0" Click="FillBtn_Click" IsEnabled="True">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEB33;" FontSize="15" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
-                                <TextBlock Text="塗りつぶし" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEB33;" FontSize="15" />
+                                <TextBlock Text="塗りつぶし" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </StackPanel>
                         </ToggleButton>
                     </StackPanel>
@@ -235,10 +235,10 @@
                         <ThemeShadow />
                     </Border.Shadow>
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ToggleButton x:Name="EraseModeBtn" ToolTipService.ToolTip="描画物をクリックして削除" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="10,0" IsChecked="True" Click="EraseModeBtn_Click">
+                        <ToggleButton x:Name="EraseModeBtn" ToolTipService.ToolTip="描画物をクリックして削除" Height="34" Background="Transparent" Foreground="{ThemeResource TextFillColorPrimaryBrush}" BorderThickness="0" CornerRadius="8" Padding="10,0" IsChecked="True" Click="EraseModeBtn_Click">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="15" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
-                                <TextBlock Text="クリックして削除" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="15" />
+                                <TextBlock Text="クリックして削除" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </StackPanel>
                         </ToggleButton>
 

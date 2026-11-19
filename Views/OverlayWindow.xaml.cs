@@ -90,6 +90,10 @@ namespace Caiqelle.Views
         public OverlayWindow()
         {
             this.InitializeComponent();
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
             Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hwnd);
             _appWindow = AppWindow.GetFromWindowId(windowId);

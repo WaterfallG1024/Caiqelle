@@ -41,7 +41,11 @@ namespace Caiqelle.Views
             this.InitializeComponent();
 
             ExtendsContentIntoTitleBar = true;
-            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Colors.Transparent);
+            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+            if (((App)Application.Current).Services.GetService(typeof(ThemeService)) is ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
 
             _hwnd = WindowNative.GetWindowHandle(this);
             var windowId = Win32Interop.GetWindowIdFromWindow(_hwnd);
@@ -68,14 +72,10 @@ namespace Caiqelle.Views
                 presenter.IsAlwaysOnTop = true;
             }
 
-            // ウィンドウの角丸・白枠線を除去（FolderSelectionWindow と統一）
+            // ウィンドウの角丸を適用
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
             int DWMWCP_ROUND = 2;
             NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
-
-            int DWMWA_BORDER_COLOR = 34;
-            int DWM_BORDER_COLOR_NONE = -2;
-            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
 
             // 画面共有・録画から一覧ウィンドウを除外
             SetWindowDisplayAffinity(_hwnd, WDA_EXCLUDEFROMCAPTURE);
@@ -122,7 +122,7 @@ namespace Caiqelle.Views
             var entries = _service.GetListEntries(out bool isSaveEnabled);
             var activeBg = GetResourceBrush("M3PrimaryContainerGlassBrush");
             var activeFg = GetResourceBrush("M3PrimaryBrush");
-            var inactiveBg = GetResourceBrush("M3SurfaceContainerHighestBrush");
+            var inactiveBg = GetResourceBrush("SubtleFillColorSecondaryBrush");
             var inactiveFg = GetResourceBrush("AfterGlowTextSecondaryBrush");
 
             var viewItems = new List<StickyTextListItemView>(entries.Count);

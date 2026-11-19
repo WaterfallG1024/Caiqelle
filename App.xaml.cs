@@ -290,7 +290,7 @@ namespace Caiqelle
             try
             {
                 var settings = Services.GetRequiredService<SettingsManager>();
-                Services.GetRequiredService<ThemeService>().ApplyTheme(settings.AccentTheme);
+                Services.GetRequiredService<ThemeService>().ApplyTheme(settings.AccentTheme, settings.AppThemeMode);
 
                 // Instantiate a hidden window to provide a XamlRoot and DispatcherQueue for the background logic
                 _hiddenTrayWindow = new Views.HiddenTrayWindow();
@@ -474,21 +474,24 @@ namespace Caiqelle
             
             var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(_window);
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-            var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(windowId, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
-            
-            var workArea = displayArea.WorkArea;
             var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-            
-            // Quick Access Window size
-            int width = 360;
-            int height = 500;
-            
-            // Place bottom right, just above the taskbar
-            int margin = 12;
-            int x = workArea.X + workArea.Width - width - margin;
-            int y = workArea.Y + workArea.Height - height - margin;
-            
-            appWindow.Move(new Windows.Graphics.PointInt32(x, y));
+
+            GetCursorPos(out POINT cursorPos);
+            var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromPoint(
+                new Windows.Graphics.PointInt32(cursorPos.X, cursorPos.Y),
+                Microsoft.UI.Windowing.DisplayAreaFallback.Primary)
+                ?? Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(windowId, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
+
+            var workArea = displayArea.WorkArea;
+            double dpiScale = Views.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+            int width = Math.Max(appWindow.Size.Width, (int)(500 * dpiScale));
+            int height = Math.Max(appWindow.Size.Height, (int)(580 * dpiScale));
+            int margin = (int)(12 * dpiScale);
+
+            int x = Math.Max(workArea.X, workArea.X + workArea.Width - width - margin);
+            int y = Math.Max(workArea.Y, workArea.Y + workArea.Height - height - margin);
+
+            appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
             
             Caiqelle.Views.WindowExtensions.Show(_window);
             SetForegroundWindow(hwnd);

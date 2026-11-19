@@ -9,7 +9,7 @@
     mc:Ignorable="d"
     Title="Rewind Viewer">
 
-    <Grid x:Name="RootGrid" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" IsTabStop="True" UseSystemFocusVisuals="False" KeyDown="Grid_KeyDown" PointerWheelChanged="Window_PointerWheelChanged">
+    <Grid x:Name="RootGrid" Background="Transparent" IsTabStop="True" UseSystemFocusVisuals="False" KeyDown="Grid_KeyDown" PointerWheelChanged="Window_PointerWheelChanged">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>

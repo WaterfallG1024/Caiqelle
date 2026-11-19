@@ -23,6 +23,10 @@ namespace Caiqelle.Views
         public PinWindow(byte[] imageBytes)
         {
             this.InitializeComponent();
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
             var hWndForIcon = WinRT.Interop.WindowNative.GetWindowHandle(this);
             var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
             var appWindowForIcon = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowIdForIcon);
@@ -65,6 +69,7 @@ namespace Caiqelle.Views
             _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
 
             LoadImage();
+            this.Activated += (s, e) => RootGrid.Focus(FocusState.Programmatic);
         }
 
         private async void LoadImage()

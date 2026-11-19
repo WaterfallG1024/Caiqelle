@@ -55,8 +55,12 @@ namespace Caiqelle.Views
 
             this.InitializeComponent();
 
-            // 大枠の背景を完全透過にしてカードのみを浮かせる
-            this.SystemBackdrop = new WinUIEx.TransparentTintBackdrop(Microsoft.UI.Colors.Transparent);
+            // Fluent 2 準拠の DesktopAcrylicBackdrop を適用しテーマに同期
+            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
 
             _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
             Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hwnd);
@@ -72,21 +76,12 @@ namespace Caiqelle.Views
                 presenter.IsAlwaysOnTop = true;
             }
 
-            // 透明ウィンドウの影・角丸・枠線を完全に無効化（大枠背景・影を出さない）
-            int DWMWA_NCRENDERING_POLICY = 2;
-            int DWMNCRP_DISABLED = 1;
-            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_NCRENDERING_POLICY, ref DWMNCRP_DISABLED, sizeof(int));
-
+            // Windows 11 標準の角丸を適用し Acrylic ウィンドウとして表示
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
-            int DWMWCP_DONOTROUND = 1;
-            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_DONOTROUND, sizeof(int));
+            int DWMWCP_ROUND = 2;
+            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
 
-            // ウィンドウの白い線を完全に削除
-            int DWMWA_BORDER_COLOR = 34;
-            int DWM_BORDER_COLOR_NONE = -2;
-            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
-
-            // フレームをクライアント領域に拡張して枠線を非表示にする
+            // フレームをクライアント領域に拡張して AcrylicBackdrop を全面表示
             var margins = new NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
             NativeMethods.DwmExtendFrameIntoClientArea(_hwnd, ref margins);
 

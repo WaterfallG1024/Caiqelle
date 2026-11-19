@@ -9,19 +9,17 @@
 
     <Grid x:Name="RootGrid" Background="Transparent" Loaded="RootGrid_Loaded" KeyDown="RootGrid_KeyDown">
         <!-- Spring Animation setup in Code Behind -->
-        <Border x:Name="ContentBorder" Background="Transparent" BorderThickness="0" Opacity="0" CornerRadius="0">
-            <StackPanel x:Name="CaptureButtonsPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="14,10" Spacing="10" Visibility="Visible" Width="560">
+        <Border x:Name="ContentBorder"
+                Background="Transparent"
+                BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                Opacity="0"
+                CornerRadius="8">
+            <StackPanel x:Name="CaptureButtonsPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="14,12" Spacing="10" Visibility="Visible" Width="560">
                 <!-- Group 1: キャプチャ (4 Cards) -->
-                <Border Background="{StaticResource M3SurfaceContainerLowBrush}"
-                        BorderBrush="#22FFFFFF"
-                        BorderThickness="1"
-                        CornerRadius="18"
-                        Padding="10,8,10,10">
+                <Border Style="{StaticResource FluentGroupContainerStyle}" Padding="10,8,10,10">
                     <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="4,0,0,0">
-                            <Ellipse Width="6" Height="6" Fill="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="キャプチャ" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <TextBlock Text="キャプチャ" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
 
                         <Grid ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
@@ -31,39 +29,39 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <Button Grid.Column="0" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="6,10" Command="{x:Bind ViewModel.CaptureRegionCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                            <Button Grid.Column="0" Style="{StaticResource CardButtonStyle}" Height="92" Padding="6,10" Command="{x:Bind ViewModel.CaptureRegionCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                    <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                    <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE73F;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                     </Border>
-                                    <TextBlock Text="範囲指定 (C)" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="範囲指定 (C)" FontSize="11.5" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Button>
 
-                            <Button Grid.Column="1" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="6,10" Command="{x:Bind ViewModel.CaptureWindowCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                            <Button Grid.Column="1" Style="{StaticResource CardButtonStyle}" Height="92" Padding="6,10" Command="{x:Bind ViewModel.CaptureWindowCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                    <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                    <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF7ED;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                     </Border>
-                                    <TextBlock Text="ウィンドウ (W)" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="ウィンドウ (W)" FontSize="11.5" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Button>
 
-                            <Button Grid.Column="2" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="6,10" Command="{x:Bind ViewModel.CaptureFullscreenCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                            <Button Grid.Column="2" Style="{StaticResource CardButtonStyle}" Height="92" Padding="6,10" Command="{x:Bind ViewModel.CaptureFullscreenCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                    <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                    <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE740;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                     </Border>
-                                    <TextBlock Text="全画面 (F)" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="全画面 (F)" FontSize="11.5" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Button>
 
-                            <Button Grid.Column="3" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="6,10" Command="{x:Bind ViewModel.CaptureOcrCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                            <Button Grid.Column="3" Style="{StaticResource CardButtonStyle}" Height="92" Padding="6,10" Command="{x:Bind ViewModel.CaptureOcrCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                    <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                    <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8D2;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                     </Border>
-                                    <TextBlock Text="テキスト抽出 (E)" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="テキスト抽出 (E)" FontSize="11.5" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </Grid>
@@ -78,17 +76,9 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Group 2: ピン・リワインド (3 Cards) -->
-                    <Border Grid.Column="0"
-                            Background="{StaticResource M3SurfaceContainerLowBrush}"
-                            BorderBrush="#22FFFFFF"
-                            BorderThickness="1"
-                            CornerRadius="18"
-                            Padding="10,8,10,10">
+                    <Border Grid.Column="0" Style="{StaticResource FluentGroupContainerStyle}" Padding="10,8,10,10">
                         <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="4,0,0,0">
-                                <Ellipse Width="6" Height="6" Fill="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="ピン・リワインド" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <TextBlock Text="ピン・リワインド" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
 
                             <Grid ColumnSpacing="4">
                                 <Grid.ColumnDefinitions>
@@ -97,30 +87,30 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
-                                <Button Grid.Column="0" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="4,10" Command="{x:Bind ViewModel.CapturePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                                <Button Grid.Column="0" Style="{StaticResource CardButtonStyle}" Height="92" Padding="4,10" Command="{x:Bind ViewModel.CapturePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                        <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                        <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE718;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="ピン留め (P)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="ピン留め (P)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 
-                                <Button Grid.Column="1" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="4,10" Command="{x:Bind ViewModel.CaptureLivePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                                <Button Grid.Column="1" Style="{StaticResource CardButtonStyle}" Height="92" Padding="4,10" Command="{x:Bind ViewModel.CaptureLivePinCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                        <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                        <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8A3;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="ライブピン (L)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="ライブピン (L)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 
-                                <Button Grid.Column="2" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="4,10" Command="{x:Bind ViewModel.OpenRewindCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                                <Button Grid.Column="2" Style="{StaticResource CardButtonStyle}" Height="92" Padding="4,10" Command="{x:Bind ViewModel.OpenRewindCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                        <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                        <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE768;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="リワインド (R)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="リワインド (R)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </Grid>
@@ -128,17 +118,9 @@
                     </Border>
 
                     <!-- Group 3: Sticky Text (2 Cards) -->
-                    <Border Grid.Column="1"
-                            Background="{StaticResource M3SurfaceContainerLowBrush}"
-                            BorderBrush="#22FFFFFF"
-                            BorderThickness="1"
-                            CornerRadius="18"
-                            Padding="10,8,10,10">
+                    <Border Grid.Column="1" Style="{StaticResource FluentGroupContainerStyle}" Padding="10,8,10,10">
                         <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="4,0,0,0">
-                                <Ellipse Width="6" Height="6" Fill="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="Sticky Text" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <TextBlock Text="Sticky Text" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
 
                             <Grid ColumnSpacing="4">
                                 <Grid.ColumnDefinitions>
@@ -146,21 +128,21 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
-                                <Button Grid.Column="0" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="4,10" Command="{x:Bind ViewModel.OpenStickyTextCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                                <Button Grid.Column="0" Style="{StaticResource CardButtonStyle}" Height="92" Padding="4,10" Command="{x:Bind ViewModel.OpenStickyTextCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                        <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                        <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70B;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="Sticky Text (S)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Sticky Text (S)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 
-                                <Button Grid.Column="1" Style="{StaticResource CardButtonStyle}" Background="{StaticResource ThemeWindowBackgroundGradientBrush}" Height="94" Padding="4,10" Command="{x:Bind ViewModel.OpenStickyTextListCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
+                                <Button Grid.Column="1" Style="{StaticResource CardButtonStyle}" Height="92" Padding="4,10" Command="{x:Bind ViewModel.OpenStickyTextListCommand}" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited" PointerPressed="Card_PointerPressed" PointerReleased="Card_PointerReleased">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
-                                        <Border Width="42" Height="42" CornerRadius="14" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
+                                        <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8FD;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="Sticky View (V)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Sticky View (V)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </Grid>

@@ -51,6 +51,7 @@ namespace Caiqelle.Views
             ViewModel.RequestSaveAsync = PerformSaveAsync;
 
             this.InitializeComponent();
+            app.Services.GetRequiredService<Services.ThemeService>().RegisterWindow(this, RootGrid);
             var hWndForIcon = WinRT.Interop.WindowNative.GetWindowHandle(this);
             var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
             var appWindowForIcon = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowIdForIcon);
