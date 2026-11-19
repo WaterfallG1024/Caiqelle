@@ -65,6 +65,8 @@ namespace Caiqelle.Services
     public class SettingsManager
     {
         private readonly string _settingsFilePath;
+        private readonly object _saveLock = new();
+        private const long MaxSettingsFileBytes = 10 * 1024 * 1024; // 10MB 上限
         private SettingsData _data;
 
         public List<FolderMapping> ImageFolderMappings => _data.ImageFolderMappings;
@@ -222,6 +224,13 @@ namespace Caiqelle.Services
             {
                 try
                 {
+                    var fileInfo = new FileInfo(_settingsFilePath);
+                    if (fileInfo.Length > MaxSettingsFileBytes)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Settings file exceeds maximum allowed size ({fileInfo.Length} bytes).");
+                        return;
+                    }
+
                     string json = File.ReadAllText(_settingsFilePath);
                     var loaded = JsonSerializer.Deserialize<SettingsData>(json);
                     if (loaded != null)
@@ -279,13 +288,22 @@ namespace Caiqelle.Services
 
         public static string ResolveFolderPath(string folderName)
         {
-            if (Path.IsPathRooted(folderName))
-            {
-                return folderName;
-            }
             string myPictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
             string baseDir = Path.Combine(myPictures, "Caiqelle");
-            string resolved = Path.Combine(baseDir, folderName);
+
+            if (string.IsNullOrWhiteSpace(folderName))
+            {
+                return baseDir;
+            }
+
+            // 設定改ざん等による任意絶対パスへの書き込みを防止し、常に Pictures\Caiqelle 配下に限定
+            string entryName = Path.GetFileName(folderName.Trim());
+            if (!IsSafeEntryName(entryName))
+            {
+                return baseDir;
+            }
+
+            string resolved = Path.Combine(baseDir, entryName);
             return IsPathWithinDirectory(baseDir, resolved) ? resolved : baseDir;
         }
 
@@ -402,7 +420,12 @@ namespace Caiqelle.Services
             try
             {
                 string json = JsonSerializer.Serialize(_data);
-                File.WriteAllText(_settingsFilePath, json);
+                lock (_saveLock)
+                {
+                    string tmpPath = _settingsFilePath + ".tmp";
+                    File.WriteAllText(tmpPath, json);
+                    File.Move(tmpPath, _settingsFilePath, overwrite: true);
+                }
             }
             catch (Exception ex)
             {

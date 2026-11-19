@@ -25,16 +25,6 @@ namespace Caiqelle
                 })
                 .Run();
 
-            try
-            {
-                var processes = System.Diagnostics.Process.GetProcessesByName("BranchShot");
-                foreach (var process in processes)
-                {
-                    process.Kill();
-                }
-            }
-            catch { }
-
             if (args != null && args.Length > 0 && args[0] == "--background")
             {
                 IsBackgroundStart = true;
@@ -42,8 +32,8 @@ namespace Caiqelle
 
             XamlCheckProcessRequirements();
 
-            const string mutexName = "Caiqelle_SingleInstance_Mutex";
-            const string eventName = "Caiqelle_ShowWindowEvent";
+            const string mutexName = @"Local\Caiqelle_SingleInstance_Mutex";
+            const string eventName = @"Local\Caiqelle_ShowWindowEvent";
             System.Threading.Mutex? mutex = null;
             bool isFirstInstance = false;
 
@@ -102,7 +92,7 @@ namespace Caiqelle
             Services = ConfigureServices();
             InitializeComponent();
 
-            const string eventName = "Caiqelle_ShowWindowEvent";
+            const string eventName = @"Local\Caiqelle_ShowWindowEvent";
             
             // IPCスレッドの開始
             _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, eventName);
@@ -311,16 +301,8 @@ namespace Caiqelle
                 var updateService = Services.GetRequiredService<UpdateService>();
                 updateService.StartAutoUpdateLoop();
 
-                // 軽量な CaptureManager 初期化（内部ウィンドウは遅延生成）
+                // 軽量な CaptureManager 初期化（内部ウィンドウはアイドル時に段階分散して事前生成）
                 CaptureManager = new CaptureManager(Services.GetRequiredService<ScreenshotService>());
-
-                // 起動直後のUI応答性を損なわないよう、アイドル時にオーバーレイウィンドウを事前生成
-                var prewarmDispatcher = _hiddenTrayWindow.DispatcherQueue;
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(1500);
-                    prewarmDispatcher?.TryEnqueue(() => CaptureManager?.Prewarm());
-                });
 
                 // トレイアイコンの初期化（右クリックメニューはWin32ネイティブで処理）
                 _trayIcon = new H.NotifyIcon.TaskbarIcon
@@ -367,20 +349,33 @@ namespace Caiqelle
                     });
                 }
 
-                // アイドル時にフローティングUI・オーバーレイ・通知ウィンドウを事前生成して初回起動を爆速化
-                _hiddenTrayWindow?.DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                // アイドル時にフローティングUI・通知・各オーバーレイを1ステップずつ分散生成（UIフレーム落ち防止）
+                var prewarmQueue = _hiddenTrayWindow?.DispatcherQueue;
+                if (prewarmQueue != null)
                 {
-                    try
+                    _ = Task.Run(async () =>
                     {
-                        _ = GetFloatingWindow();
-                        CaptureManager?.Prewarm();
-                        Services.GetService<NotificationService>()?.Prewarm();
-                    }
-                    catch (Exception prewarmEx)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[App] Prewarm failed: {prewarmEx.Message}");
-                    }
-                });
+                        await Task.Delay(400);
+                        prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                        {
+                            try { _ = GetFloatingWindow(); } catch { }
+                        });
+                        await Task.Delay(120);
+                        prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                        {
+                            try { Services.GetService<NotificationService>()?.Prewarm(); } catch { }
+                        });
+                        for (int step = 0; step < 3; step++)
+                        {
+                            int s = step;
+                            await Task.Delay(120);
+                            prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                            {
+                                try { CaptureManager?.PrewarmStep(s); } catch { }
+                            });
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {

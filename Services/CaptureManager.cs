@@ -47,6 +47,19 @@ namespace Caiqelle.Services
             _ = GetFolderSelectionWindow();
         }
 
+        /// <summary>
+        /// UI スレッドをブロックしないよう、1 ウィンドウずつ段階的に事前生成する
+        /// </summary>
+        public void PrewarmStep(int step)
+        {
+            switch (step)
+            {
+                case 0: _ = GetOverlayWindow(); break;
+                case 1: _ = GetWindowSelectionOverlay(); break;
+                case 2: _ = GetFolderSelectionWindow(); break;
+            }
+        }
+
         public void CancelCapture()
         {
             _overlayWindow?.Cancel();
@@ -60,9 +73,7 @@ namespace Caiqelle.Services
 
             try
             {
-                // フローティングUI等の非表示がDWM合成に反映されるのを1フレーム分だけ待機（Task.Delayより高速・確実）
-                await Task.Run(() => DwmFlush());
-
+                // FloatingWindow・NotificationWindow は WDA_EXCLUDEFROMCAPTURE で除外済みのため即時画面取得へ進む
                 var bounds = _screenshotService.GetVirtualScreenBounds();
 
                 if (key == CapturedKey.F)

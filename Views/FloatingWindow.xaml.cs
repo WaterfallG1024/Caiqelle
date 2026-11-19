@@ -87,6 +87,10 @@ namespace Caiqelle.Views
 
             NativeMethods.RemoveWindowBorder(_hwnd);
 
+            // OS レベルでキャプチャ対象から除外し、非表示待機なしでの即時キャプチャを可能にする
+            const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+            SetWindowDisplayAffinity(_hwnd, WDA_EXCLUDEFROMCAPTURE);
+
             // Composition アニメーションを事前構築してキャッシュ
             _compositor = ElementCompositionPreview.GetElementVisual(this.RootGrid).Compositor;
             _contentVisual = ElementCompositionPreview.GetElementVisual(ContentBorder);
@@ -240,5 +244,8 @@ namespace Caiqelle.Views
 
         private void Card_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
             => AnimationHelper.OnPointerReleasedScale(sender, e);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
     }
 }

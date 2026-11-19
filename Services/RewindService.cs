@@ -24,7 +24,6 @@ namespace Caiqelle.Services
         private readonly ConcurrentQueue<RewindFrame> _frames = new();
         private bool _isRunning = false;
         private volatile bool _isPaused = false;
-        private int _gcCounter = 0;
 
         // 16分割タイル差分記録用の直前フレーム状態
         private byte[]? _prevRawPixels;
@@ -228,13 +227,6 @@ namespace Caiqelle.Services
                     while (_frames.Count > maxFrames)
                     {
                         _frames.TryDequeue(out _);
-                        _gcCounter++;
-                        
-                        if (_gcCounter > 10)
-                        {
-                            GC.Collect(0, GCCollectionMode.Optimized);
-                            _gcCounter = 0;
-                        }
                     }
 
                     System.Diagnostics.Debug.WriteLine($"[RewindService] Frame enqueued. Total={_frames.Count}/{maxFrames}");

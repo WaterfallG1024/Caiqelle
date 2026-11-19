@@ -64,6 +64,10 @@ namespace Caiqelle.Views
 
             NotificationNativeMethods.RemoveWindowBorder(_hwnd);
 
+            // OS レベルでキャプチャ対象から除外
+            const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+            NotificationNativeMethods.SetWindowDisplayAffinity(_hwnd, WDA_EXCLUDEFROMCAPTURE);
+
             // タスクバーから除外（コンストラクタで1回のみ設定）
             var exStyle = (long)NotificationNativeMethods.GetWindowLongPtr(_hwnd, NotificationNativeMethods.GWL_EXSTYLE);
             exStyle |= 0x00000080L; // WS_EX_TOOLWINDOW
@@ -267,6 +271,9 @@ namespace Caiqelle.Views
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
         public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
 
         public const int GWL_STYLE = -16;
         public const int GWL_EXSTYLE = -20;

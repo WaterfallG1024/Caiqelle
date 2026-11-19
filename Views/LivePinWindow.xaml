@@ -12,12 +12,22 @@
           PointerEntered="RootGrid_PointerEntered"
           PointerExited="RootGrid_PointerExited"
           PointerPressed="RootGrid_PointerPressed"
+          PointerMoved="RootGrid_PointerMoved"
+          PointerReleased="RootGrid_PointerReleased"
           PointerWheelChanged="RootGrid_PointerWheelChanged"
           KeyDown="RootGrid_KeyDown"
           IsTabStop="True">
 
-        <!-- Live Stream Image -->
-        <Image x:Name="LiveImage" Stretch="Uniform" />
+        <!-- Live Stream Image (枠内にクリップしてコンテンツのみ拡大・縮小) -->
+        <Grid x:Name="ViewportGrid" SizeChanged="ViewportGrid_SizeChanged">
+            <Image x:Name="LiveImage"
+                   Stretch="Uniform"
+                   RenderTransformOrigin="0.5,0.5">
+                <Image.RenderTransform>
+                    <CompositeTransform x:Name="ImageTransform" />
+                </Image.RenderTransform>
+            </Image>
+        </Grid>
 
         <!-- LIVE / PAUSE ステータスバッジ (左上に控えめに表示) -->
         <Border x:Name="StatusBadge"
@@ -57,7 +67,7 @@
                 </Button>
 
                 <Button x:Name="ScaleResetBtn" ToolTipService.ToolTip="倍率切替 (1x / 2x / 3x)" Height="32" MinWidth="40" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="6,0" Click="ScaleResetBtn_Click">
-                    <TextBlock x:Name="ScaleText" Text="2x" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="ScaleText" Text="1x" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" HorizontalAlignment="Center" />
                 </Button>
 
                 <Button x:Name="ZoomInBtn" ToolTipService.ToolTip="拡大 (+)" Width="28" Height="32" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="ZoomInBtn_Click">

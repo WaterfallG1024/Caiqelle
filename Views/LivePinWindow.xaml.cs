@@ -32,8 +32,10 @@ namespace Caiqelle.Views
         private bool _useBufferA = true;
         private bool _isPaused = false;
         private bool _isClosed = false;
-        private static readonly double[] AllowedScales = { 1.0, 2.0, 3.0 };
-        private int _scaleIndex = 1; // 初期倍率: 2x
+        private static readonly double[] AllowedScales = { 0.5, 1.0, 1.5, 2.0, 3.0, 4.0 };
+        private int _scaleIndex = 1; // 初期倍率: 1x (枠内フィット)
+        private bool _isPanning = false;
+        private Windows.Foundation.Point _lastPanPoint;
 
         public LivePinWindow(Rectangle targetBounds, ScreenshotService screenshotService)
         {
@@ -51,7 +53,6 @@ namespace Caiqelle.Views
             _appWindow = AppWindow.GetFromWindowId(wndId);
 
             ExtendsContentIntoTitleBar = true;
-            SetTitleBar(RootGrid);
 
             if (_appWindow.Presenter is OverlappedPresenter presenter)
             {
@@ -93,8 +94,7 @@ namespace Caiqelle.Views
             }
 
             _appWindow.Resize(new Windows.Graphics.SizeInt32(Math.Max(160, initW), Math.Max(120, initH)));
-            SyncNearestScaleIndex(Math.Max(160, initW));
-            UpdateScaleText();
+            ApplyScaleIndex(1);
 
             // 対象領域の近くに配置（ディスプレイ作業領域内に収める）
             var displayArea = DisplayArea.GetFromPoint(
@@ -112,12 +112,6 @@ namespace Caiqelle.Views
             LiveImage.Source = _bitmapSource;
 
             this.Closed += LivePinWindow_Closed;
-            this.SizeChanged += (s, e) =>
-            {
-                if (_isClosed) return;
-                SyncNearestScaleIndex(_appWindow.Size.Width);
-                UpdateScaleText();
-            };
             _ = RunLiveLoopAsync(_cts.Token);
         }
 
@@ -207,75 +201,86 @@ namespace Caiqelle.Views
             OverlayPanel.Opacity = 0.0;
         }
 
+        private void ViewportGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (_isClosed) return;
+            ViewportGrid.Clip = new RectangleGeometry
+            {
+                Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height)
+            };
+            ClampPanOffset(AllowedScales[_scaleIndex]);
+        }
+
         private void RootGrid_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
         {
-            int delta = e.GetCurrentPoint(RootGrid).Properties.MouseWheelDelta;
+            var point = e.GetCurrentPoint(ViewportGrid);
+            int delta = point.Properties.MouseWheelDelta;
             if (delta == 0) return;
 
-            StepScaleIndex(delta > 0 ? 1 : -1);
+            StepScaleIndex(delta > 0 ? 1 : -1, point.Position);
+            e.Handled = true;
         }
 
-        private void StepScaleIndex(int deltaIndex)
+        private void StepScaleIndex(int deltaIndex, Windows.Foundation.Point? anchorPoint = null)
         {
             int nextIndex = Math.Clamp(_scaleIndex + deltaIndex, 0, AllowedScales.Length - 1);
-            ApplyScaleIndex(nextIndex);
+            ApplyScaleIndex(nextIndex, anchorPoint);
         }
 
-        private void ApplyScaleIndex(int index)
+        private void ApplyScaleIndex(int index, Windows.Foundation.Point? anchorPoint = null)
         {
+            double oldScale = ImageTransform.ScaleX > 0 ? ImageTransform.ScaleX : 1.0;
             _scaleIndex = Math.Clamp(index, 0, AllowedScales.Length - 1);
-            double targetScale = AllowedScales[_scaleIndex];
-            double aspect = (double)Math.Max(1, _targetBounds.Width) / Math.Max(1, _targetBounds.Height);
+            double newScale = AllowedScales[_scaleIndex];
 
-            int newW = (int)Math.Round(_targetBounds.Width * targetScale);
-            int newH = (int)Math.Round(_targetBounds.Height * targetScale);
+            // 拡大時かつ基準座標（カーソル位置）がある場合は、その位置を中心にズーム
+            if (newScale <= 1.0)
+            {
+                ImageTransform.TranslateX = 0;
+                ImageTransform.TranslateY = 0;
+            }
+            else if (anchorPoint.HasValue && ViewportGrid.ActualWidth > 0 && ViewportGrid.ActualHeight > 0)
+            {
+                double cx = ViewportGrid.ActualWidth / 2.0;
+                double cy = ViewportGrid.ActualHeight / 2.0;
+                double dx = anchorPoint.Value.X - cx;
+                double dy = anchorPoint.Value.Y - cy;
 
-            // アスペクト比を維持したまま最小・最大サイズ内にクランプ
-            if (newW < 160)
-            {
-                newW = 160;
-                newH = (int)Math.Round(newW / aspect);
-            }
-            if (newH < 120)
-            {
-                newH = 120;
-                newW = (int)Math.Round(newH * aspect);
-            }
-            if (newW > 1800)
-            {
-                newW = 1800;
-                newH = (int)Math.Round(newW / aspect);
-            }
-            if (newH > 1400)
-            {
-                newH = 1400;
-                newW = (int)Math.Round(newH * aspect);
+                ImageTransform.TranslateX = dx - newScale * (dx - ImageTransform.TranslateX) / oldScale;
+                ImageTransform.TranslateY = dy - newScale * (dy - ImageTransform.TranslateY) / oldScale;
             }
 
-            _appWindow.Resize(new Windows.Graphics.SizeInt32(Math.Max(160, newW), Math.Max(120, newH)));
+            ImageTransform.ScaleX = newScale;
+            ImageTransform.ScaleY = newScale;
+            ClampPanOffset(newScale);
             UpdateScaleText();
         }
 
-        private void SyncNearestScaleIndex(int currentWidth)
+        private void ClampPanOffset(double scale)
         {
-            double ratio = (double)currentWidth / Math.Max(1, _targetBounds.Width);
-            int bestIdx = 0;
-            double minDiff = double.MaxValue;
-            for (int i = 0; i < AllowedScales.Length; i++)
+            if (scale <= 1.0)
             {
-                double diff = Math.Abs(ratio - AllowedScales[i]);
-                if (diff < minDiff)
-                {
-                    minDiff = diff;
-                    bestIdx = i;
-                }
+                ImageTransform.TranslateX = 0;
+                ImageTransform.TranslateY = 0;
+                return;
             }
-            _scaleIndex = bestIdx;
+
+            double viewW = ViewportGrid.ActualWidth;
+            double viewH = ViewportGrid.ActualHeight;
+            double imgW = LiveImage.ActualWidth > 0 ? LiveImage.ActualWidth : viewW;
+            double imgH = LiveImage.ActualHeight > 0 ? LiveImage.ActualHeight : viewH;
+
+            double maxPanX = Math.Max(0, (imgW * scale - viewW) / 2.0);
+            double maxPanY = Math.Max(0, (imgH * scale - viewH) / 2.0);
+
+            ImageTransform.TranslateX = Math.Clamp(ImageTransform.TranslateX, -maxPanX, maxPanX);
+            ImageTransform.TranslateY = Math.Clamp(ImageTransform.TranslateY, -maxPanY, maxPanY);
         }
 
         private void UpdateScaleText()
         {
-            ScaleText.Text = $"{(int)AllowedScales[_scaleIndex]}x";
+            double scale = AllowedScales[_scaleIndex];
+            ScaleText.Text = $"{scale:0.#}x";
         }
 
         private void ZoomOutBtn_Click(object sender, RoutedEventArgs e) => StepScaleIndex(-1);
@@ -285,7 +290,13 @@ namespace Caiqelle.Views
         private void ScaleResetBtn_Click(object sender, RoutedEventArgs e)
         {
             // 1x -> 2x -> 3x -> 1x の順に循環切り替え
-            ApplyScaleIndex((_scaleIndex + 1) % AllowedScales.Length);
+            int nextIndex = _scaleIndex switch
+            {
+                1 => 3, // 1x -> 2x
+                3 => 4, // 2x -> 3x
+                _ => 1  // その他 -> 1x
+            };
+            ApplyScaleIndex(nextIndex);
         }
 
         private void PauseResumeBtn_Click(object sender, RoutedEventArgs e) => TogglePause();
@@ -351,17 +362,17 @@ namespace Caiqelle.Views
             }
             else if (e.Key == VirtualKey.Number1 || e.Key == VirtualKey.NumberPad1)
             {
-                ApplyScaleIndex(0);
+                ApplyScaleIndex(1); // 1x
                 e.Handled = true;
             }
             else if (e.Key == VirtualKey.Number2 || e.Key == VirtualKey.NumberPad2)
             {
-                ApplyScaleIndex(1);
+                ApplyScaleIndex(3); // 2x
                 e.Handled = true;
             }
             else if (e.Key == VirtualKey.Number3 || e.Key == VirtualKey.NumberPad3)
             {
-                ApplyScaleIndex(2);
+                ApplyScaleIndex(4); // 3x
                 e.Handled = true;
             }
             else
@@ -395,11 +406,53 @@ namespace Caiqelle.Views
 
         private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
-            if (e.OriginalSource is Microsoft.UI.Xaml.Controls.Image || e.OriginalSource is Grid)
+            if (e.OriginalSource is not (Microsoft.UI.Xaml.Controls.Image or Grid)) return;
+
+            var point = e.GetCurrentPoint(RootGrid);
+            if (point.Properties.IsRightButtonPressed && AllowedScales[_scaleIndex] > 1.0)
+            {
+                // 拡大表示中は右ボタンドラッグで表示位置をパン移動
+                _isPanning = true;
+                _lastPanPoint = point.Position;
+                RootGrid.CapturePointer(e.Pointer);
+                e.Handled = true;
+            }
+            else if (point.Properties.IsLeftButtonPressed)
             {
                 ReleaseCapture();
                 SendMessage(_hwnd, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
             }
+        }
+
+        private void RootGrid_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_isPanning) return;
+
+            var point = e.GetCurrentPoint(RootGrid);
+            if (!point.Properties.IsRightButtonPressed)
+            {
+                _isPanning = false;
+                RootGrid.ReleasePointerCapture(e.Pointer);
+                return;
+            }
+
+            double dx = point.Position.X - _lastPanPoint.X;
+            double dy = point.Position.Y - _lastPanPoint.Y;
+            _lastPanPoint = point.Position;
+
+            ImageTransform.TranslateX += dx;
+            ImageTransform.TranslateY += dy;
+            ClampPanOffset(AllowedScales[_scaleIndex]);
+            e.Handled = true;
+        }
+
+        private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_isPanning) return;
+
+            _isPanning = false;
+            RootGrid.ReleasePointerCapture(e.Pointer);
+            e.Handled = true;
         }
     }
 }

@@ -26,7 +26,11 @@ namespace Caiqelle.Services
 
     public class GitHubReleaseService
     {
-        private static readonly HttpClient _httpClient = new HttpClient();
+        private static readonly HttpClient _httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(10),
+            MaxResponseContentBufferSize = 1024 * 1024 // 1MB 上限
+        };
         private const string RepoOwner = "WaterfallG1024";
         private const string RepoName = "Caiqelle-Release";
 

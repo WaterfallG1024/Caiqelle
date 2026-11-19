@@ -78,6 +78,9 @@ namespace Caiqelle.Services
         private const uint SRCCOPY = 0x00CC0020;
         private const uint CAPTUREBLT = 0x40000000;
 
+        private SoftwareBitmap? _fullScreenReusableBitmap;
+        private readonly object _fullScreenLock = new();
+
         public Rectangle GetVirtualScreenBounds()
         {
             return new Rectangle(
@@ -93,8 +96,21 @@ namespace Caiqelle.Services
             var bounds = GetVirtualScreenBounds();
             if (bounds.Width <= 0 || bounds.Height <= 0) return null;
 
-            // BitBlt と SoftwareBitmap への直接転送をバックグラウンドスレッドで実行し、UIスレッドのブロックと中間配列確保を排除
-            var softwareBitmap = await Task.Run(() => CaptureBoundsToSoftwareBitmap(bounds));
+            // BitBlt と SoftwareBitmap への直接転送をバックグラウンドスレッドで実行し、同解像度ならバッファを再利用
+            var softwareBitmap = await Task.Run(() =>
+            {
+                lock (_fullScreenLock)
+                {
+                    if (_fullScreenReusableBitmap != null &&
+                        (_fullScreenReusableBitmap.PixelWidth != bounds.Width || _fullScreenReusableBitmap.PixelHeight != bounds.Height))
+                    {
+                        _fullScreenReusableBitmap.Dispose();
+                        _fullScreenReusableBitmap = null;
+                    }
+                    _fullScreenReusableBitmap = CaptureBoundsToSoftwareBitmap(bounds, _fullScreenReusableBitmap);
+                    return _fullScreenReusableBitmap;
+                }
+            });
             if (softwareBitmap == null) return null;
 
             var source = new SoftwareBitmapSource();
