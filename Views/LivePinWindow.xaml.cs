@@ -111,6 +111,8 @@ namespace Caiqelle.Views
             _bitmapSource = new SoftwareBitmapSource();
             LiveImage.Source = _bitmapSource;
 
+            MoveBtn.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(MoveBtn_PointerPressed), true);
+
             this.Closed += LivePinWindow_Closed;
             _ = RunLiveLoopAsync(_cts.Token);
         }
@@ -404,23 +406,28 @@ namespace Caiqelle.Views
         private const int WM_NCLBUTTONDOWN = 0xA1;
         private const int HT_CAPTION = 0x2;
 
+        private void MoveBtn_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            var point = e.GetCurrentPoint(MoveBtn);
+            if (!point.Properties.IsLeftButtonPressed) return;
+
+            ReleaseCapture();
+            SendMessage(_hwnd, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
+            e.Handled = true;
+        }
+
         private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (e.OriginalSource is not (Microsoft.UI.Xaml.Controls.Image or Grid)) return;
 
             var point = e.GetCurrentPoint(RootGrid);
-            if (point.Properties.IsRightButtonPressed && AllowedScales[_scaleIndex] > 1.0)
+            if (point.Properties.IsLeftButtonPressed && AllowedScales[_scaleIndex] > 1.0)
             {
-                // 拡大表示中は右ボタンドラッグで表示位置をパン移動
+                // 拡大表示中は左ボタンドラッグで表示位置をパン移動
                 _isPanning = true;
                 _lastPanPoint = point.Position;
                 RootGrid.CapturePointer(e.Pointer);
                 e.Handled = true;
-            }
-            else if (point.Properties.IsLeftButtonPressed)
-            {
-                ReleaseCapture();
-                SendMessage(_hwnd, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
             }
         }
 
@@ -429,7 +436,7 @@ namespace Caiqelle.Views
             if (!_isPanning) return;
 
             var point = e.GetCurrentPoint(RootGrid);
-            if (!point.Properties.IsRightButtonPressed)
+            if (!point.Properties.IsLeftButtonPressed)
             {
                 _isPanning = false;
                 RootGrid.ReleasePointerCapture(e.Pointer);

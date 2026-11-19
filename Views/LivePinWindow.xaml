@@ -56,6 +56,10 @@
                 Padding="6,4"
                 Opacity="0">
             <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button x:Name="MoveBtn" ToolTipService.ToolTip="ウィンドウを移動 (ドラッグ)" Width="32" Height="32" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7C2;" FontSize="15" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </Button>
+
                 <Button x:Name="PauseResumeBtn" ToolTipService.ToolTip="一時停止 / 再開 (Space)" Width="32" Height="32" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="PauseResumeBtn_Click">
                     <FontIcon x:Name="PauseResumeIcon" FontFamily="Segoe Fluent Icons" Glyph="&#xE769;" FontSize="15" Foreground="{StaticResource M3PrimaryBrush}" />
                 </Button>
