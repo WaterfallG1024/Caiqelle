@@ -107,27 +107,12 @@ namespace Caiqelle.Views
             }
         }
 
-        private void CopyBtn_Click(object sender, RoutedEventArgs e)
+        private async void CopyBtn_Click(object sender, RoutedEventArgs e)
         {
             if (_imageBytes != null && _imageBytes.Length > 0)
             {
-                try
-                {
-                    var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
-                    var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                    using (var writer = new Windows.Storage.Streams.DataWriter(stream.GetOutputStreamAt(0)))
-                    {
-                        writer.WriteBytes(_imageBytes);
-                        writer.StoreAsync().AsTask().Wait();
-                    }
-                    var rsr = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream);
-                    dataPackage.SetBitmap(rsr);
-                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
-                    
-                    var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.NotificationService>(((App)Application.Current).Services);
-                    notificationService.ShowNotification("クリップボードにコピーしました", "\uE8C8");
-                }
-                catch { }
+                var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.ClipboardService>(((App)Application.Current).Services);
+                await clipboardService.CopyImageAsync(_imageBytes, showNotification: true, DispatcherQueue);
             }
         }
 

@@ -23,8 +23,6 @@ namespace Caiqelle.Views
 
         private const uint WDA_NONE = 0x00000000;
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
-        private const int SW_SHOWNOACTIVATE = 4;
-        private const int SW_HIDE = 0;
 
         public bool IsFlyoutOpen { get; private set; }
         public event Action<bool>? PointerHoverChanged;
@@ -62,6 +60,7 @@ namespace Caiqelle.Views
             var margins = new NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
             NativeMethods.DwmExtendFrameIntoClientArea(_hwnd, ref margins);
             NativeMethods.RemoveWindowBorder(_hwnd);
+            _appWindow.Hide();
         }
 
         public void PositionRelativeTo(Windows.Graphics.RectInt32 cardRect)
@@ -94,20 +93,25 @@ namespace Caiqelle.Views
             }
 
             _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
+            if (!_isVisible)
+            {
+                _appWindow.Hide();
+            }
         }
 
         public void ShowNoActivate()
         {
             if (_isVisible) return;
             _isVisible = true;
-            ShowWindow(_hwnd, SW_SHOWNOACTIVATE);
+            // WinUI 3 の XAML 描画を確実に初期化しつつフォーカスを奪わずに表示
+            _appWindow.Show(false);
         }
 
         public void HideToolbar()
         {
             if (!_isVisible) return;
             _isVisible = false;
-            ShowWindow(_hwnd, SW_HIDE);
+            _appWindow.Hide();
         }
 
         public void SyncFormatting(bool isBold, bool isItalic, bool isUnderline, double fontSize, Windows.UI.Color textColor)
@@ -215,8 +219,5 @@ namespace Caiqelle.Views
 
         [DllImport("user32.dll")]
         private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
-
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
 }

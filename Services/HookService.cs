@@ -70,6 +70,8 @@ namespace Caiqelle.Services
         private const int VK_SNAPSHOT = 0x2C;
         private const int VK_S = 0x53;
         private const int VK_CONTROL = 0x11;
+        private const int VK_LCONTROL = 0xA2;
+        private const int VK_RCONTROL = 0xA3;
         private const int VK_CAPITAL = 0x14;
 
         // Scan codes for 1-key accelerators (independent of IME)
@@ -131,13 +133,15 @@ namespace Caiqelle.Services
                 int vkCode = (int)hookStruct.vkCode;
                 uint scanCode = hookStruct.scanCode;
 
+                // 低レベルフックではスレッド依存の GetKeyState による誤判定を避け、GetAsyncKeyState のみで物理押下状態を判定する
                 bool isShift = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0
                             || (GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0
-                            || (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0
-                            || (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                            || (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
 
                 bool isWin = (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 || (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0;
-                bool isCtrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0 || (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+                bool isCtrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0
+                           || (GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0
+                           || (GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0;
 
                 // 1. PrintScreen Hijack
                 if (IsHijackPrintScreen && vkCode == VK_SNAPSHOT)

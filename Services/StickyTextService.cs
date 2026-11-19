@@ -73,6 +73,8 @@ namespace Caiqelle.Services
 
             foreach (var item in targets)
             {
+                // アプリ起動時の自動復元は表示モードで開始し、ツールバーを非表示にする
+                item.IsEditing = false;
                 var restored = CreateWindowInternal(item);
                 restored.Activate();
             }
