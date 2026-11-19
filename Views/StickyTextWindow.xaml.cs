@@ -1,5 +1,4 @@
 using Microsoft.UI;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Text;
 using Microsoft.UI.Windowing;
@@ -30,6 +29,7 @@ namespace Caiqelle.Views
         private double _fontSize = 24.0;
         private Windows.UI.Color _textColor = Colors.White;
         private Brush? _cardDefaultBackground;
+        private Brush? _editorDefaultBackground;
 
         // ウィンドウリサイズ操作用状態
         private bool _isResizing = false;
@@ -37,6 +37,10 @@ namespace Caiqelle.Views
         private NativeMethods.POINT _resizeStartCursor;
         private Windows.Graphics.RectInt32 _resizeStartBounds;
         private bool _isRestoring = false;
+
+        // 表示モード時のドラッグ移動判定用（ダブルクリックと両立させるため閾値移動後に開始）
+        private bool _isPendingDrag = false;
+        private NativeMethods.POINT _dragStartCursor;
 
         // 枠外ツールバーおよび左上編集ボタンの表示制御
         private bool _isPointerInCard = false;
@@ -96,6 +100,16 @@ namespace Caiqelle.Views
             NativeMethods.RemoveWindowBorder(_hwnd);
 
             _cardDefaultBackground = CardBackgroundBorder.Background;
+            _editorDefaultBackground = InputRichEditBox.Background;
+
+            // テキスト選択時のミニツールバーが枠外ツールバーと重なるのを防ぐ
+            InputRichEditBox.SelectionFlyout = null;
+
+            // 表示モード（IsReadOnly）でもドラッグ移動とダブルクリック編集が機能するようハンドラを登録
+            InputRichEditBox.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Editor_PointerPressed), true);
+            InputRichEditBox.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(Editor_PointerMoved), true);
+            InputRichEditBox.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(Editor_PointerReleased), true);
+            InputRichEditBox.AddHandler(UIElement.DoubleTappedEvent, new DoubleTappedEventHandler(Editor_DoubleTapped), true);
 
             _toolbarWindow = new StickyTextToolbarWindow(this);
 
@@ -124,7 +138,7 @@ namespace Caiqelle.Views
                 }
 
                 SetStealthMode(initialStealthMode);
-                ApplyTextFormatting();
+                ApplyTextFormatting(applyColorToAll: true);
                 SetEditingMode(true);
             }
 
@@ -162,18 +176,29 @@ namespace Caiqelle.Views
             {
                 SyncToolbarPosition();
                 _toolbarWindow.ShowNoActivate();
-                HoverEditBtn.Visibility = Visibility.Collapsed;
+                HoverActionPanel.Visibility = Visibility.Collapsed;
             }
             else
             {
                 _toolbarWindow.HideToolbar();
-                HoverEditBtn.Visibility = _isPointerInCard ? Visibility.Visible : Visibility.Collapsed;
+                HoverActionPanel.Visibility = _isPointerInCard ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
         private void HoverEditBtn_Click(object sender, RoutedEventArgs e)
         {
             SetEditingMode(true);
+        }
+
+        private void HoverMoveHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            if (e.GetCurrentPoint(HoverMoveHandle).Properties.IsLeftButtonPressed)
+            {
+                _isPendingDrag = false;
+                ReleaseCapture();
+                SendMessage(_hwnd, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
+                e.Handled = true;
+            }
         }
 
         private void NotifyStateChanged()
@@ -211,9 +236,7 @@ namespace Caiqelle.Views
                 _isBold = data.IsBold;
                 _isItalic = data.IsItalic;
                 _isUnderline = data.IsUnderline;
-
-                var color = ParseColorHex(data.ColorHex);
-                ApplyTextColor(color);
+                _textColor = ParseColorHex(data.ColorHex);
 
                 var bgStyle = data.BackgroundMode switch
                 {
@@ -223,9 +246,18 @@ namespace Caiqelle.Views
                 };
                 ApplyBackgroundStyle(bgStyle);
 
-                InputRichEditBox.Document.SetText(TextSetOptions.None, data.Text ?? string.Empty);
+                if (!string.IsNullOrEmpty(data.RtfText))
+                {
+                    InputRichEditBox.Document.SetText(TextSetOptions.FormatRtf, data.RtfText);
+                    _toolbarWindow.SyncFormatting(_isBold, _isItalic, _isUnderline, _fontSize, _textColor);
+                }
+                else
+                {
+                    InputRichEditBox.Document.SetText(TextSetOptions.None, data.Text ?? string.Empty);
+                    ApplyTextFormatting(applyColorToAll: true);
+                }
+
                 SetStealthMode(data.IsStealth);
-                ApplyTextFormatting();
                 SetEditingMode(data.IsEditing);
             }
             finally
@@ -242,6 +274,12 @@ namespace Caiqelle.Views
             _toolbarWindow.SyncSaveModeVisibility(isSaveEnabled);
         }
 
+        private string GetEditorRtf()
+        {
+            InputRichEditBox.Document.GetText(TextGetOptions.FormatRtf, out string rtf);
+            return rtf;
+        }
+
         /// <summary>
         /// 現在の Sticky Text の状態をシリアライズ用データに変換する
         /// </summary>
@@ -252,6 +290,7 @@ namespace Caiqelle.Views
                 Id = ItemId,
                 IsOpen = isOpen,
                 Text = GetEditorText(),
+                RtfText = GetEditorRtf(),
                 X = _appWindow.Position.X,
                 Y = _appWindow.Position.Y,
                 Width = _appWindow.Size.Width,
@@ -294,12 +333,37 @@ namespace Caiqelle.Views
         public void SetBold(bool value) { _isBold = value; ApplyTextFormatting(); }
         public void SetItalic(bool value) { _isItalic = value; ApplyTextFormatting(); }
         public void SetUnderline(bool value) { _isUnderline = value; ApplyTextFormatting(); }
-        public void SetTextColor(Windows.UI.Color color) { ApplyTextColor(color); ApplyTextFormatting(); }
+
+        /// <summary>
+        /// 選択中の文字、または現在の入力位置の文字色を変更する（文字ごとの色設定に対応）
+        /// </summary>
+        public void SetTextColor(Windows.UI.Color color)
+        {
+            _textColor = color;
+            var sel = InputRichEditBox.Document.Selection;
+
+            if (sel.Length != 0)
+            {
+                sel.CharacterFormat.ForegroundColor = color;
+            }
+            else
+            {
+                sel.CharacterFormat.ForegroundColor = color;
+                var defaultFmt = InputRichEditBox.Document.GetDefaultCharacterFormat();
+                defaultFmt.ForegroundColor = color;
+                InputRichEditBox.Document.SetDefaultCharacterFormat(defaultFmt);
+            }
+
+            _toolbarWindow.SyncFormatting(_isBold, _isItalic, _isUnderline, _fontSize, _textColor);
+            NotifyStateChanged();
+        }
+
         public void AdjustFontSize(double delta)
         {
             _fontSize = Math.Clamp(_fontSize + delta, MinFontSize, MaxFontSize);
             ApplyTextFormatting();
         }
+
         public void CycleBackgroundStyle()
         {
             var nextStyle = _bgStyle switch
@@ -310,17 +374,21 @@ namespace Caiqelle.Views
             };
             ApplyBackgroundStyle(nextStyle);
         }
+
         public void ToggleEditingMode() => SetEditingMode(!_isEditing);
+
         public void RequestAddNew()
         {
             var service = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.StickyTextService>(((App)Application.Current).Services);
             service.CreateNewStickyText();
         }
+
         public void RequestOpenList()
         {
             var service = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.StickyTextService>(((App)Application.Current).Services);
             service.OpenStickyTextList();
         }
+
         public void RequestDelete() => DeleteRequested?.Invoke(this);
 
         /// <summary>
@@ -344,43 +412,45 @@ namespace Caiqelle.Views
         private void SetEditingMode(bool editing)
         {
             _isEditing = editing;
+            var transparent = new SolidColorBrush(Colors.Transparent);
+
             if (editing)
             {
-                DisplayTextBlock.Visibility = Visibility.Collapsed;
-                InputRichEditBox.Visibility = Visibility.Visible;
-                ApplyTextFormatting();
+                InputRichEditBox.IsReadOnly = false;
+                InputRichEditBox.Background = _editorDefaultBackground;
+                InputRichEditBox.Resources["TextControlBackgroundPointerOver"] = _editorDefaultBackground;
+                InputRichEditBox.Resources["TextControlBackgroundFocused"] = _editorDefaultBackground;
+                EmptyDisplayHint.Visibility = Visibility.Collapsed;
                 InputRichEditBox.Focus(FocusState.Programmatic);
                 InputRichEditBox.Document.Selection.SetRange(int.MaxValue, int.MaxValue);
             }
             else
             {
-                string currentText = GetEditorText();
-                string text = string.IsNullOrWhiteSpace(currentText) ? "（ダブルクリックでテキスト編集）" : currentText;
-                DisplayTextBlock.Text = text;
-                InputRichEditBox.Visibility = Visibility.Collapsed;
-                DisplayTextBlock.Visibility = Visibility.Visible;
+                InputRichEditBox.IsReadOnly = true;
+                InputRichEditBox.Background = transparent;
+                InputRichEditBox.Resources["TextControlBackgroundPointerOver"] = transparent;
+                InputRichEditBox.Resources["TextControlBackgroundFocused"] = transparent;
+                InputRichEditBox.Document.Selection.SetRange(0, 0);
+                EmptyDisplayHint.Visibility = string.IsNullOrWhiteSpace(GetEditorText())
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
             }
+
             _toolbarWindow.SyncEditing(editing);
             UpdateToolbarVisibility();
             NotifyStateChanged();
         }
 
-        private void ApplyTextFormatting()
+        private void ApplyTextFormatting(bool applyColorToAll = false)
         {
             var weight = _isBold ? FontWeights.Bold : FontWeights.Normal;
             var style = _isItalic ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal;
-            var decorations = _isUnderline ? Windows.UI.Text.TextDecorations.Underline : Windows.UI.Text.TextDecorations.None;
-
-            DisplayTextBlock.FontWeight = weight;
-            DisplayTextBlock.FontStyle = style;
-            DisplayTextBlock.TextDecorations = decorations;
-            DisplayTextBlock.FontSize = _fontSize;
 
             InputRichEditBox.FontWeight = weight;
             InputRichEditBox.FontStyle = style;
             InputRichEditBox.FontSize = _fontSize;
 
-            // RichEditBox 内の既存テキストおよび今後の入力テキストへ太さ・斜体・下線・サイズ・色を反映
+            // RichEditBox 内の既存テキストへ太さ・斜体・下線・サイズを反映（文字ごとの色は保持する）
             float ptSize = (float)(_fontSize * 0.75);
             var underlineType = _isUnderline ? UnderlineType.Single : UnderlineType.None;
             var formatEffectBold = _isBold ? FormatEffect.On : FormatEffect.Off;
@@ -399,7 +469,10 @@ namespace Caiqelle.Views
             allRange.CharacterFormat.Italic = formatEffectItalic;
             allRange.CharacterFormat.Underline = underlineType;
             allRange.CharacterFormat.Size = ptSize;
-            allRange.CharacterFormat.ForegroundColor = _textColor;
+            if (applyColorToAll)
+            {
+                allRange.CharacterFormat.ForegroundColor = _textColor;
+            }
 
             _toolbarWindow.SyncFormatting(_isBold, _isItalic, _isUnderline, _fontSize, _textColor);
             NotifyStateChanged();
@@ -407,14 +480,15 @@ namespace Caiqelle.Views
 
         private void InputRichEditBox_TextChanged(object sender, RoutedEventArgs e) => NotifyStateChanged();
 
-        private void ApplyTextColor(Windows.UI.Color color)
+        private void InputRichEditBox_SelectionChanged(object sender, RoutedEventArgs e)
         {
-            _textColor = color;
-            var brush = new SolidColorBrush(_textColor);
-            DisplayTextBlock.Foreground = brush;
-            InputRichEditBox.Foreground = brush;
-            InputRichEditBox.Resources["TextControlForegroundFocused"] = brush;
-            InputRichEditBox.Resources["TextControlForegroundPointerOver"] = brush;
+            if (!_isEditing || _isRestoring) return;
+            var fg = InputRichEditBox.Document.Selection.CharacterFormat.ForegroundColor;
+            if (fg.A > 0)
+            {
+                _textColor = fg;
+                _toolbarWindow.SyncFormatting(_isBold, _isItalic, _isUnderline, _fontSize, _textColor);
+            }
         }
 
         private void ApplyBackgroundStyle(BackgroundStyle style)
@@ -454,22 +528,55 @@ namespace Caiqelle.Views
             UpdateToolbarVisibility();
         }
 
-        private void RootGrid_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
-        {
-            if (_isEditing) return;
-            int delta = e.GetCurrentPoint(RootGrid).Properties.MouseWheelDelta;
-            if (delta == 0) return;
-
-            _fontSize = Math.Clamp(_fontSize + (delta > 0 ? 2 : -2), MinFontSize, MaxFontSize);
-            ApplyTextFormatting();
-        }
-
         private void RootGrid_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
         {
             if (!_isEditing)
             {
                 SetEditingMode(true);
             }
+        }
+
+        private void Editor_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+        {
+            if (!_isEditing)
+            {
+                _isPendingDrag = false;
+                SetEditingMode(true);
+                e.Handled = true;
+            }
+        }
+
+        private void Editor_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            if (_isEditing) return;
+            if (e.GetCurrentPoint(InputRichEditBox).Properties.IsLeftButtonPressed)
+            {
+                _isPendingDrag = true;
+                NativeMethods.GetCursorPos(out _dragStartCursor);
+            }
+        }
+
+        private void Editor_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_isPendingDrag || _isEditing) return;
+            if (!e.GetCurrentPoint(InputRichEditBox).Properties.IsLeftButtonPressed)
+            {
+                _isPendingDrag = false;
+                return;
+            }
+
+            NativeMethods.GetCursorPos(out NativeMethods.POINT current);
+            if (Math.Abs(current.X - _dragStartCursor.X) >= 4 || Math.Abs(current.Y - _dragStartCursor.Y) >= 4)
+            {
+                _isPendingDrag = false;
+                ReleaseCapture();
+                SendMessage(_hwnd, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
+            }
+        }
+
+        private void Editor_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            _isPendingDrag = false;
         }
 
         private void InputRichEditBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)

@@ -136,6 +136,11 @@ namespace Caiqelle.Views
             {
                 StealthBtn.IsChecked = isStealth;
                 StealthIcon.Glyph = isStealth ? "\uED1A" : "\uE890";
+                ToolTipService.SetToolTip(
+                    StealthBtn,
+                    isStealth
+                        ? "プライベート（共有時は非表示 / クリックでパブリックへ）"
+                        : "パブリック（共有時でも表示 / クリックでプライベートへ）");
             }
             finally
             {
@@ -145,7 +150,7 @@ namespace Caiqelle.Views
 
         public void SyncEditing(bool isEditing)
         {
-            EditToggleIcon.Glyph = isEditing ? "\uE73E" : "\uE70F";
+            // 編集確定ボタンは「保存」テキスト固定のためアイコン切替不要
         }
 
         public void SyncBackgroundLabel(string label, string tooltip)

@@ -65,12 +65,12 @@
                     <TextBlock x:Name="BgModeText" Text="半透明" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
                 </Button>
 
-                <ToggleButton x:Name="StealthBtn" ToolTipService.ToolTip="カンペモード（画面共有・録画に非表示）" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="StealthBtn_Click">
+                <ToggleButton x:Name="StealthBtn" ToolTipService.ToolTip="パブリック（共有・録画に表示）" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="StealthBtn_Click">
                     <FontIcon x:Name="StealthIcon" FontFamily="Segoe Fluent Icons" Glyph="&#xE890;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                 </ToggleButton>
 
-                <Button x:Name="EditToggleBtn" ToolTipService.ToolTip="確定 (Ctrl + Enter)" Width="30" Height="28" Background="{StaticResource M3PrimaryContainerGlassBrush}" BorderThickness="0" CornerRadius="6" Padding="0" Click="EditToggleBtn_Click">
-                    <FontIcon x:Name="EditToggleIcon" FontFamily="Segoe Fluent Icons" Glyph="&#xE73E;" FontSize="15" Foreground="{StaticResource M3PrimaryBrush}" />
+                <Button x:Name="EditToggleBtn" ToolTipService.ToolTip="保存（確定） (Ctrl + Enter)" Height="28" Padding="10,0" Background="{StaticResource M3PrimaryContainerGlassBrush}" BorderThickness="0" CornerRadius="6" Click="EditToggleBtn_Click">
+                    <TextBlock Text="保存" FontSize="11" FontWeight="Bold" Foreground="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center" />
                 </Button>
 
                 <Button x:Name="AddBtn" ToolTipService.ToolTip="新しい Sticky Text を追加" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="AddBtn_Click">

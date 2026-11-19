@@ -95,7 +95,7 @@
                                                     CornerRadius="6"
                                                     Padding="7,2"
                                                     Visibility="{x:Bind StealthBadgeVisibility}">
-                                                <TextBlock Text="カンペ"
+                                                <TextBlock Text="プライベート"
                                                            Foreground="{StaticResource M3PrimaryBrush}"
                                                            FontSize="10"
                                                            FontWeight="SemiBold" />

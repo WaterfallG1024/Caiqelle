@@ -121,8 +121,8 @@ namespace Caiqelle.Views
         private void UpdatePositionAndSize()
         {
             double dpiScale = GetDpiForWindow(_hwnd) / 96.0;
-            int targetWidth = (int)(620 * dpiScale);
-            int targetHeight = (int)(268 * dpiScale);
+            int targetWidth = (int)(592 * dpiScale);
+            int targetHeight = (int)(320 * dpiScale);
             if (targetWidth != _lastTargetWidth || targetHeight != _lastTargetHeight)
             {
                 _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));

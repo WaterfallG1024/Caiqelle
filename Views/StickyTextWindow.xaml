@@ -13,7 +13,6 @@
           PointerEntered="RootGrid_PointerEntered"
           PointerExited="RootGrid_PointerExited"
           PointerPressed="RootGrid_PointerPressed"
-          PointerWheelChanged="RootGrid_PointerWheelChanged"
           DoubleTapped="RootGrid_DoubleTapped"
           KeyDown="RootGrid_KeyDown"
           IsTabStop="True">
@@ -27,17 +26,6 @@
 
         <!-- Text Display & Edit Area -->
         <Grid Margin="14,12,14,12">
-            <TextBlock x:Name="DisplayTextBlock"
-                       Text="テキストを入力..."
-                       FontSize="24"
-                       Foreground="White"
-                       TextWrapping="Wrap"
-                       VerticalAlignment="Top"
-                       HorizontalAlignment="Stretch"
-                       TextAlignment="Left"
-                       Padding="12,10"
-                       Visibility="Collapsed" />
-
             <RichEditBox x:Name="InputRichEditBox"
                          PlaceholderText="プレゼン・説明用テキストを入力... (Ctrl+Enterで確定)"
                          AcceptsReturn="True"
@@ -51,7 +39,19 @@
                          VerticalAlignment="Stretch"
                          HorizontalAlignment="Stretch"
                          TextChanged="InputRichEditBox_TextChanged"
+                         SelectionChanged="InputRichEditBox_SelectionChanged"
                          PreviewKeyDown="InputRichEditBox_PreviewKeyDown" />
+
+            <!-- 空の表示モード時のヒント -->
+            <TextBlock x:Name="EmptyDisplayHint"
+                       Text="（ダブルクリックでテキスト編集）"
+                       FontSize="16"
+                       Foreground="#88FFFFFF"
+                       Padding="12,10"
+                       VerticalAlignment="Top"
+                       HorizontalAlignment="Left"
+                       Visibility="Collapsed"
+                       IsHitTestVisible="False" />
 
             <!-- Stealth Mode Badge (Visible only to presenter when stealth is active) -->
             <Border x:Name="StealthBadge"
@@ -62,27 +62,43 @@
                     Padding="6,2"
                     Visibility="Collapsed"
                     IsHitTestVisible="False">
-                <TextBlock Text="カンペ (共有非表示)" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" />
+                <TextBlock Text="プライベート" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" />
             </Border>
         </Grid>
 
-        <!-- 表示モードのホバー時に左上に表示する編集ボタン -->
-        <Button x:Name="HoverEditBtn"
-                ToolTipService.ToolTip="編集（ツールバーを表示）"
-                Width="28"
-                Height="28"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Top"
-                Margin="14,14,0,0"
-                Background="{StaticResource M3SurfaceContainerHighestBrush}"
-                BorderBrush="#33FFFFFF"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="0"
-                Visibility="Collapsed"
-                Click="HoverEditBtn_Click">
-            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
-        </Button>
+        <!-- 表示モードのホバー時に左上に表示する編集・移動ボタン -->
+        <StackPanel x:Name="HoverActionPanel"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="14,14,0,0"
+                    Visibility="Collapsed">
+            <Button x:Name="HoverEditBtn"
+                    ToolTipService.ToolTip="編集（ツールバーを表示）"
+                    Width="28"
+                    Height="28"
+                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    BorderBrush="#33FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="0"
+                    Click="HoverEditBtn_Click">
+                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+            </Button>
+
+            <Border x:Name="HoverMoveHandle"
+                    ToolTipService.ToolTip="ドラッグして移動"
+                    Width="28"
+                    Height="28"
+                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    BorderBrush="#33FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    PointerPressed="HoverMoveHandle_PointerPressed">
+                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7C2;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+        </StackPanel>
 
         <!-- ウィンドウリサイズ用ヒット領域（上下左右・四隅の当たり判定を広めに確保） -->
         <local:ResizeGrip Direction="Left" Background="Transparent" Width="14" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="0,16,0,16" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />

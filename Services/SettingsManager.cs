@@ -22,6 +22,7 @@ namespace Caiqelle.Services
         public string Id { get; set; } = Guid.NewGuid().ToString("N");
         public bool IsOpen { get; set; } = true;
         public string Text { get; set; } = string.Empty;
+        public string? RtfText { get; set; }
         public int X { get; set; }
         public int Y { get; set; }
         public int Width { get; set; }
