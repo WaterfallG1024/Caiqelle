@@ -79,21 +79,19 @@ namespace Caiqelle.Views
             _appWindow = AppWindow.GetFromWindowId(windowId);
             _appWindow.IsShownInSwitchers = false;
 
-            ExtendsContentIntoTitleBar = true;
-
             if (_appWindow.Presenter is OverlappedPresenter presenter)
             {
-                presenter.SetBorderAndTitleBar(false, false);
-                presenter.IsAlwaysOnTop = true;
-                presenter.IsResizable = true;
+                presenter.IsResizable = false;
                 presenter.IsMaximizable = false;
                 presenter.IsMinimizable = false;
+                presenter.SetBorderAndTitleBar(false, false);
+                presenter.IsAlwaysOnTop = true;
             }
 
-            // ウィンドウの角丸・白枠線を除去
+            // DWM 側の角丸・シャドウ大枠を無効化し、XAML 側の CardBackgroundBorder のみを描画する
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
-            int DWMWCP_ROUND = 2;
-            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
+            int DWMWCP_DONOTROUND = 1;
+            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_DONOTROUND, sizeof(int));
 
             int DWMWA_BORDER_COLOR = 34;
             int DWM_BORDER_COLOR_NONE = -2;
@@ -102,6 +100,16 @@ namespace Caiqelle.Views
             var margins = new NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
             NativeMethods.DwmExtendFrameIntoClientArea(_hwnd, ref margins);
             NativeMethods.RemoveWindowBorder(_hwnd);
+
+            bool borderCleanedOnActivate = false;
+            this.Activated += (s, e) =>
+            {
+                if (!borderCleanedOnActivate)
+                {
+                    borderCleanedOnActivate = true;
+                    NativeMethods.RemoveWindowBorder(_hwnd);
+                }
+            };
 
             _cardDefaultBackground = CardBackgroundBorder.Background;
             _editorDefaultBackground = InputRichEditBox.Background;

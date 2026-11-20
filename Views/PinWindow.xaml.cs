@@ -74,18 +74,21 @@ namespace Caiqelle.Views
 
         private async void LoadImage()
         {
-            using var ms = new MemoryStream(_imageBytes);
-            var randomAccessStream = new InMemoryRandomAccessStream();
-            var outputStream = randomAccessStream.GetOutputStreamAt(0);
-            var dataWriter = new DataWriter(outputStream);
-            dataWriter.WriteBytes(ms.ToArray());
-            await dataWriter.StoreAsync();
-            await outputStream.FlushAsync();
-            randomAccessStream.Seek(0);
+            try
+            {
+                using var randomAccessStream = new InMemoryRandomAccessStream();
+                using var outputStream = randomAccessStream.GetOutputStreamAt(0);
+                using var dataWriter = new DataWriter(outputStream);
+                dataWriter.WriteBytes(_imageBytes);
+                await dataWriter.StoreAsync();
+                await outputStream.FlushAsync();
+                randomAccessStream.Seek(0);
 
-            var bitmapImage = new BitmapImage();
-            await bitmapImage.SetSourceAsync(randomAccessStream);
-            PinnedImage.Source = bitmapImage;
+                var bitmapImage = new BitmapImage();
+                await bitmapImage.SetSourceAsync(randomAccessStream);
+                PinnedImage.Source = bitmapImage;
+            }
+            catch { }
         }
 
         private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)

@@ -34,14 +34,44 @@ namespace Caiqelle.Services
             if (imageBytes == null || imageBytes.Length == 0)
                 return false;
 
-            bool ok = await Task.Run(() => CopyImageNative(imageBytes));
+            var (dibBytes, pngBytes) = await Task.Run(() => PrepareClipboardPayloads(imageBytes));
+            if (dibBytes == null && pngBytes == null)
+                return false;
+
+            var dispatcher = dispatcherQueue
+                ?? ((App)Microsoft.UI.Xaml.Application.Current).MainWindow?.DispatcherQueue
+                ?? DispatcherQueue.GetForCurrentThread();
+
+            bool ok;
+            if (dispatcher != null && !dispatcher.HasThreadAccess)
+            {
+                var tcs = new TaskCompletionSource<bool>();
+                if (!dispatcher.TryEnqueue(() =>
+                {
+                    try
+                    {
+                        tcs.SetResult(SetClipboardWithVerification(GetClipboardOwnerHwnd(), dibBytes, pngBytes));
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetException(ex);
+                    }
+                }))
+                {
+                    ok = SetClipboardWithVerification(IntPtr.Zero, dibBytes, pngBytes);
+                }
+                else
+                {
+                    ok = await tcs.Task;
+                }
+            }
+            else
+            {
+                ok = SetClipboardWithVerification(GetClipboardOwnerHwnd(), dibBytes, pngBytes);
+            }
 
             if (ok && showNotification)
             {
-                var dispatcher = dispatcherQueue
-                    ?? ((App)Microsoft.UI.Xaml.Application.Current).MainWindow?.DispatcherQueue
-                    ?? DispatcherQueue.GetForCurrentThread();
-
                 if (dispatcher != null && !dispatcher.HasThreadAccess)
                 {
                     dispatcher.TryEnqueue(() =>
@@ -56,39 +86,78 @@ namespace Caiqelle.Services
             return ok;
         }
 
-        private static bool CopyImageNative(byte[] imageBytes)
+        private static IntPtr GetClipboardOwnerHwnd()
         {
             try
             {
-                // 画像バイト列をデコードして CF_DIB（ボトムアップ 32bpp BGRA）と PNG バイト列を生成
-                byte[] dibBytes;
-                byte[] pngBytes;
-
-                using (var ms = new MemoryStream(imageBytes))
-                using (var srcBmp = new Bitmap(ms))
+                var mainWindow = ((App)Microsoft.UI.Xaml.Application.Current).MainWindow;
+                if (mainWindow != null)
                 {
-                    dibBytes = ConvertBitmapToDib(srcBmp);
+                    return WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
+                }
+            }
+            catch { }
+            return IntPtr.Zero;
+        }
 
-                    bool isAlreadyPng = imageBytes.Length >= 8 &&
-                                        imageBytes[0] == 0x89 && imageBytes[1] == 0x50 &&
-                                        imageBytes[2] == 0x4E && imageBytes[3] == 0x47;
-                    if (isAlreadyPng)
-                    {
-                        pngBytes = imageBytes;
-                    }
-                    else
-                    {
-                        using var pngMs = new MemoryStream();
-                        srcBmp.Save(pngMs, ImageFormat.Png);
-                        pngBytes = pngMs.ToArray();
-                    }
+        private static (byte[]? dibBytes, byte[]? pngBytes) PrepareClipboardPayloads(byte[] imageBytes)
+        {
+            try
+            {
+                using var ms = new MemoryStream(imageBytes);
+                using var srcBmp = new Bitmap(ms);
+                byte[] dibBytes = ConvertBitmapToDib(srcBmp);
+
+                byte[] pngBytes;
+                bool isAlreadyPng = imageBytes.Length >= 8 &&
+                                    imageBytes[0] == 0x89 && imageBytes[1] == 0x50 &&
+                                    imageBytes[2] == 0x4E && imageBytes[3] == 0x47;
+                if (isAlreadyPng)
+                {
+                    pngBytes = imageBytes;
+                }
+                else
+                {
+                    using var pngMs = new MemoryStream();
+                    srcBmp.Save(pngMs, ImageFormat.Png);
+                    pngBytes = pngMs.ToArray();
                 }
 
-                // 他アプリのクリップボード監視と一瞬競合した場合に備えてリトライ付きで OpenClipboard
+                return (dibBytes, pngBytes);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ClipboardService] Payload prepare error: {ex.Message}");
+                return (null, null);
+            }
+        }
+
+        private static bool SetClipboardWithVerification(IntPtr ownerHwnd, byte[]? dibBytes, byte[]? pngBytes)
+        {
+            // PC起動直後の初回競合やクリップボード監視サービスとのタイミング競合に備え、
+            // 書き込み後に IsClipboardFormatAvailable で確認し、未反映ならリトライする
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                if (WriteClipboardNative(ownerHwnd, dibBytes, pngBytes))
+                {
+                    if (IsClipboardFormatAvailable(CF_DIB) || (CF_PNG != 0 && IsClipboardFormatAvailable(CF_PNG)))
+                    {
+                        return true;
+                    }
+                }
+                Thread.Sleep(40);
+            }
+            return false;
+        }
+
+        private static bool WriteClipboardNative(IntPtr ownerHwnd, byte[]? dibBytes, byte[]? pngBytes)
+        {
+            try
+            {
                 bool opened = false;
                 for (int i = 0; i < 10; i++)
                 {
-                    if (OpenClipboard(IntPtr.Zero))
+                    if (OpenClipboard(ownerHwnd))
                     {
                         opened = true;
                         break;
@@ -109,8 +178,8 @@ namespace Caiqelle.Services
                         return false;
                     }
 
-                    bool dibSet = SetClipboardBytes(CF_DIB, dibBytes);
-                    bool pngSet = CF_PNG != 0 && SetClipboardBytes(CF_PNG, pngBytes);
+                    bool dibSet = dibBytes != null && SetClipboardBytes(CF_DIB, dibBytes);
+                    bool pngSet = pngBytes != null && CF_PNG != 0 && SetClipboardBytes(CF_PNG, pngBytes);
 
                     return dibSet || pngSet;
                 }
@@ -212,6 +281,9 @@ namespace Caiqelle.Services
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool IsClipboardFormatAvailable(uint format);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern uint RegisterClipboardFormat(string lpszFormat);

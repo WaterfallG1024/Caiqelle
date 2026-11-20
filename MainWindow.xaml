@@ -15,6 +15,8 @@
           BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
           BorderThickness="1"
           CornerRadius="8"
+          IsTabStop="True"
+          UseSystemFocusVisuals="False"
           KeyDown="Grid_KeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -35,25 +37,26 @@
                         PaneDisplayMode="Top"
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="False"
+                        UseSystemFocusVisuals="False"
                         SelectionChanged="TopNavView_SelectionChanged"
                         Background="Transparent">
             <NavigationView.MenuItems>
-                <NavigationViewItem x:Name="NavHomeItem" Tag="Home" Content="ホーム">
+                <NavigationViewItem x:Name="NavHomeItem" Tag="Home" Content="ホーム" UseSystemFocusVisuals="False">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE80F;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="NavFolderItem" Tag="Folder" Content="フォルダ">
+                <NavigationViewItem x:Name="NavFolderItem" Tag="Folder" Content="フォルダ" UseSystemFocusVisuals="False">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE838;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="NavRewindItem" Tag="Rewind" Content="リワインド">
+                <NavigationViewItem x:Name="NavRewindItem" Tag="Rewind" Content="リワインド" UseSystemFocusVisuals="False">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE768;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="NavSettingsItem" Tag="Settings" Content="設定">
+                <NavigationViewItem x:Name="NavSettingsItem" Tag="Settings" Content="設定" UseSystemFocusVisuals="False">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE713;" />
                     </NavigationViewItem.Icon>

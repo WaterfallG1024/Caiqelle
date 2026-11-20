@@ -249,17 +249,27 @@ namespace Caiqelle.Views
         [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
         public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
         private const int GWL_STYLE = -16;
         private const int WS_BORDER = 0x00800000;
         private const int WS_DLGFRAME = 0x00400000;
         private const int WS_THICKFRAME = 0x00040000;
         private const int WS_CAPTION = 0x00C00000;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint SWP_FRAMECHANGED = 0x0020;
 
         public static void RemoveWindowBorder(IntPtr hwnd)
         {
             IntPtr style = GetWindowLongPtr(hwnd, GWL_STYLE);
             long newStyle = style.ToInt64() & ~(WS_BORDER | WS_DLGFRAME | WS_THICKFRAME | WS_CAPTION);
             SetWindowLongPtr(hwnd, GWL_STYLE, new IntPtr(newStyle));
+            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
         }
     }
 }

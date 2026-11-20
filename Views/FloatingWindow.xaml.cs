@@ -171,8 +171,17 @@ namespace Caiqelle.Views
             hook.IsFloatingUiActive = false;
         }
 
+        public bool IsWindowVisible => _appWindow.IsVisible;
+
         public void ShowAnimated()
         {
+            if (_appWindow.IsVisible)
+            {
+                // 既に表示中の場合は連打による再アニメーション・再表示を防ぐ
+                SetForegroundWindow(_hwnd);
+                return;
+            }
+
             UpdatePositionAndSize();
 
             // 前回のフェードアウトで Visual.Opacity が 0 のままの場合に備えて即時リセット＆アニメーション開始

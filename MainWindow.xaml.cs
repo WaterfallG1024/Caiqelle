@@ -134,6 +134,11 @@ namespace Caiqelle
             {
                 this.Hide();
             }
+            else
+            {
+                // ナビゲーションタブへの白枠フォーカスを防ぎ、ショートカットキーを即座に有効化する
+                RootGrid.Focus(FocusState.Programmatic);
+            }
         }
 
         private void Grid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
@@ -214,6 +219,18 @@ namespace Caiqelle
         private void RewindCombo_DropDownOpened(object? sender, object e)
         {
             if (sender is not ComboBox combo) return;
+            ApplyComboItemEnabledState(combo);
+
+            // 初回ドロップダウン展開時は ComboBoxItem コンテナが未生成の場合があるため、レイアウト確定後にも再適用する
+            combo.DispatcherQueue?.TryEnqueue(() =>
+            {
+                combo.UpdateLayout();
+                ApplyComboItemEnabledState(combo);
+            });
+        }
+
+        private static void ApplyComboItemEnabledState(ComboBox combo)
+        {
             foreach (var item in combo.Items)
             {
                 if (item is SelectableOption option && combo.ContainerFromItem(item) is ComboBoxItem container)

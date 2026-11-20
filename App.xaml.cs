@@ -190,8 +190,12 @@ namespace Caiqelle
                 }
                 else if (key == CapturedKey.PrintScreen || key == CapturedKey.WinShiftS)
                 {
-                    GetFloatingWindow().ShowAnimated();
-                    
+                    var floating = GetFloatingWindow();
+                    if (!floating.IsWindowVisible)
+                    {
+                        floating.ShowAnimated();
+                    }
+
                     var hookService = Services.GetRequiredService<HookService>();
                     hookService.IsFloatingUiActive = true;
                 }
