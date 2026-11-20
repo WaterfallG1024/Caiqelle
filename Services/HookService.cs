@@ -20,7 +20,9 @@ namespace Caiqelle.Services
         V,
         Esc,
         OpenDashboard,
-        ToggleRewind
+        ToggleRewind,
+        ActionApply,
+        ActionDismiss
     }
 
     public class HookService : IDisposable
@@ -90,6 +92,7 @@ namespace Caiqelle.Services
         
         public bool IsFloatingUiActive { get; set; } = false;
         public bool IsCaptureOverlayActive { get; set; } = false;
+        public bool IsActionPillActive { get; set; } = false;
         public bool IsHijackPrintScreen { get; set; } = true;
         public bool IsHijackWinShiftS { get; set; } = true;
         public bool IsShiftCapsLockRewindEnabled { get; set; } = false;
@@ -196,6 +199,21 @@ namespace Caiqelle.Services
                     if (scanCode == SC_ESC)
                     {
                         OnKeyPressed?.Invoke(CapturedKey.Esc);
+                        return (IntPtr)1;
+                    }
+                }
+                else if (IsActionPillActive && !isCtrl && !isShift && !isWin)
+                {
+                    const int VK_RETURN = 0x0D;
+                    const int VK_ESCAPE = 0x1B;
+                    if (vkCode == VK_RETURN)
+                    {
+                        OnKeyPressed?.Invoke(CapturedKey.ActionApply);
+                        return (IntPtr)1;
+                    }
+                    if (vkCode == VK_ESCAPE)
+                    {
+                        OnKeyPressed?.Invoke(CapturedKey.ActionDismiss);
                         return (IntPtr)1;
                     }
                 }

@@ -177,16 +177,22 @@ namespace Caiqelle.Services
                     byte* srcPtr = (byte*)pBits.ToPointer();
                     byte* dstBase = destPtr + plane.StartIndex;
 
-                    // BitBlt 出力は Alpha=0 になる場合があるため、Premultiplied 用に全ピクセルの Alpha を 0xFF に強制する
-                    for (int y = 0; y < bounds.Height; y++)
+                    int width = bounds.Width;
+                    int height = bounds.Height;
+                    int dstStride = plane.Stride;
+                    IntPtr srcBasePtr = pBits;
+                    IntPtr dstBasePtr = (IntPtr)dstBase;
+
+                    // BitBlt 出力は Alpha=0 になる場合があるため、行並列で全ピクセルの Alpha を 0xFF に強制する
+                    Parallel.For(0, height, y =>
                     {
-                        uint* s = (uint*)(srcPtr + (long)y * srcStride);
-                        uint* d = (uint*)(dstBase + (long)y * plane.Stride);
-                        for (int x = 0; x < bounds.Width; x++)
+                        uint* s = (uint*)((byte*)srcBasePtr + (long)y * srcStride);
+                        uint* d = (uint*)((byte*)dstBasePtr + (long)y * dstStride);
+                        for (int x = 0; x < width; x++)
                         {
                             d[x] = s[x] | 0xFF000000u;
                         }
-                    }
+                    });
                 }
 
                 return softwareBitmap;

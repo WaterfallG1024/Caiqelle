@@ -59,7 +59,7 @@ namespace Caiqelle
                 presenter.SetBorderAndTitleBar(false, false);
             }
             double dpiScale = Views.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
-            appWindow.Resize(new Windows.Graphics.SizeInt32((int)(500 * dpiScale), (int)(580 * dpiScale)));
+            appWindow.Resize(new Windows.Graphics.SizeInt32((int)(560 * dpiScale), (int)(580 * dpiScale)));
 
             // Windows 11 標準の角丸を適用
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
@@ -89,6 +89,7 @@ namespace Caiqelle
                     MainTab.Home => NavHomeItem,
                     MainTab.Folder => NavFolderItem,
                     MainTab.Rewind => NavRewindItem,
+                    MainTab.Action => NavActionItem,
                     MainTab.Settings => NavSettingsItem,
                     _ => NavHomeItem
                 };
@@ -114,6 +115,9 @@ namespace Caiqelle
                         break;
                     case "Rewind":
                         ViewModel.NavigateToRewindCommand.Execute(null);
+                        break;
+                    case "Action":
+                        ViewModel.NavigateToActionCommand.Execute(null);
                         break;
                     case "Settings":
                         ViewModel.NavigateToSettingsCommand.Execute(null);

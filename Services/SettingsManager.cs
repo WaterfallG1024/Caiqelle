@@ -37,6 +37,23 @@ namespace Caiqelle.Services
         public bool IsEditing { get; set; } = false;
     }
 
+    public class ActionFieldMapping
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString("N");
+        public string Keywords { get; set; } = string.Empty;
+        public string EncryptedValue { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string PlainValue
+        {
+            get => DpapiHelper.Unprotect(EncryptedValue);
+            set => EncryptedValue = DpapiHelper.Protect(value);
+        }
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string MaskedValue => DpapiHelper.MaskValue(PlainValue);
+    }
+
     public class SettingsData
     {
         public List<FolderMapping> ImageFolderMappings { get; set; } = new();
@@ -60,6 +77,10 @@ namespace Caiqelle.Services
         public string LastDismissedReleaseTag { get; set; } = string.Empty;
         public AccentTheme AccentTheme { get; set; } = AccentTheme.Emerald;
         public AppThemeMode AppThemeMode { get; set; } = AppThemeMode.System;
+        public bool IsActionAutoDetectEnabled { get; set; } = false;
+        public bool IsActionOnlyOnBrowsers { get; set; } = true;
+        public bool ActionRestoreClipboardAfterFill { get; set; } = true;
+        public List<ActionFieldMapping> ActionMappings { get; set; } = new();
     }
 
     public class SettingsManager
@@ -186,6 +207,26 @@ namespace Caiqelle.Services
             get => _data.AppThemeMode;
             set => _data.AppThemeMode = value;
         }
+
+        public bool IsActionAutoDetectEnabled
+        {
+            get => _data.IsActionAutoDetectEnabled;
+            set => _data.IsActionAutoDetectEnabled = value;
+        }
+
+        public bool IsActionOnlyOnBrowsers
+        {
+            get => _data.IsActionOnlyOnBrowsers;
+            set => _data.IsActionOnlyOnBrowsers = value;
+        }
+
+        public bool ActionRestoreClipboardAfterFill
+        {
+            get => _data.ActionRestoreClipboardAfterFill;
+            set => _data.ActionRestoreClipboardAfterFill = value;
+        }
+
+        public List<ActionFieldMapping> ActionMappings => _data.ActionMappings;
 
         [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
         public SettingsManager() : this(null)

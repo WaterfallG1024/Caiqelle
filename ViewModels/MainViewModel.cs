@@ -19,6 +19,7 @@ namespace Caiqelle.ViewModels
         Home,
         Folder,
         Rewind,
+        Action,
         Settings
     }
 
@@ -85,6 +86,7 @@ namespace Caiqelle.ViewModels
         private readonly NotificationService _notificationService;
         private readonly ThemeService _themeService;
         private readonly StickyTextService _stickyTextService;
+        private readonly ActionService? _actionService;
         private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
         private bool _isInitializing = true;
@@ -112,6 +114,7 @@ namespace Caiqelle.ViewModels
         [NotifyPropertyChangedFor(nameof(IsHomeTabVisible))]
         [NotifyPropertyChangedFor(nameof(IsFolderTabVisible))]
         [NotifyPropertyChangedFor(nameof(IsRewindTabVisible))]
+        [NotifyPropertyChangedFor(nameof(IsActionTabVisible))]
         [NotifyPropertyChangedFor(nameof(IsSettingsTabVisible))]
         [NotifyPropertyChangedFor(nameof(HeaderTitle))]
         public partial MainTab CurrentTab { get; set; } = MainTab.Home;
@@ -119,6 +122,7 @@ namespace Caiqelle.ViewModels
         public bool IsHomeTabVisible => CurrentTab == MainTab.Home;
         public bool IsFolderTabVisible => CurrentTab == MainTab.Folder;
         public bool IsRewindTabVisible => CurrentTab == MainTab.Rewind;
+        public bool IsActionTabVisible => CurrentTab == MainTab.Action;
         public bool IsSettingsTabVisible => CurrentTab == MainTab.Settings;
 
         public string HeaderTitle => CurrentTab switch
@@ -126,6 +130,7 @@ namespace Caiqelle.ViewModels
             MainTab.Home => "クイック アクセス",
             MainTab.Folder => "フォルダ管理",
             MainTab.Rewind => "リワインド",
+            MainTab.Action => "アクション",
             MainTab.Settings => "設定",
             _ => "クイック アクセス"
         };
@@ -335,7 +340,8 @@ namespace Caiqelle.ViewModels
             StartupService startupService,
             NotificationService notificationService,
             ThemeService themeService,
-            StickyTextService stickyTextService)
+            StickyTextService stickyTextService,
+            ActionService? actionService = null)
         {
             _settings = settings;
             _rewindService = rewindService;
@@ -345,6 +351,7 @@ namespace Caiqelle.ViewModels
             _notificationService = notificationService;
             _themeService = themeService;
             _stickyTextService = stickyTextService;
+            _actionService = actionService;
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
             foreach (var info in ThemeService.AvailableThemes)
@@ -391,6 +398,15 @@ namespace Caiqelle.ViewModels
                 IsStickyTextSaveEnabled = _settings.IsStickyTextSaveEnabled;
                 IsStickyTextRestoreOnOpen = _settings.IsStickyTextRestoreOnOpen;
                 IsAutoUpdateEnabled = _settings.IsAutoUpdateEnabled;
+
+                IsActionAutoDetectEnabled = _settings.IsActionAutoDetectEnabled;
+                IsActionOnlyOnBrowsers = _settings.IsActionOnlyOnBrowsers;
+                ActionRestoreClipboardAfterFill = _settings.ActionRestoreClipboardAfterFill;
+                ActionMappings.Clear();
+                foreach (var actionItem in _settings.ActionMappings)
+                {
+                    ActionMappings.Add(actionItem);
+                }
 
                 VersionText = $"v{GetCurrentVersionString()}";
 
@@ -470,7 +486,139 @@ namespace Caiqelle.ViewModels
         }
 
         [RelayCommand]
+        private void NavigateToAction() => SwitchTab(MainTab.Action);
+
+        [RelayCommand]
         private void NavigateToSettings() => SwitchTab(MainTab.Settings);
+
+        // --- Action タブ設定・コマンド ---
+
+        public ObservableCollection<ActionFieldMapping> ActionMappings { get; } = new();
+
+        [ObservableProperty]
+        public partial bool IsActionAutoDetectEnabled { get; set; }
+
+        [ObservableProperty]
+        public partial bool IsActionOnlyOnBrowsers { get; set; } = true;
+
+        [ObservableProperty]
+        public partial bool ActionRestoreClipboardAfterFill { get; set; } = true;
+
+        private ActionFieldMapping? _editingActionMapping;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ActionSubmitButtonText))]
+        public partial bool IsEditingActionMapping { get; set; }
+
+        public string ActionSubmitButtonText => IsEditingActionMapping ? "更新" : "追加";
+
+        [ObservableProperty]
+        public partial string NewActionKeywords { get; set; } = string.Empty;
+
+        [ObservableProperty]
+        public partial string NewActionValue { get; set; } = string.Empty;
+
+        partial void OnIsActionAutoDetectEnabledChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsActionAutoDetectEnabled = value;
+            _settings.SaveSettings();
+            if (value)
+            {
+                _actionService?.ClearCompletedHistory();
+                _actionService?.StartMonitoring();
+            }
+        }
+
+        partial void OnIsActionOnlyOnBrowsersChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsActionOnlyOnBrowsers = value;
+            _settings.SaveSettings();
+        }
+
+        partial void OnActionRestoreClipboardAfterFillChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.ActionRestoreClipboardAfterFill = value;
+            _settings.SaveSettings();
+        }
+
+        [RelayCommand]
+        private void AddActionMapping()
+        {
+            string keywords = NewActionKeywords?.Trim() ?? string.Empty;
+            string value = NewActionValue?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(keywords) || string.IsNullOrEmpty(value)) return;
+
+            if (_editingActionMapping != null)
+            {
+                _editingActionMapping.Keywords = keywords;
+                _editingActionMapping.PlainValue = value;
+                int idx = ActionMappings.IndexOf(_editingActionMapping);
+                if (idx >= 0)
+                {
+                    ActionMappings[idx] = _editingActionMapping;
+                }
+                _settings.SaveSettings();
+                CancelEditActionMapping();
+                _actionService?.ClearCompletedHistory();
+                return;
+            }
+
+            var mapping = new ActionFieldMapping
+            {
+                Keywords = keywords,
+                PlainValue = value
+            };
+
+            _settings.ActionMappings.Add(mapping);
+            _settings.SaveSettings();
+            ActionMappings.Add(mapping);
+
+            NewActionKeywords = string.Empty;
+            NewActionValue = string.Empty;
+            _actionService?.ClearCompletedHistory();
+        }
+
+        [RelayCommand]
+        private void EditActionMapping(ActionFieldMapping? mapping)
+        {
+            if (mapping == null) return;
+            _editingActionMapping = mapping;
+            IsEditingActionMapping = true;
+            NewActionKeywords = mapping.Keywords;
+            NewActionValue = mapping.PlainValue;
+        }
+
+        [RelayCommand]
+        private void CancelEditActionMapping()
+        {
+            _editingActionMapping = null;
+            IsEditingActionMapping = false;
+            NewActionKeywords = string.Empty;
+            NewActionValue = string.Empty;
+        }
+
+        [RelayCommand]
+        private void DeleteActionMapping(ActionFieldMapping? mapping)
+        {
+            if (mapping == null) return;
+            if (ReferenceEquals(_editingActionMapping, mapping))
+            {
+                CancelEditActionMapping();
+            }
+            _settings.ActionMappings.Remove(mapping);
+            _settings.SaveSettings();
+            ActionMappings.Remove(mapping);
+        }
+
+        [RelayCommand]
+        private void ResetActionCompletedHistory()
+        {
+            _actionService?.ClearCompletedHistory();
+            _notificationService.ShowNotification("入力済み履歴をリセットしました", "\uE72C");
+        }
 
         private void SwitchTab(MainTab tab)
         {

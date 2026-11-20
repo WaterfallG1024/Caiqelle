@@ -8,12 +8,16 @@
     Title="Notification">
 
     <Grid x:Name="RootGrid" Background="Transparent" Loaded="RootGrid_Loaded">
-        <!-- Floating Fluent Toast Container -->
+        <Grid.Shadow>
+            <ThemeShadow />
+        </Grid.Shadow>
+        <!-- Floating Fluent Toast Container (視認性を高めるため不透明ベース背景＋影) -->
         <Border x:Name="ContentBorder"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{ThemeResource ControlElevationBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="8"
+                Translation="0,0,16"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
                 Opacity="0" Padding="18,12">
             <Grid HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="320">

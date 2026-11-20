@@ -72,6 +72,7 @@ namespace Caiqelle
         public Window? MainWindow => _window;
         
         private Views.FloatingWindow? _floatingWindow;
+        private Views.ActionPillWindow? _actionPillWindow;
         private Window? _hiddenTrayWindow;
         private EventWaitHandle? _showEvent;
         public IServiceProvider Services { get; }
@@ -204,6 +205,14 @@ namespace Caiqelle
                     _floatingWindow?.CloseWithAnimation();
                     CaptureManager?.CancelCapture();
                 }
+                else if (key == CapturedKey.ActionApply)
+                {
+                    _actionPillWindow?.TriggerApplyFromShortcut();
+                }
+                else if (key == CapturedKey.ActionDismiss)
+                {
+                    _actionPillWindow?.TriggerDismissFromShortcut();
+                }
                 else if (key == CapturedKey.R)
                 {
                     _floatingWindow?.HideInstantlyAndClose();
@@ -249,6 +258,8 @@ namespace Caiqelle
             services.AddSingleton<RewindService>();
             services.AddSingleton<HookService>();
             services.AddSingleton<ScreenshotService>();
+            services.AddSingleton<OcrService>();
+            services.AddSingleton<ActionService>();
             services.AddSingleton<StartupService>();
             services.AddSingleton<NotificationService>();
             services.AddSingleton<ClipboardService>();
@@ -352,6 +363,33 @@ namespace Caiqelle
                         Services.GetRequiredService<StickyTextService>().RestoreSavedStickyTexts();
                     });
                 }
+
+                // ActionService（OCR 自動認識＆確認ピル表示）を起動・連携
+                var actionService = Services.GetRequiredService<ActionService>();
+                var actionHookService = Services.GetRequiredService<HookService>();
+                var actionThemeService = Services.GetRequiredService<ThemeService>();
+                var uiQueue = _hiddenTrayWindow?.DispatcherQueue;
+                actionService.IsPillCurrentlyVisible = () => _actionPillWindow?.IsPillVisible == true;
+                actionService.DetectionReady += (ctx) =>
+                {
+                    uiQueue?.TryEnqueue(() =>
+                    {
+                        try
+                        {
+                            _actionPillWindow ??= new Views.ActionPillWindow(actionService, actionHookService, actionThemeService);
+                            _actionPillWindow.ShowContext(ctx);
+                        }
+                        catch { }
+                    });
+                };
+                actionService.ContextInvalidated += () =>
+                {
+                    uiQueue?.TryEnqueue(() =>
+                    {
+                        try { _actionPillWindow?.HideWithAnimation(); } catch { }
+                    });
+                };
+                actionService.StartMonitoring();
 
                 // アイドル時にフローティングUI・通知・各オーバーレイを1ステップずつ分散生成（UIフレーム落ち防止）
                 var prewarmQueue = _hiddenTrayWindow?.DispatcherQueue;
