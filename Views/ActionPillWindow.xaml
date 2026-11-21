@@ -58,13 +58,6 @@
                 <ScaleTransform x:Name="CapsuleScale" ScaleX="1.0" ScaleY="1.0" />
             </Border.RenderTransform>
             <Grid>
-                <!-- テーマカラー＆黒グラデーションのウェーブレイヤー -->
-                <Grid x:Name="PoolLayer" IsHitTestVisible="False">
-                    <Path x:Name="PoolBackWavePath" Opacity="0.85" />
-                    <Path x:Name="PoolFrontWavePath" Opacity="0.95" />
-                    <Path x:Name="PoolCrestLinePath" StrokeThickness="1.5" Opacity="0.90" />
-                </Grid>
-
                 <Grid x:Name="ContentGrid" Padding="14,0,10,0" Opacity="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

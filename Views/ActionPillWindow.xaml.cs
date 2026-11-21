@@ -21,32 +21,9 @@ namespace Caiqelle.Views
         private readonly IntPtr _hwnd;
         private readonly AppWindow _appWindow;
         private readonly DispatcherQueueTimer _autoHideTimer;
-        private readonly DispatcherQueueTimer _poolTimer;
         private ActionDetectionContext? _currentContext;
         private bool _isClosingAnim = false;
         private bool _isPointerInside = false;
-
-        // ウェーブアニメーション用ジオメトリ＆キャッシュ（DynamicCapsule 移植）
-        private const int PoolWaveSteps = 12;
-        private readonly PathGeometry _poolFrontGeo = new();
-        private readonly PathFigure _poolFrontFigure = new() { IsClosed = true, IsFilled = true };
-        private readonly LineSegment[] _poolFrontSegments = new LineSegment[PoolWaveSteps * 2 + 1];
-
-        private readonly PathGeometry _poolBackGeo = new();
-        private readonly PathFigure _poolBackFigure = new() { IsClosed = true, IsFilled = true };
-        private readonly LineSegment[] _poolBackSegments = new LineSegment[PoolWaveSteps * 2 + 1];
-
-        private readonly PathGeometry _poolCrestGeo = new();
-        private readonly PathFigure _poolCrestFigure = new() { IsClosed = false, IsFilled = false };
-        private readonly LineSegment[] _poolCrestSegments = new LineSegment[PoolWaveSteps];
-
-        private RectangleGeometry? _poolClipGeometry;
-        private double _lastPoolClipW = 0;
-        private double _lastPoolClipH = 0;
-        private double[]? _cachedOffsets;
-        private double _cachedW = 0;
-        private double _cachedH = 0;
-        private DateTime _poolAnimStartTime;
 
         private const int WindowWidthDip = 192;
         private const int WindowHeightDip = 62;
@@ -96,7 +73,6 @@ namespace Caiqelle.Views
             const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
             SetWindowDisplayAffinity(_hwnd, WDA_EXCLUDEFROMCAPTURE);
 
-            InitializePoolWaveGeometries();
             UpdateThemeBrushes();
             if (_themeService != null)
             {
@@ -109,22 +85,8 @@ namespace Caiqelle.Views
                 if (_isClosingAnim)
                 {
                     _isClosingAnim = false;
-                    _poolTimer.Stop();
                     _appWindow.Hide();
                 }
-            };
-
-            _poolTimer = DispatcherQueue.CreateTimer();
-            _poolTimer.Interval = TimeSpan.FromMilliseconds(36);
-            _poolTimer.Tick += (_, _) =>
-            {
-                if (!_appWindow.IsVisible)
-                {
-                    _poolTimer.Stop();
-                    return;
-                }
-                double elapsed = (DateTime.UtcNow - _poolAnimStartTime).TotalSeconds;
-                UpdatePoolFrame(elapsed);
             };
 
             _autoHideTimer = DispatcherQueue.CreateTimer();
@@ -140,33 +102,6 @@ namespace Caiqelle.Views
             };
         }
 
-        private void InitializePoolWaveGeometries()
-        {
-            for (int i = 0; i < _poolFrontSegments.Length; i++)
-            {
-                _poolFrontSegments[i] = new LineSegment();
-                _poolFrontFigure.Segments.Add(_poolFrontSegments[i]);
-            }
-            _poolFrontGeo.Figures.Add(_poolFrontFigure);
-            PoolFrontWavePath.Data = _poolFrontGeo;
-
-            for (int i = 0; i < _poolBackSegments.Length; i++)
-            {
-                _poolBackSegments[i] = new LineSegment();
-                _poolBackFigure.Segments.Add(_poolBackSegments[i]);
-            }
-            _poolBackGeo.Figures.Add(_poolBackFigure);
-            PoolBackWavePath.Data = _poolBackGeo;
-
-            for (int i = 0; i < _poolCrestSegments.Length; i++)
-            {
-                _poolCrestSegments[i] = new LineSegment();
-                _poolCrestFigure.Segments.Add(_poolCrestSegments[i]);
-            }
-            _poolCrestGeo.Figures.Add(_poolCrestFigure);
-            PoolCrestLinePath.Data = _poolCrestGeo;
-        }
-
         private void UpdateThemeBrushes()
         {
             try
@@ -175,164 +110,19 @@ namespace Caiqelle.Views
                     ? ThemeService.GetAccentColor(_themeService.CurrentTheme)
                     : Windows.UI.Color.FromArgb(255, 0, 255, 127);
 
-                byte rBright = (byte)Math.Min(255, c.R + (255 - c.R) * 0.42);
-                byte gBright = (byte)Math.Min(255, c.G + (255 - c.G) * 0.42);
-                byte bBright = (byte)Math.Min(255, c.B + (255 - c.B) * 0.42);
-
-                byte rDeep = (byte)(c.R * 0.65);
-                byte gDeep = (byte)(c.G * 0.65);
-                byte bDeep = (byte)(c.B * 0.65);
-
-                // 黒からテーマカラーへ滑らかに溶け込むグラデーション（DynamicCapsule 風）
+                // 黒からテーマカラーへ滑らかに溶け込むグラデーションを背景全体へ適用
                 var bgGradient = new LinearGradientBrush
                 {
                     StartPoint = new Point(0.0, 0.0),
                     EndPoint = new Point(1.0, 1.0)
                 };
-                bgGradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0xEA, 0x05, 0x06, 0x08), Offset = 0.0 });
-                bgGradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0xE8, (byte)(c.R * 0.12), (byte)(c.G * 0.12), (byte)(c.B * 0.12)), Offset = 0.6 });
-                bgGradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0xEA, 0x07, 0x08, 0x0A), Offset = 1.0 });
+                bgGradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0xEC, 0x05, 0x06, 0x08), Offset = 0.0 });
+                bgGradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0xEA, (byte)(c.R * 0.22), (byte)(c.G * 0.22), (byte)(c.B * 0.22)), Offset = 0.55 });
+                bgGradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0xEC, (byte)(c.R * 0.38), (byte)(c.G * 0.38), (byte)(c.B * 0.38)), Offset = 1.0 });
                 CapsuleBorder.Background = bgGradient;
-                CapsuleBorder.BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0x78, c.R, c.G, c.B));
-
-                var frontBrush = new LinearGradientBrush
-                {
-                    StartPoint = new Point(0.0, 0.28),
-                    EndPoint = new Point(1.0, 0.72)
-                };
-                frontBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0x26, rDeep, gDeep, bDeep), Offset = 0.0 });
-                frontBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0x52, c.R, c.G, c.B), Offset = 0.65 });
-                frontBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0x7A, rBright, gBright, bBright), Offset = 1.0 });
-
-                var backBrush = new LinearGradientBrush
-                {
-                    StartPoint = new Point(0.0, 0.28),
-                    EndPoint = new Point(1.0, 0.72)
-                };
-                backBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0x16, rDeep, gDeep, bDeep), Offset = 0.0 });
-                backBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0x46, c.R, c.G, c.B), Offset = 1.0 });
-
-                PoolFrontWavePath.Fill = frontBrush;
-                PoolBackWavePath.Fill = backBrush;
-                PoolCrestLinePath.Stroke = new SolidColorBrush(Windows.UI.Color.FromArgb(0xDC, rBright, gBright, bBright));
+                CapsuleBorder.BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0x88, c.R, c.G, c.B));
             }
             catch { }
-        }
-
-        private void UpdatePoolFrame(double elapsed)
-        {
-            try
-            {
-                double w = CapsuleBorder.ActualWidth > 10 ? CapsuleBorder.ActualWidth : 192.0;
-                double h = CapsuleBorder.ActualHeight > 10 ? CapsuleBorder.ActualHeight : 62.0;
-                const double borderInset = 2.0;
-                double innerW = Math.Max(10.0, w - borderInset * 2.0);
-                double innerH = Math.Max(10.0, h - borderInset * 2.0);
-                double r = Math.Min(innerW, innerH) / 2.0;
-
-                if (_poolClipGeometry == null)
-                {
-                    _lastPoolClipW = innerW;
-                    _lastPoolClipH = innerH;
-                    _poolClipGeometry = new RectangleGeometry { Rect = new Rect(0, 0, innerW, innerH) };
-                    PoolLayer.Clip = _poolClipGeometry;
-                }
-                else if (Math.Abs(_lastPoolClipW - innerW) > 0.5 || Math.Abs(_lastPoolClipH - innerH) > 0.5)
-                {
-                    _lastPoolClipW = innerW;
-                    _lastPoolClipH = innerH;
-                    _poolClipGeometry.Rect = new Rect(0, 0, innerW, innerH);
-                }
-
-                // 出現直後に左から波がスッと満ちてくる演出
-                const double riseDuration = 0.75;
-                double targetFill = 0.52;
-                double fillRatio;
-                if (elapsed < riseDuration)
-                {
-                    double p = elapsed / riseDuration;
-                    double easeOut = 1.0 - Math.Pow(1.0 - p, 3.0);
-                    fillRatio = Math.Clamp(targetFill * easeOut + Math.Sin(p * Math.PI) * 0.05, 0.05, 0.85);
-                }
-                else
-                {
-                    double breathe = Math.Sin((elapsed - riseDuration) * 1.8) * 0.015;
-                    fillRatio = Math.Clamp(targetFill + breathe, 0.05, 0.85);
-                }
-
-                double amp = 3.6;
-                double k1 = 2.0 * Math.PI / 46.0;
-                double k2 = 2.0 * Math.PI / 26.0;
-                double baseWaterX = innerW * fillRatio;
-
-                UpdateHorizontalPoolWaveGeometries(innerW, innerH, r, baseWaterX, amp, k1, k2, elapsed, 6.2, 4.1);
-            }
-            catch { }
-        }
-
-        private void UpdateHorizontalPoolWaveGeometries(
-            double w, double h, double r, double baseWaterX, double amp,
-            double k1, double k2, double t, double omega1, double omega2)
-        {
-            const int steps = PoolWaveSteps;
-            double dyStep = (h - 0.8) / steps;
-
-            if (_cachedOffsets == null || _cachedOffsets.Length != steps + 1 || Math.Abs(_cachedW - w) > 0.5 || Math.Abs(_cachedH - h) > 0.5)
-            {
-                _cachedW = w;
-                _cachedH = h;
-                _cachedOffsets = new double[steps + 1];
-                for (int j = 0; j <= steps; j++)
-                {
-                    double y = 0.4 + j * dyStep;
-                    double dy = 0.0;
-                    if (y < r) dy = r - y;
-                    else if (y > h - r) dy = y - (h - r);
-                    double dx = Math.Sqrt(Math.Max(0.0, r * r - dy * dy));
-                    _cachedOffsets[j] = dx;
-
-                    double xLeft = r - dx;
-                    var ptLeft = new Point(xLeft, y);
-                    _poolFrontSegments[steps * 2 - j].Point = ptLeft;
-                    _poolBackSegments[steps * 2 - j].Point = ptLeft;
-                }
-            }
-
-            double invH = 1.0 / Math.Max(1.0, h);
-            double slantScale = h * 0.10;
-
-            for (int i = 0; i <= steps; i++)
-            {
-                double y = 0.4 + i * dyStep;
-                double dx = _cachedOffsets[i];
-                double xLeft = r - dx;
-                double xRight = (w - r) + dx;
-                if (xRight <= xLeft + 0.1) xRight = xLeft + 0.1;
-
-                double slantOffset = ((y * invH) - 0.5) * slantScale;
-                double waveFront = baseWaterX + slantOffset
-                    + amp * Math.Sin(k1 * y - omega1 * t)
-                    + (amp * 0.42) * Math.Cos(k2 * y + omega2 * t);
-                double waveBack = baseWaterX + slantOffset * 0.88
-                    + (amp * 0.88) * Math.Sin(k1 * y + omega1 * 0.82 * t + 2.1)
-                    + (amp * 0.38) * Math.Sin(k2 * y - omega2 * 1.08 * t);
-
-                var ptFront = new Point(Math.Clamp(waveFront, xLeft, xRight), y);
-                var ptBack = new Point(Math.Clamp(waveBack, xLeft, xRight), y);
-
-                if (i == 0)
-                {
-                    _poolFrontFigure.StartPoint = ptFront;
-                    _poolBackFigure.StartPoint = ptBack;
-                    _poolCrestFigure.StartPoint = ptFront;
-                }
-                else
-                {
-                    _poolFrontSegments[i - 1].Point = ptFront;
-                    _poolBackSegments[i - 1].Point = ptBack;
-                    _poolCrestSegments[i - 1].Point = ptFront;
-                }
-            }
         }
 
         public void ShowContext(ActionDetectionContext context)
@@ -352,9 +142,6 @@ namespace Caiqelle.Views
             HideCapsuleStoryboard.Stop();
             ShowCapsuleStoryboard.Begin();
             UpdateCapsuleRegion();
-
-            _poolAnimStartTime = DateTime.UtcNow;
-            _poolTimer.Start();
 
             _autoHideTimer.Stop();
             _autoHideTimer.Start();
@@ -378,7 +165,6 @@ namespace Caiqelle.Views
         {
             if (_hookService != null) _hookService.IsActionPillActive = false;
             _autoHideTimer.Stop();
-            _poolTimer.Stop();
             _isClosingAnim = false;
             ShowCapsuleStoryboard.Stop();
             HideCapsuleStoryboard.Stop();

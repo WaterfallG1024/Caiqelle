@@ -69,7 +69,7 @@ namespace Caiqelle.Services
 
         private static readonly char[] KeywordSeparators =
         {
-            ',', '、', '，', ';', '；', '/', '／', '|', '｜'
+            ',', '，'
         };
 
         public event Action<ActionDetectionContext>? DetectionReady;

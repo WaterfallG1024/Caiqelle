@@ -74,6 +74,25 @@
                     <!-- Home Tab (3-Group Fluent Layout) -->
                     <Grid x:Name="HomeTab" Visibility="{x:Bind ViewModel.IsHomeTabVisible, Mode=OneWay}">
                         <StackPanel Spacing="14">
+                            <!-- Update Ready to Restart Banner -->
+                            <Border x:Name="RestartUpdateBannerCard" Style="{StaticResource FluentSettingsCardStyle}" Padding="14,12" Visibility="{x:Bind ViewModel.IsRestartToUpdateVisible, Mode=OneWay}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Width="34" Height="34" CornerRadius="6" Background="{StaticResource M3PrimaryContainerGlassBrush}" Margin="0,0,12,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE777;" FontSize="15" Foreground="{StaticResource M3PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+
+                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.PendingUpdateBannerText, Mode=OneWay}" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
+
+                                    <Button Grid.Column="2" Content="再起動して更新" Style="{StaticResource M3FilledPrimaryButtonStyle}" Command="{x:Bind ViewModel.RestartToUpdateCommand}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
                             <!-- What's New Release Notification Banner -->
                             <Border x:Name="WhatsNewBannerCard" Style="{StaticResource FluentSettingsCardStyle}" Padding="14,12" Visibility="{x:Bind ViewModel.IsWhatsNewVisible, Mode=OneWay}">
                                 <Grid>
@@ -481,7 +500,17 @@
                     <Grid x:Name="ActionTab" Visibility="{x:Bind ViewModel.IsActionTabVisible, Mode=OneWay}">
                         <StackPanel Spacing="14">
                             <StackPanel Spacing="6">
-                                <TextBlock Text="フォーム自動認識 (Action)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="4,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="フォーム自動認識 (Action)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <Border Background="{StaticResource M3PrimaryContainerGlassBrush}"
+                                            BorderBrush="{StaticResource M3PrimaryBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="6,1"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="Beta" FontSize="10" FontWeight="Bold" Foreground="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center"/>
+                                    </Border>
+                                </StackPanel>
                                 <Border Style="{StaticResource FluentSettingsCardStyle}">
                                     <StackPanel>
                                         <Grid Padding="16,12">
@@ -806,7 +835,22 @@
                                                 <TextBlock x:Name="VersionText" Text="{x:Bind ViewModel.VersionText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
                                                 <TextBlock x:Name="UpdateStatusText" Text="{x:Bind ViewModel.UpdateStatusText, Mode=OneWay}" Foreground="{StaticResource M3PrimaryBrush}" FontSize="12" Visibility="{x:Bind ViewModel.IsUpdateStatusVisible, Mode=OneWay}"/>
                                             </StackPanel>
-                                            <Button Grid.Column="1" x:Name="CheckUpdateBtn" Content="更新を確認" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.CheckUpdateCommand}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <Button x:Name="RestartUpdateBtn" Content="再起動して更新" Style="{StaticResource M3FilledPrimaryButtonStyle}" Command="{x:Bind ViewModel.RestartToUpdateCommand}" Visibility="{x:Bind ViewModel.IsRestartToUpdateVisible, Mode=OneWay}"/>
+                                                <Button x:Name="CheckUpdateBtn" Content="更新を確認" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.CheckUpdateCommand}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="16,0"/>
+                                        <Grid Padding="16,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                                                <TextBlock Text="利用規約・免責事項" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
+                                                <TextBlock Text="本ソフトウェアの利用規約および免責事項を表示します" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" x:Name="ShowTermsDialogBtn" Content="表示" Style="{StaticResource M3PillTonalButtonStyle}" Click="ShowTermsDialogBtn_Click" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                         </Grid>
                                     </StackPanel>
                                 </Border>

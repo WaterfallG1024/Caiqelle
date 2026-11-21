@@ -17,6 +17,7 @@ namespace Caiqelle
     {
         public MainViewModel ViewModel { get; }
         private bool _isSyncingNav = false;
+        private bool _isLegalDialogOpen = false;
 
         public MainWindow()
         {
@@ -147,8 +148,8 @@ namespace Caiqelle
 
         private void Grid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // テキストボックス等の入力中の場合は無視する
-            if (e.OriginalSource is TextBox || e.OriginalSource is PasswordBox) return;
+            // テキストボックス等の入力中または規約ダイアログ表示中は無視する
+            if (_isLegalDialogOpen || e.OriginalSource is TextBox || e.OriginalSource is PasswordBox) return;
 
             if (ViewModel.CurrentTab == MainTab.Home)
             {
@@ -243,5 +244,64 @@ namespace Caiqelle
                 }
             }
         }
+
+        private async void ShowTermsDialogBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return;
+            _isLegalDialogOpen = true;
+            try
+            {
+                var contentText = new TextBlock
+                {
+                    Text = LegalNoticeText,
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = 13,
+                    LineHeight = 20,
+                    IsTextSelectionEnabled = true
+                };
+
+                var scrollViewer = new ScrollViewer
+                {
+                    Content = contentText,
+                    MaxHeight = 360,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    Padding = new Thickness(0, 4, 12, 4)
+                };
+
+                var dialog = new ContentDialog
+                {
+                    Title = "利用規約・免責事項",
+                    Content = scrollViewer,
+                    CloseButtonText = "閉じる",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = RootGrid.XamlRoot,
+                    RequestedTheme = RootGrid.ActualTheme
+                };
+
+                await dialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] ShowTermsDialog error: {ex.Message}");
+            }
+            finally
+            {
+                _isLegalDialogOpen = false;
+            }
+        }
+
+        private const string LegalNoticeText =
+@"【利用規約】
+1. ユーザーは、法令および関係各所・各サービスの規約を遵守したうえで、本ソフトウェア（Caiqelle）を利用するものとします。
+2. 本ソフトウェアを不正な目的（第三者の権利侵害、スパム行為、不正アクセス、アクセス制御の回避、その他法令または公序良俗に反する行為等）で利用することを禁止します。
+3. 本ソフトウェアの利用に際して発生するデータおよび環境・設定の管理は、ユーザー自身の責任で行うものとします。
+
+【免責事項】
+1. 本ソフトウェアは現状有姿（AS-IS）で提供され、動作の完全性、正確性、安全性、特定目的への適合性についていかなる保証も行いません。
+2. 本ソフトウェアの利用または利用不能によって生じたいかなる損害（直接的・間接的損害、データ損失、誤動作、第三者との紛争等を含むがこれに限らない）についても、開発者は一切の責任を負いません。
+3. 本ソフトウェアの内容・仕様および本規約は、予告なく変更または提供を終了する場合があります。
+
+【商標・権利表記】
+本ソフトウェアおよび関連資料に記載されている会社名・製品名・サービス名は、各社の商標または登録商標です。本ソフトウェアはこれら各社と提携、協賛、または承認されたものではありません。";
     }
 }

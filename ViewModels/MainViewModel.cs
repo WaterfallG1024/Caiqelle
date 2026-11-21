@@ -87,6 +87,7 @@ namespace Caiqelle.ViewModels
         private readonly ThemeService _themeService;
         private readonly StickyTextService _stickyTextService;
         private readonly ActionService? _actionService;
+        private readonly UpdateService? _updateService;
         private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
         private bool _isInitializing = true;
@@ -293,6 +294,12 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         public partial bool IsUpdateStatusVisible { get; set; }
 
+        [ObservableProperty]
+        public partial bool IsRestartToUpdateVisible { get; set; }
+
+        [ObservableProperty]
+        public partial string PendingUpdateBannerText { get; set; } = string.Empty;
+
         public ObservableCollection<AccentThemeOption> AccentThemeOptions { get; } = new();
 
         [ObservableProperty]
@@ -341,7 +348,8 @@ namespace Caiqelle.ViewModels
             NotificationService notificationService,
             ThemeService themeService,
             StickyTextService stickyTextService,
-            ActionService? actionService = null)
+            ActionService? actionService = null,
+            UpdateService? updateService = null)
         {
             _settings = settings;
             _rewindService = rewindService;
@@ -352,6 +360,7 @@ namespace Caiqelle.ViewModels
             _themeService = themeService;
             _stickyTextService = stickyTextService;
             _actionService = actionService;
+            _updateService = updateService;
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
             foreach (var info in ThemeService.AvailableThemes)
@@ -363,7 +372,32 @@ namespace Caiqelle.ViewModels
 
             _rewindService.StateChanged += RewindService_StateChanged;
             _settings.MappingsChanged += Settings_MappingsChanged;
+            if (_updateService != null)
+            {
+                _updateService.UpdateDownloaded += UpdateService_UpdateDownloaded;
+                if (_updateService.HasPendingUpdate)
+                {
+                    ApplyPendingUpdateUi(_updateService.PendingUpdateVersion ?? string.Empty);
+                }
+            }
             _ = CheckAndShowWhatsNewBannerAsync();
+        }
+
+        private void UpdateService_UpdateDownloaded(string version)
+        {
+            _dispatcherQueue?.TryEnqueue(() => ApplyPendingUpdateUi(version));
+        }
+
+        private void ApplyPendingUpdateUi(string version)
+        {
+            IsUpdateStatusVisible = true;
+            UpdateStatusText = string.IsNullOrEmpty(version)
+                ? "更新の準備が完了しました。"
+                : $"新バージョン ({version}) の準備が完了しました。";
+            PendingUpdateBannerText = string.IsNullOrEmpty(version)
+                ? "アップデートの適用準備が完了しました"
+                : $"新バージョン ({version}) の適用準備が完了しました";
+            IsRestartToUpdateVisible = true;
         }
 
         private void Settings_MappingsChanged()
@@ -710,35 +744,34 @@ namespace Caiqelle.ViewModels
             IsUpdateStatusVisible = true;
             UpdateStatusText = "更新を確認中...";
 
-            try
+            if (_updateService != null)
             {
-                var mgr = new Velopack.UpdateManager(new Velopack.Sources.GithubSource("https://github.com/WaterfallG1024/Caiqelle-Release", null, false));
-                if (mgr.IsInstalled)
+                var (hasUpdate, message) = await _updateService.CheckAndDownloadManualAsync(progress =>
                 {
-                    var updateInfo = await mgr.CheckForUpdatesAsync();
-                    if (updateInfo == null)
-                    {
-                        UpdateStatusText = "最新バージョンです";
-                    }
-                    else
-                    {
-                        UpdateStatusText = $"新バージョン {updateInfo.TargetFullRelease.Version} をダウンロード中...";
-                        await mgr.DownloadUpdatesAsync(updateInfo);
+                    _dispatcherQueue?.TryEnqueue(() => UpdateStatusText = progress);
+                });
 
-                        // アプリ終了後に適用処理を予約する
-                        mgr.WaitExitThenApplyUpdates(updateInfo, silent: true, restart: false);
-
-                        UpdateStatusText = "更新の準備が完了しました。次回起動時に適用されます。";
-                    }
-                }
-                else
+                UpdateStatusText = message;
+                if (hasUpdate)
                 {
-                    UpdateStatusText = "最新バージョンです (開発環境)";
+                    IsRestartToUpdateVisible = true;
                 }
+                return;
             }
-            catch
+
+            UpdateStatusText = "最新バージョンです (開発環境)";
+        }
+
+        [RelayCommand]
+        private void RestartToUpdate()
+        {
+            if (_updateService?.HasPendingUpdate == true)
             {
-                UpdateStatusText = "最新バージョンです";
+                _updateService.ApplyUpdateAndRestart();
+            }
+            else
+            {
+                _updateService?.RestartApplication();
             }
         }
 
