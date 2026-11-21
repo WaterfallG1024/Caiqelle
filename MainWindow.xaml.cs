@@ -245,6 +245,200 @@ namespace Caiqelle
             }
         }
 
+        private async void EditFolderMappingBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is FolderMapping mapping)
+            {
+                if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return;
+                _isLegalDialogOpen = true;
+                try
+                {
+                    var folderBox = new TextBox
+                    {
+                        Header = "フォルダ名",
+                        Text = mapping.FolderName,
+                        PlaceholderText = "フォルダ名"
+                    };
+                    var keyBox = new TextBox
+                    {
+                        Header = "ショートカットキー (1文字)",
+                        Text = mapping.Key,
+                        PlaceholderText = "キー",
+                        MaxLength = 1,
+                        Width = 120,
+                        HorizontalAlignment = HorizontalAlignment.Left
+                    };
+                    var errorText = new TextBlock
+                    {
+                        Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
+                        FontSize = 12,
+                        TextWrapping = TextWrapping.Wrap,
+                        Visibility = Visibility.Collapsed
+                    };
+
+                    var panel = new StackPanel { Spacing = 12, MinWidth = 320 };
+                    panel.Children.Add(folderBox);
+                    panel.Children.Add(keyBox);
+                    panel.Children.Add(errorText);
+
+                    var dialog = new ContentDialog
+                    {
+                        Title = "フォルダの編集",
+                        Content = panel,
+                        PrimaryButtonText = "保存",
+                        CloseButtonText = "キャンセル",
+                        DefaultButton = ContentDialogButton.Primary,
+                        XamlRoot = RootGrid.XamlRoot,
+                        RequestedTheme = RootGrid.ActualTheme
+                    };
+
+                    dialog.PrimaryButtonClick += (_, args) =>
+                    {
+                        if (!ViewModel.TryUpdateFolderMappingDirect(mapping, folderBox.Text, keyBox.Text, out string err))
+                        {
+                            errorText.Text = err;
+                            errorText.Visibility = Visibility.Visible;
+                            args.Cancel = true;
+                        }
+                    };
+
+                    await dialog.ShowAsync();
+                }
+                finally
+                {
+                    _isLegalDialogOpen = false;
+                }
+            }
+        }
+
+        private async void EditActionMappingBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is ActionFieldMapping mapping)
+            {
+                if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return;
+                _isLegalDialogOpen = true;
+                try
+                {
+                    var keywordsBox = new TextBox
+                    {
+                        Header = "ラベルキーワード（, または ， で複数指定）",
+                        Text = mapping.Keywords,
+                        PlaceholderText = "例: 名前,氏名,お名前"
+                    };
+                    var valueBox = new TextBox
+                    {
+                        Header = "入力値",
+                        Text = mapping.PlainValue,
+                        PlaceholderText = "入力値"
+                    };
+                    var errorText = new TextBlock
+                    {
+                        Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
+                        FontSize = 12,
+                        TextWrapping = TextWrapping.Wrap,
+                        Visibility = Visibility.Collapsed
+                    };
+
+                    var panel = new StackPanel { Spacing = 12, MinWidth = 340 };
+                    panel.Children.Add(keywordsBox);
+                    panel.Children.Add(valueBox);
+                    panel.Children.Add(errorText);
+
+                    var dialog = new ContentDialog
+                    {
+                        Title = "登録項目の編集",
+                        Content = panel,
+                        PrimaryButtonText = "保存",
+                        CloseButtonText = "キャンセル",
+                        DefaultButton = ContentDialogButton.Primary,
+                        XamlRoot = RootGrid.XamlRoot,
+                        RequestedTheme = RootGrid.ActualTheme
+                    };
+
+                    dialog.PrimaryButtonClick += (_, args) =>
+                    {
+                        if (!ViewModel.TryUpdateActionMappingDirect(mapping, keywordsBox.Text, valueBox.Text, out string err))
+                        {
+                            errorText.Text = err;
+                            errorText.Visibility = Visibility.Visible;
+                            args.Cancel = true;
+                        }
+                    };
+
+                    await dialog.ShowAsync();
+                }
+                finally
+                {
+                    _isLegalDialogOpen = false;
+                }
+            }
+        }
+
+        private async void RemoveFolderMappingBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is FolderMapping mapping)
+            {
+                bool confirmed = await ShowConfirmDialogAsync(
+                    "フォルダの登録を解除しますか？",
+                    "この操作では Caiqelle からのリンク（登録）のみが解除され、PC 上のフォルダや画像ファイル自体は削除されません。");
+                if (confirmed)
+                {
+                    ViewModel.RemoveMappingCommand.Execute(mapping);
+                }
+            }
+        }
+
+        private async void DeleteActionMappingBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is ActionFieldMapping mapping)
+            {
+                bool confirmed = await ShowConfirmDialogAsync(
+                    "登録項目を削除しますか？",
+                    "このキーワードと登録された入力値を削除します。この操作は元に戻せません。");
+                if (confirmed)
+                {
+                    ViewModel.DeleteActionMappingCommand.Execute(mapping);
+                }
+            }
+        }
+
+        private async System.Threading.Tasks.Task<bool> ShowConfirmDialogAsync(string title, string message)
+        {
+            if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return false;
+            _isLegalDialogOpen = true;
+            try
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = title,
+                    Content = new TextBlock
+                    {
+                        Text = message,
+                        TextWrapping = TextWrapping.Wrap,
+                        FontSize = 13,
+                        LineHeight = 20
+                    },
+                    PrimaryButtonText = "はい",
+                    CloseButtonText = "いいえ",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = RootGrid.XamlRoot,
+                    RequestedTheme = RootGrid.ActualTheme
+                };
+
+                var result = await dialog.ShowAsync();
+                return result == ContentDialogResult.Primary;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] ShowConfirmDialog error: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                _isLegalDialogOpen = false;
+            }
+        }
+
         private async void ShowTermsDialogBtn_Click(object sender, RoutedEventArgs e)
         {
             if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return;

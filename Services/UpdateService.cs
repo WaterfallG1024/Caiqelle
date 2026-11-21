@@ -155,15 +155,16 @@ namespace Caiqelle.Services
                 string? exePath = Environment.ProcessPath;
                 if (string.IsNullOrWhiteSpace(exePath)) return;
 
+                // 親プロセス終了後に単一インスタンス Mutex が確実に解放された状態で起動するよう約2秒待ってから起動
                 var psi = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "cmd.exe",
-                    Arguments = $"/c ping 127.0.0.1 -n 2 > nul && start \"\" \"{exePath}\"",
+                    Arguments = $"/c \"ping 127.0.0.1 -n 3 > nul && start \"\" \"{exePath}\"\"",
                     CreateNoWindow = true,
                     UseShellExecute = false
                 };
                 System.Diagnostics.Process.Start(psi);
-                Microsoft.UI.Xaml.Application.Current.Exit();
+                Environment.Exit(0);
             }
             catch (Exception ex)
             {

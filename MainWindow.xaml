@@ -93,30 +93,6 @@
                                 </Grid>
                             </Border>
 
-                            <!-- What's New Release Notification Banner -->
-                            <Border x:Name="WhatsNewBannerCard" Style="{StaticResource FluentSettingsCardStyle}" Padding="14,12" Visibility="{x:Bind ViewModel.IsWhatsNewVisible, Mode=OneWay}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Border Grid.Column="0" Width="34" Height="34" CornerRadius="6" Background="{StaticResource M3PrimaryContainerGlassBrush}" Margin="0,0,12,0" HorizontalAlignment="Center" VerticalAlignment="Top">
-                                        <SymbolIcon Symbol="Sync" Foreground="{StaticResource M3PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
-                                        <TextBlock x:Name="WhatsNewTitle" Text="{x:Bind ViewModel.WhatsNewTitle, Mode=OneWay}" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                        <Button x:Name="WhatsNewDetailBtn" Content="詳細を見る" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.OpenWhatsNewDetailCommand}" Padding="12,4" FontSize="12" HorizontalAlignment="Left"/>
-                                    </StackPanel>
-
-                                    <Button Grid.Column="2" x:Name="WhatsNewDismissBtn" Command="{x:Bind ViewModel.DismissWhatsNewCommand}" Style="{StaticResource FluentIconButtonStyle}" Width="28" Height="28" VerticalAlignment="Top" HorizontalAlignment="Right" ToolTipService.ToolTip="このバナーを非表示">
-                                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE711;" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    </Button>
-                                </Grid>
-                            </Border>
-
                             <!-- Rewind Status Card -->
                             <Border x:Name="RewindStatusCard" Style="{StaticResource FluentSettingsCardStyle}" Padding="14,12" Visibility="{x:Bind ViewModel.IsRewindStatusVisible, Mode=OneWay}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -353,37 +329,55 @@
                     <!-- Folder Tab (Fluent 2) -->
                     <Grid x:Name="FolderTab" Visibility="{x:Bind ViewModel.IsFolderTabVisible, Mode=OneWay}">
                         <StackPanel Spacing="12">
-                            <StackPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="画像保存先フォルダ" FontSize="16" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
-                                <Button Background="Transparent" BorderThickness="0" Margin="8,0,0,0" Padding="4" CornerRadius="4" ToolTipService.ToolTip="ルールの確認">
-                                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE946;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    <Button.Flyout>
-                                        <Flyout>
-                                            <StackPanel Spacing="8" MaxWidth="320">
-                                                <TextBlock Text="フォルダ作成ルール" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
-                                                <TextBlock Text="• フォルダ名には \ / : * ? &quot; &lt; &gt; | は使用できません。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                <TextBlock Text="• すでに登録されているフォルダ名やキーは登録できません。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                <TextBlock Text="• キーは1文字のみ、半角英数字(0-9, A-Z)と / [ ] - ^ ; : @ が使用可能です。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                <TextBlock Text="• キーの英字の大文字・小文字を区別しません。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                <TextBlock Text="• リンク解除を行っても、実際のフォルダやファイルが削除されることはありません。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                            </StackPanel>
-                                        </Flyout>
-                                    </Button.Flyout>
-                                </Button>
-                            </StackPanel>
+                            <Grid Margin="4,0,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="画像保存先フォルダ" FontSize="16" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Button Background="Transparent" BorderThickness="0" Margin="8,0,0,0" Padding="4" CornerRadius="4" ToolTipService.ToolTip="ルールの確認">
+                                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE946;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <Button.Flyout>
+                                            <Flyout>
+                                                <StackPanel Spacing="8" MaxWidth="320">
+                                                    <TextBlock Text="フォルダ作成ルール" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                    <TextBlock Text="• フォルダ名には \ / : * ? &quot; &lt; &gt; | は使用できません。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    <TextBlock Text="• すでに登録されているフォルダ名やキーは登録できません。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    <TextBlock Text="• キーは1文字のみ、半角英数字(0-9, A-Z)と / [ ] - ^ ; : @ が使用可能です。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    <TextBlock Text="• キーの英字の大文字・小文字を区別しません。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    <TextBlock Text="• リンク解除を行っても、実際のフォルダやファイルが削除されることはありません。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </StackPanel>
+                                <Border Grid.Column="1"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="6"
+                                        Padding="8,3"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind ViewModel.FolderMappingCountText, Mode=OneWay}"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Border>
+                            </Grid>
 
                             <Border Style="{StaticResource FluentSettingsCardStyle}" Padding="16">
                                 <StackPanel Spacing="12">
                                     <InfoBar x:Name="ValidationErrorBar" IsOpen="{x:Bind ViewModel.IsValidationErrorOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.ValidationErrorMessage, Mode=OneWay}" Severity="Warning" Margin="0,0,0,4"/>
-                                    <Grid>
+                                    <Grid ColumnSpacing="8">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="FolderNameInput" Grid.Column="0" Text="{x:Bind ViewModel.FolderNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="フォルダ名" Margin="0,0,8,0"/>
-                                        <TextBox x:Name="KeyInput" Grid.Column="1" Text="{x:Bind ViewModel.KeyInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="52" MinWidth="0" PlaceholderText="キー" Margin="0,0,8,0" MaxLength="1" TextAlignment="Center"/>
-                                        <Button Grid.Column="2" Content="追加" Style="{StaticResource M3FilledPrimaryButtonStyle}" Command="{x:Bind ViewModel.AddMappingCommand}"/>
+                                        <TextBox x:Name="FolderNameInput" Grid.Column="0" Text="{x:Bind ViewModel.FolderNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="フォルダ名" IsEnabled="{x:Bind ViewModel.CanAddFolderMapping, Mode=OneWay}"/>
+                                        <TextBox x:Name="KeyInput" Grid.Column="1" Text="{x:Bind ViewModel.KeyInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="52" MinWidth="0" PlaceholderText="キー" MaxLength="1" TextAlignment="Center" IsEnabled="{x:Bind ViewModel.CanAddFolderMapping, Mode=OneWay}"/>
+                                        <Button Grid.Column="2" Content="{x:Bind ViewModel.FolderSubmitButtonText, Mode=OneWay}" Style="{StaticResource M3FilledPrimaryButtonStyle}" Command="{x:Bind ViewModel.AddMappingCommand}" IsEnabled="{x:Bind ViewModel.CanAddFolderMapping, Mode=OneWay}"/>
+                                        <Button Grid.Column="3" Content="キャンセル" Style="{StaticResource M3PillTonalButtonStyle}" Visibility="{x:Bind ViewModel.IsEditingFolderMapping, Mode=OneWay}" Command="{x:Bind ViewModel.CancelEditFolderMappingCommand}"/>
                                     </Grid>
 
                                     <ItemsControl x:Name="MappingsList" ItemsSource="{x:Bind ViewModel.Mappings}" Margin="0,4,0,0">
@@ -395,12 +389,29 @@
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="40"/>
                                                             <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Grid.Column="0" Text="{Binding FolderName}" ToolTipService.ToolTip="{Binding FolderName}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"/>
                                                         <Border Grid.Column="1" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Width="24" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding Key}" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontWeight="Bold" FontSize="11"/>
                                                         </Border>
-                                                        <Button Grid.Column="2" Content="解除" Background="{StaticResource FuncPinkBgBrush}" Foreground="{StaticResource FuncPinkBrush}" BorderBrush="{StaticResource FuncPinkBrush}" BorderThickness="1" CornerRadius="4" Padding="10,4" FontSize="12" FontWeight="SemiBold" Command="{Binding DataContext.RemoveMappingCommand, ElementName=RootGrid}" CommandParameter="{Binding}"/>
+                                                        <Button Grid.Column="2"
+                                                                Style="{StaticResource FluentIconButtonStyle}"
+                                                                Width="28" Height="28"
+                                                                Margin="0,0,2,0"
+                                                                Tag="{Binding}"
+                                                                Click="EditFolderMappingBtn_Click"
+                                                                ToolTipService.ToolTip="編集">
+                                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="13" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                        </Button>
+                                                        <Button Grid.Column="3"
+                                                                Style="{StaticResource FluentIconButtonStyle}"
+                                                                Width="28" Height="28"
+                                                                Tag="{Binding}"
+                                                                Click="RemoveFolderMappingBtn_Click"
+                                                                ToolTipService.ToolTip="解除">
+                                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="13" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                                        </Button>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
@@ -526,7 +537,7 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
                                                 <TextBlock Text="フォームの自動認識と確認ピル表示" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="14" TextWrapping="Wrap"/>
-                                                <TextBlock Text="Google フォーム等の入力欄を検知すると画面上部に確認ピルを表示します（フォームがない場合は無視）" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="フォームの入力欄を検知すると画面上部に確認ピルを表示します（フォームがない場合は無視）" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.IsActionAutoDetectEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                                         </Grid>
@@ -559,7 +570,7 @@
                             </StackPanel>
 
                             <StackPanel Spacing="6">
-                                <TextBlock Text="自動入力する項目の登録（DPAPI 暗号化保存）" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0"/>
+                                <TextBlock Text="自動入力する項目の登録" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0"/>
                                 <Border Style="{StaticResource FluentSettingsCardStyle}" Padding="16,12">
                                     <StackPanel Spacing="10">
                                         <Grid ColumnSpacing="8">
@@ -571,10 +582,10 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
                                                      PlaceholderText="ラベル (例: 名前,氏名,お名前)"
-                                                     ToolTipService.ToolTip="カンマ(,)や読点(、)、スラッシュ(/)区切りで1つの入力値に複数キーワードを設定できます"
+                                                     ToolTipService.ToolTip="半角カンマ(,)または全角カンマ(，)区切りで1つの入力値に複数キーワードを設定できます"
                                                      Text="{x:Bind ViewModel.NewActionKeywords, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             <TextBox Grid.Column="1"
-                                                     PlaceholderText="入力値 (暗号化保存)"
+                                                     PlaceholderText="入力値"
                                                      Text="{x:Bind ViewModel.NewActionValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             <Button Grid.Column="2"
                                                     Content="{x:Bind ViewModel.ActionSubmitButtonText, Mode=OneWay}"
@@ -609,16 +620,16 @@
                                                                     Style="{StaticResource FluentIconButtonStyle}"
                                                                     Width="28" Height="28"
                                                                     Margin="0,0,2,0"
-                                                                    Command="{Binding DataContext.EditActionMappingCommand, ElementName=RootGrid}"
-                                                                    CommandParameter="{x:Bind}"
+                                                                    Tag="{x:Bind}"
+                                                                    Click="EditActionMappingBtn_Click"
                                                                     ToolTipService.ToolTip="編集">
                                                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="13" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                                                             </Button>
                                                             <Button Grid.Column="3"
                                                                     Style="{StaticResource FluentIconButtonStyle}"
                                                                     Width="28" Height="28"
-                                                                    Command="{Binding DataContext.DeleteActionMappingCommand, ElementName=RootGrid}"
-                                                                    CommandParameter="{x:Bind}"
+                                                                    Tag="{x:Bind}"
+                                                                    Click="DeleteActionMappingBtn_Click"
                                                                     ToolTipService.ToolTip="削除">
                                                                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="13" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                                                             </Button>
@@ -845,6 +856,18 @@
                                                 <Button x:Name="RestartUpdateBtn" Content="再起動して更新" Style="{StaticResource M3FilledPrimaryButtonStyle}" Command="{x:Bind ViewModel.RestartToUpdateCommand}" Visibility="{x:Bind ViewModel.IsRestartToUpdateVisible, Mode=OneWay}"/>
                                                 <Button x:Name="CheckUpdateBtn" Content="更新を確認" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.CheckUpdateCommand}"/>
                                             </StackPanel>
+                                        </Grid>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="16,0"/>
+                                        <Grid Padding="16,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                                                <TextBlock Text="リリースノート" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
+                                                <TextBlock Text="最新バージョンの変更履歴をブラウザで開きます" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" x:Name="OpenReleaseNotesBtn" Content="リリースノートを見る" Style="{StaticResource M3PillTonalButtonStyle}" Command="{x:Bind ViewModel.OpenReleaseNotesCommand}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                         </Grid>
                                         <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="16,0"/>
                                         <Grid Padding="16,12">

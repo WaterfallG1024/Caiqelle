@@ -156,6 +156,17 @@ namespace Caiqelle.ViewModels
 
         public ObservableCollection<FolderMapping> Mappings { get; } = new();
 
+        public string FolderMappingCountText => $"{Mappings.Count}/{SettingsManager.MaxFolderMappingCount}";
+        public bool CanAddFolderMapping => Mappings.Count < SettingsManager.MaxFolderMappingCount;
+
+        private FolderMapping? _editingFolderMapping;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(FolderSubmitButtonText))]
+        public partial bool IsEditingFolderMapping { get; set; }
+
+        public string FolderSubmitButtonText => IsEditingFolderMapping ? "更新" : "追加";
+
         [ObservableProperty]
         public partial string FolderNameInput { get; set; } = string.Empty;
 
@@ -372,6 +383,11 @@ namespace Caiqelle.ViewModels
 
             _rewindService.StateChanged += RewindService_StateChanged;
             _settings.MappingsChanged += Settings_MappingsChanged;
+            Mappings.CollectionChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(FolderMappingCountText));
+                OnPropertyChanged(nameof(CanAddFolderMapping));
+            };
             if (_updateService != null)
             {
                 _updateService.UpdateDownloaded += UpdateService_UpdateDownloaded;
@@ -647,6 +663,34 @@ namespace Caiqelle.ViewModels
             ActionMappings.Remove(mapping);
         }
 
+        public bool TryUpdateActionMappingDirect(ActionFieldMapping target, string keywordsInput, string valueInput, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            string keywords = keywordsInput?.Trim() ?? string.Empty;
+            string value = valueInput?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(keywords) || string.IsNullOrEmpty(value))
+            {
+                errorMessage = "ラベルキーワードと入力値を両方入力してください。";
+                return false;
+            }
+
+            target.Keywords = keywords;
+            target.PlainValue = value;
+            int idx = ActionMappings.IndexOf(target);
+            if (idx >= 0)
+            {
+                ActionMappings[idx] = target;
+            }
+            _settings.SaveSettings();
+            _actionService?.ClearCompletedHistory();
+            return true;
+        }
+
+        public bool TryUpdateFolderMappingDirect(FolderMapping target, string folderInput, string keyInput, out string errorMessage)
+        {
+            return _settings.TryUpdateFolderMapping(target, folderInput, keyInput, out errorMessage);
+        }
+
         [RelayCommand]
         private void ResetActionCompletedHistory()
         {
@@ -713,12 +757,44 @@ namespace Caiqelle.ViewModels
         {
             IsValidationErrorOpen = false;
 
+            if (_editingFolderMapping != null)
+            {
+                if (!_settings.TryUpdateFolderMapping(_editingFolderMapping, FolderNameInput, KeyInput, out string updateError))
+                {
+                    ShowValidationError(updateError);
+                    return;
+                }
+                CancelEditFolderMapping();
+                return;
+            }
+
             if (!_settings.TryAddFolderMapping(FolderNameInput, KeyInput, createDirectory: false, out string errorMessage))
             {
                 ShowValidationError(errorMessage);
                 return;
             }
 
+            FolderNameInput = string.Empty;
+            KeyInput = string.Empty;
+        }
+
+        [RelayCommand]
+        private void EditFolderMapping(FolderMapping? mapping)
+        {
+            if (mapping == null) return;
+            IsValidationErrorOpen = false;
+            _editingFolderMapping = mapping;
+            IsEditingFolderMapping = true;
+            FolderNameInput = mapping.FolderName;
+            KeyInput = mapping.Key;
+        }
+
+        [RelayCommand]
+        private void CancelEditFolderMapping()
+        {
+            _editingFolderMapping = null;
+            IsEditingFolderMapping = false;
+            IsValidationErrorOpen = false;
             FolderNameInput = string.Empty;
             KeyInput = string.Empty;
         }
@@ -733,6 +809,10 @@ namespace Caiqelle.ViewModels
         private void RemoveMapping(FolderMapping? mapping)
         {
             if (mapping == null) return;
+            if (ReferenceEquals(_editingFolderMapping, mapping))
+            {
+                CancelEditFolderMapping();
+            }
             _settings.RemoveFolderMapping(mapping);
         }
 
@@ -776,11 +856,27 @@ namespace Caiqelle.ViewModels
         }
 
         [RelayCommand]
-        private async Task OpenWhatsNewDetailAsync()
+        private async Task OpenReleaseNotesAsync()
         {
+            string targetUrl = "https://github.com/WaterfallG1024/Caiqelle-Release/releases";
+            if (_latestRelease == null)
+            {
+                try
+                {
+                    var releaseService = new GitHubReleaseService();
+                    _latestRelease = await releaseService.GetLatestReleaseAsync();
+                }
+                catch { }
+            }
+
             if (_latestRelease != null &&
-                Uri.TryCreate(_latestRelease.HtmlUrl, UriKind.Absolute, out var uri) &&
-                uri.Scheme == Uri.UriSchemeHttps)
+                Uri.TryCreate(_latestRelease.HtmlUrl, UriKind.Absolute, out var releaseUri) &&
+                releaseUri.Scheme == Uri.UriSchemeHttps)
+            {
+                targetUrl = _latestRelease.HtmlUrl;
+            }
+
+            if (Uri.TryCreate(targetUrl, UriKind.Absolute, out var uri))
             {
                 try
                 {
@@ -789,6 +885,9 @@ namespace Caiqelle.ViewModels
                 catch { }
             }
         }
+
+        [RelayCommand]
+        private async Task OpenWhatsNewDetailAsync() => await OpenReleaseNotesAsync();
 
         [RelayCommand]
         private void DismissWhatsNew()
@@ -821,30 +920,9 @@ namespace Caiqelle.ViewModels
         {
             try
             {
+                // リリースノートは通知バナーではなく設定タブの「リリースノートを見る」ボタンから参照するため、ここではURL情報のみ事前取得
                 var releaseService = new GitHubReleaseService();
                 _latestRelease = await releaseService.GetLatestReleaseAsync();
-                if (_latestRelease != null && !string.IsNullOrEmpty(_latestRelease.TagName))
-                {
-                    string currentVersionStr = GetCurrentVersionString();
-                    string cleanLatestTag = _latestRelease.TagName.TrimStart('v', 'V');
-                    string cleanCurrentTag = currentVersionStr.TrimStart('v', 'V');
-
-                    if (Version.TryParse(cleanLatestTag, out Version? latestVersion) &&
-                        Version.TryParse(cleanCurrentTag, out Version? currentVersion) &&
-                        latestVersion <= currentVersion)
-                    {
-                        return;
-                    }
-
-                    if (_latestRelease.TagName != _settings.LastDismissedReleaseTag)
-                    {
-                        _dispatcherQueue?.TryEnqueue(() =>
-                        {
-                            WhatsNewTitle = $"{_latestRelease.TagName} がリリースされました！";
-                            IsWhatsNewVisible = true;
-                        });
-                    }
-                }
             }
             catch { }
         }

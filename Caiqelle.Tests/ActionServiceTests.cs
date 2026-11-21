@@ -369,5 +369,34 @@ namespace Caiqelle.Tests
             Assert.Contains(@"<Command>C:\Program Files\Caiqelle\Caiqelle.exe</Command>", xml);
             Assert.Contains("<UserId>DOMAIN\\User&amp;Test</UserId>", xml);
         }
+
+        [Fact]
+        public void DetectFormFields_SplitsKeywordsOnlyByHalfOrFullWidthComma()
+        {
+            var lines = new List<OcrLineBox>
+            {
+                new("氏名 *", new Rectangle(100, 100, 70, 22)),
+                new("回答を入力", new Rectangle(100, 145, 90, 20)),
+                new("送信", new Rectangle(100, 240, 50, 26))
+            };
+            // 全角カンマ「，」では分割され、スラッシュ「/」では分割されないこと
+            var mappings = new List<ActionFieldMapping>
+            {
+                new() { Id = "k1", Keywords = "名前/名称", PlainValue = "無効" },
+                new() { Id = "k2", Keywords = "名前，氏名", PlainValue = "山田 太郎" }
+            };
+
+            var result = ActionService.DetectFormFields(lines, "テストフォーム - Google Chrome", Point.Empty, mappings);
+            Assert.Single(result);
+            Assert.Equal("山田 太郎", result[0].PlainValue);
+
+            // スラッシュで区切っても分割されないため「氏名」には一致しないこと
+            var slashOnlyMappings = new List<ActionFieldMapping>
+            {
+                new() { Id = "k3", Keywords = "名前/氏名", PlainValue = "山田 太郎" }
+            };
+            var slashResult = ActionService.DetectFormFields(lines, "テストフォーム - Google Chrome", Point.Empty, slashOnlyMappings);
+            Assert.Empty(slashResult);
+        }
     }
 }

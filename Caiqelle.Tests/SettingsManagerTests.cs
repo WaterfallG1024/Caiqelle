@@ -101,5 +101,64 @@ namespace Caiqelle.Tests
             Assert.Contains("フォルダ名", err);
             Assert.Contains("キー", err);
         }
+
+        [Fact]
+        public void TryUpdateFolderMapping_RenamesExistingFolderAndUpdatesKey()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "CaiqelleTests_" + Guid.NewGuid().ToString("N"));
+            string uniqueOld = "OldFolder_" + Guid.NewGuid().ToString("N")[..8];
+            string uniqueNew = "NewFolder_" + Guid.NewGuid().ToString("N")[..8];
+            string oldRealPath = SettingsManager.ResolveFolderPath(uniqueOld);
+            string newRealPath = SettingsManager.ResolveFolderPath(uniqueNew);
+
+            try
+            {
+                var mgr = new SettingsManager(tempDir);
+                Assert.True(mgr.TryAddFolderMapping(uniqueOld, "Z", createDirectory: true, out _));
+                Assert.True(Directory.Exists(oldRealPath));
+
+                var target = Assert.Single(mgr.ImageFolderMappings, m => m.FolderName == uniqueOld);
+                bool updated = mgr.TryUpdateFolderMapping(target, uniqueNew, "Y", out string err);
+
+                Assert.True(updated, err);
+                Assert.Equal(uniqueNew, target.FolderName);
+                Assert.Equal("Y", target.Key);
+                Assert.False(Directory.Exists(oldRealPath));
+                Assert.True(Directory.Exists(newRealPath));
+            }
+            finally
+            {
+                try { if (Directory.Exists(oldRealPath)) Directory.Delete(oldRealPath, true); } catch { }
+                try { if (Directory.Exists(newRealPath)) Directory.Delete(newRealPath, true); } catch { }
+                try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+            }
+        }
+
+        [Fact]
+        public void TryAddFolderMapping_Rejects45thMappingWhenAtMaxCount()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "CaiqelleTests_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var mgr = new SettingsManager(tempDir);
+                const string allKeys = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/[]-^;:";
+                int idx = 0;
+                while (mgr.ImageFolderMappings.Count < SettingsManager.MaxFolderMappingCount && idx < allKeys.Length)
+                {
+                    string key = allKeys[idx++].ToString();
+                    mgr.TryAddFolderMapping($"Folder_{idx}", key, createDirectory: false, out _);
+                }
+
+                Assert.Equal(SettingsManager.MaxFolderMappingCount, mgr.ImageFolderMappings.Count);
+                bool added = mgr.TryAddFolderMapping("Folder_45", "@", createDirectory: false, out string err);
+
+                Assert.False(added);
+                Assert.Contains("44", err);
+            }
+            finally
+            {
+                try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+            }
+        }
     }
 }

@@ -463,9 +463,11 @@ namespace Caiqelle
         // Win32ネイティブのコンテキストメニューを表示
         private void ShowNativeTrayContextMenu()
         {
+            const int IDM_RESTART = 1002;
             const int IDM_EXIT = 1001;
 
             IntPtr hMenu = CreatePopupMenu();
+            AppendMenuW(hMenu, 0x0000 /* MF_STRING */, IDM_RESTART, "再起動");
             AppendMenuW(hMenu, 0x0000 /* MF_STRING */, IDM_EXIT, "終了");
 
             // カーソル位置を取得
@@ -480,7 +482,19 @@ namespace Caiqelle
             int cmd = TrackPopupMenu(hMenu, 0x0100 /* TPM_RETURNCMD */, pt.X, pt.Y, 0, hwnd, IntPtr.Zero);
             DestroyMenu(hMenu);
 
-            if (cmd == IDM_EXIT)
+            if (cmd == IDM_RESTART)
+            {
+                try
+                {
+                    _trayIcon?.Dispose();
+                    Services.GetService<HookService>()?.Stop();
+                    Services.GetService<RewindService>()?.Stop();
+                }
+                catch { }
+
+                Services.GetService<UpdateService>()?.RestartApplication();
+            }
+            else if (cmd == IDM_EXIT)
             {
                 try
                 {

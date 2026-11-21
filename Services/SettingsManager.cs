@@ -88,6 +88,7 @@ namespace Caiqelle.Services
         private readonly string _settingsFilePath;
         private readonly object _saveLock = new();
         private const long MaxSettingsFileBytes = 10 * 1024 * 1024; // 10MB 上限
+        public const int MaxFolderMappingCount = 44; // 0-9, A-Z, /[]-^;:@ の合計44キー
         private SettingsData _data;
 
         public List<FolderMapping> ImageFolderMappings => _data.ImageFolderMappings;
@@ -348,14 +349,17 @@ namespace Caiqelle.Services
             return IsPathWithinDirectory(baseDir, resolved) ? resolved : baseDir;
         }
 
-        /// <summary>
-        /// フォルダ名とキーを検証してマッピングを追加し、実フォルダを作成する
-        /// </summary>
-        public bool TryAddFolderMapping(string folderInput, string keyInput, bool createDirectory, out string errorMessage)
+        private bool TryValidateFolderAndKey(
+            string folderInput,
+            string keyInput,
+            FolderMapping? excludingMapping,
+            out string folder,
+            out string key,
+            out string errorMessage)
         {
             errorMessage = string.Empty;
-            string folder = folderInput.Trim();
-            string key = keyInput.Trim().ToUpper();
+            folder = folderInput.Trim();
+            key = keyInput.Trim().ToUpper();
 
             if (string.IsNullOrEmpty(folder) || string.IsNullOrEmpty(key))
             {
@@ -397,6 +401,8 @@ namespace Caiqelle.Services
 
             foreach (var m in _data.ImageFolderMappings)
             {
+                if (ReferenceEquals(m, excludingMapping)) continue;
+
                 if (string.Equals(m.FolderName, folder, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(ResolveFolderPath(m.FolderName), resolvedFolder, StringComparison.OrdinalIgnoreCase))
                 {
@@ -424,6 +430,25 @@ namespace Caiqelle.Services
                 return false;
             }
 
+            return true;
+        }
+
+        /// <summary>
+        /// フォルダ名とキーを検証してマッピングを追加し、実フォルダを作成する
+        /// </summary>
+        public bool TryAddFolderMapping(string folderInput, string keyInput, bool createDirectory, out string errorMessage)
+        {
+            if (_data.ImageFolderMappings.Count >= MaxFolderMappingCount)
+            {
+                errorMessage = $"登録できるフォルダの上限（{MaxFolderMappingCount}件）に達しています。";
+                return false;
+            }
+
+            if (!TryValidateFolderAndKey(folderInput, keyInput, null, out string folder, out string key, out errorMessage))
+            {
+                return false;
+            }
+
             if (createDirectory)
             {
                 try
@@ -442,6 +467,50 @@ namespace Caiqelle.Services
             }
 
             _data.ImageFolderMappings.Add(new FolderMapping { FolderName = folder, Key = key });
+            SaveSettings();
+            MappingsChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// 既存のフォルダマッピングを検証して更新し、実フォルダが存在する場合はフォルダ名も変更する
+        /// </summary>
+        public bool TryUpdateFolderMapping(FolderMapping target, string folderInput, string keyInput, out string errorMessage)
+        {
+            if (target == null)
+            {
+                errorMessage = "編集対象のフォルダが見つかりません。";
+                return false;
+            }
+
+            if (!TryValidateFolderAndKey(folderInput, keyInput, target, out string newFolder, out string newKey, out errorMessage))
+            {
+                return false;
+            }
+
+            string oldPath = ResolveFolderPath(target.FolderName);
+            string newPath = ResolveFolderPath(newFolder);
+            if (!string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase) && Directory.Exists(oldPath))
+            {
+                if (Directory.Exists(newPath))
+                {
+                    errorMessage = $"変更先のフォルダ '{newFolder}' が既に存在するため変更できません。";
+                    return false;
+                }
+
+                try
+                {
+                    Directory.Move(oldPath, newPath);
+                }
+                catch (Exception ex)
+                {
+                    errorMessage = $"フォルダ名の変更に失敗しました: {ex.Message}";
+                    return false;
+                }
+            }
+
+            target.FolderName = newFolder;
+            target.Key = newKey;
             SaveSettings();
             MappingsChanged?.Invoke();
             return true;
