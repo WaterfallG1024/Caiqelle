@@ -125,8 +125,9 @@ namespace Caiqelle.Services
                     int maxSrcY = srcH - 1;
                     byte[] lut = ThinTextGammaLut;
 
-                    // 行単位の並列バイリニア補間＋薄文字強調LUTで前処理時間を大幅短縮
-                    Parallel.For(0, dstH, y =>
+                    // 行単位の並列バイリニア補間＋薄文字強調LUTで前処理時間を大幅短縮（並列数を制限して CPU スパイクを抑制）
+                    var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount / 2, 2, 4) };
+                    Parallel.For(0, dstH, parallelOptions, y =>
                     {
                         byte* sBase = (byte*)srcBasePtr;
                         byte* dBase = (byte*)dstBasePtr;

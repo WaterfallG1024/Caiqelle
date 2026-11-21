@@ -45,6 +45,9 @@ namespace Caiqelle.Services
         private ulong _lastScannedScreenHash = 0;
         private DateTime _contextStableSinceUtc = DateTime.UtcNow;
         private DateTime _suppressScanUntilUtc = DateTime.MinValue;
+        private long _lastScanAttemptTicks = 0;
+        private long _lastPowerCheckTicks = 0;
+        private bool _cachedOnBattery = false;
 
         private readonly HashSet<string> _dismissedContextKeys = new(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<string>> _filledFieldIdsByContext = new(StringComparer.Ordinal);
@@ -143,7 +146,19 @@ namespace Caiqelle.Services
             if (_settingsManager.ActionMappings.Count == 0) return;
             if (Volatile.Read(ref _isExecuting) == 1) return;
             if (IsPillCurrentlyVisible?.Invoke() == true) return;
+
+            // バッテリー駆動時は監視間隔を 450ms へ緩和し、CPU の省電力状態移行を妨げない
+            long nowTicks = DateTime.UtcNow.Ticks;
+            long minIntervalTicks = IsOnBatteryPowerCached(nowTicks)
+                ? TimeSpan.TicksPerMillisecond * 450
+                : TimeSpan.TicksPerMillisecond * 150;
+            if (nowTicks - Interlocked.Read(ref _lastScanAttemptTicks) < minIntervalTicks)
+            {
+                return;
+            }
+
             if (Interlocked.CompareExchange(ref _isScanning, 1, 0) != 0) return;
+            Interlocked.Exchange(ref _lastScanAttemptTicks, nowTicks);
 
             _ = Task.Run(async () =>
             {
@@ -287,7 +302,9 @@ namespace Caiqelle.Services
                 }
             }
 
+#if DEBUG
             WriteScanDiagnosticLog(title, bounds, lines, _settingsManager.ActionMappings, detected);
+#endif
             if (detected.Count == 0)
             {
                 lock (_stateLock)
@@ -619,6 +636,7 @@ namespace Caiqelle.Services
             return nonQuestionHints.Any(h => cleanLabel.Contains(h, StringComparison.OrdinalIgnoreCase));
         }
 
+#if DEBUG
         private static void WriteScanDiagnosticLog(
             string windowTitle,
             Rectangle bounds,
@@ -655,6 +673,7 @@ namespace Caiqelle.Services
             }
             catch { }
         }
+#endif
 
         private static bool IsAlreadyFilledWithValue(IReadOnlyList<OcrLineBox> belowLines, string plainValue)
         {
@@ -951,7 +970,9 @@ namespace Caiqelle.Services
             }
             finally
             {
+#if DEBUG
                 WriteFillDiagnosticLog(fillLog.ToString());
+#endif
                 if (_settingsManager.ActionRestoreClipboardAfterFill)
                 {
                     IntPtr ownHwnd = GetOwnOwnerHwnd();
@@ -995,6 +1016,7 @@ namespace Caiqelle.Services
             }
         }
 
+#if DEBUG
         private static void WriteFillDiagnosticLog(string content)
         {
             try
@@ -1007,6 +1029,37 @@ namespace Caiqelle.Services
             }
             catch { }
         }
+#endif
+
+        private bool IsOnBatteryPowerCached(long nowTicks)
+        {
+            // 5 秒に 1 回だけ OS の電源状態を取得してキャッシュ
+            if (nowTicks - Interlocked.Read(ref _lastPowerCheckTicks) >= TimeSpan.TicksPerSecond * 5)
+            {
+                Interlocked.Exchange(ref _lastPowerCheckTicks, nowTicks);
+                if (GetSystemPowerStatus(out SYSTEM_POWER_STATUS status))
+                {
+                    // ACLineStatus == 0: オフライン（バッテリー駆動）
+                    _cachedOnBattery = status.ACLineStatus == 0;
+                }
+            }
+            return _cachedOnBattery;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SYSTEM_POWER_STATUS
+        {
+            public byte ACLineStatus;
+            public byte BatteryFlag;
+            public byte BatteryLifePercent;
+            public byte SystemStatusFlag;
+            public uint BatteryLifeTime;
+            public uint BatteryFullLifeTime;
+        }
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS lpSystemPowerStatus);
 
         private static IntPtr GetOwnOwnerHwnd()
         {

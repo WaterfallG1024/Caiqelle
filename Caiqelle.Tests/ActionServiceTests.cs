@@ -356,5 +356,18 @@ namespace Caiqelle.Tests
             var result = ActionService.DetectFormFields(lines, "テストフォーム - Google Chrome", Point.Empty, mappings);
             Assert.Empty(result);
         }
+
+        [Fact]
+        public void StartupService_BuildScheduledTaskXml_SetsBatteryAndUnlimitedTimeOptions()
+        {
+            string xml = StartupService.BuildScheduledTaskXml(@"C:\Program Files\Caiqelle\Caiqelle.exe", @"DOMAIN\User&Test");
+
+            Assert.Contains("<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>", xml);
+            Assert.Contains("<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>", xml);
+            Assert.Contains("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>", xml);
+            Assert.Contains("<Arguments>--background</Arguments>", xml);
+            Assert.Contains(@"<Command>C:\Program Files\Caiqelle\Caiqelle.exe</Command>", xml);
+            Assert.Contains("<UserId>DOMAIN\\User&amp;Test</UserId>", xml);
+        }
     }
 }

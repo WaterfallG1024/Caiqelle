@@ -276,6 +276,13 @@ namespace Caiqelle
         {
             try
             {
+                // .ico が存在する場合は直接読み込み、GDI+ ビットマップ変換を回避して起動を高速化
+                string icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico");
+                if (System.IO.File.Exists(icoPath))
+                {
+                    return new System.Drawing.Icon(icoPath);
+                }
+
                 string pngPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Square44x44Logo.scale-200.png");
                 if (System.IO.File.Exists(pngPath))
                 {
@@ -303,7 +310,7 @@ namespace Caiqelle
                 var startupService = Services.GetRequiredService<StartupService>();
                 if (settings.IsRunAtStartup)
                 {
-                    startupService.SetRunAtStartup(true);
+                    _ = Task.Run(() => startupService.SetRunAtStartup(true));
                 }
                 
                 if (settings.IsRewindEnabled)
@@ -414,6 +421,18 @@ namespace Caiqelle
                             prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
                             {
                                 try { CaptureManager?.PrewarmStep(s); } catch { }
+                            });
+                        }
+                        if (settings.IsActionAutoDetectEnabled)
+                        {
+                            await Task.Delay(120);
+                            prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                            {
+                                try
+                                {
+                                    _actionPillWindow ??= new Views.ActionPillWindow(actionService, actionHookService, actionThemeService);
+                                }
+                                catch { }
                             });
                         }
                     });

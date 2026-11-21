@@ -183,8 +183,9 @@ namespace Caiqelle.Services
                     IntPtr srcBasePtr = pBits;
                     IntPtr dstBasePtr = (IntPtr)dstBase;
 
-                    // BitBlt 出力は Alpha=0 になる場合があるため、行並列で全ピクセルの Alpha を 0xFF に強制する
-                    Parallel.For(0, height, y =>
+                    // BitBlt 出力は Alpha=0 になる場合があるため、並列数を抑えつつ行並列で全ピクセルの Alpha を 0xFF に強制する
+                    var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount / 2, 2, 4) };
+                    Parallel.For(0, height, parallelOptions, y =>
                     {
                         uint* s = (uint*)((byte*)srcBasePtr + (long)y * srcStride);
                         uint* d = (uint*)((byte*)dstBasePtr + (long)y * dstStride);
