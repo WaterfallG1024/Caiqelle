@@ -25,7 +25,12 @@ namespace Caiqelle.Services
                     string userId = GetCurrentUserId();
                     string xml = BuildScheduledTaskXml(exePath, userId);
 
-                    string tempXmlPath = Path.Combine(Path.GetTempPath(), $"Caiqelle_Startup_{Guid.NewGuid():N}.xml");
+                    // 共有の %TEMP% を避け、ユーザー固有のアプリデータ配下に一時 XML を作成する
+                    string appDataDir = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Caiqelle");
+                    Directory.CreateDirectory(appDataDir);
+                    string tempXmlPath = Path.Combine(appDataDir, $"Startup_{Guid.NewGuid():N}.xml");
                     try
                     {
                         File.WriteAllText(tempXmlPath, xml, Encoding.Unicode);
@@ -157,6 +162,9 @@ namespace Caiqelle.Services
                 }
             };
             proc.Start();
+            // パイプバッファ満杯によるデッドロックを防ぐため、標準出力・標準エラーを非同期で読み切る
+            _ = proc.StandardOutput.ReadToEndAsync();
+            _ = proc.StandardError.ReadToEndAsync();
             if (!proc.WaitForExit(5000))
             {
                 try { proc.Kill(); } catch { }

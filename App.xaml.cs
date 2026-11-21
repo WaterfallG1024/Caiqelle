@@ -484,28 +484,27 @@ namespace Caiqelle
 
             if (cmd == IDM_RESTART)
             {
-                try
-                {
-                    _trayIcon?.Dispose();
-                    Services.GetService<HookService>()?.Stop();
-                    Services.GetService<RewindService>()?.Stop();
-                }
-                catch { }
-
-                Services.GetService<UpdateService>()?.RestartApplication();
+                var updateService = Services.GetService<UpdateService>();
+                CleanupBeforeExit();
+                updateService?.RestartApplication();
             }
             else if (cmd == IDM_EXIT)
             {
-                try
-                {
-                    _trayIcon?.Dispose();
-                    Services.GetService<HookService>()?.Stop();
-                    Services.GetService<RewindService>()?.Stop();
-                }
-                catch { }
-                
+                CleanupBeforeExit();
                 System.Diagnostics.Process.GetCurrentProcess().Kill();
             }
+        }
+
+        /// <summary>
+        /// 終了・再起動前に常駐サービスやトレイアイコンのリソースを解放する
+        /// </summary>
+        private void CleanupBeforeExit()
+        {
+            try { _trayIcon?.Dispose(); } catch { }
+            try { Services.GetService<HookService>()?.Stop(); } catch { }
+            try { Services.GetService<RewindService>()?.Stop(); } catch { }
+            try { Services.GetService<ActionService>()?.Dispose(); } catch { }
+            try { Services.GetService<UpdateService>()?.Dispose(); } catch { }
         }
 
         public void ShowMainWindowAtTab(ViewModels.MainTab tab)
@@ -523,6 +522,9 @@ namespace Caiqelle
                         break;
                     case ViewModels.MainTab.Rewind:
                         mainWindow.ViewModel.NavigateToRewindCommand.Execute(null);
+                        break;
+                    case ViewModels.MainTab.Action:
+                        mainWindow.ViewModel.NavigateToActionCommand.Execute(null);
                         break;
                     case ViewModels.MainTab.Settings:
                         mainWindow.ViewModel.NavigateToSettingsCommand.Execute(null);

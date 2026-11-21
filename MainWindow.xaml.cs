@@ -17,7 +17,7 @@ namespace Caiqelle
     {
         public MainViewModel ViewModel { get; }
         private bool _isSyncingNav = false;
-        private bool _isLegalDialogOpen = false;
+        private bool _isModalDialogOpen = false;
 
         public MainWindow()
         {
@@ -137,7 +137,10 @@ namespace Caiqelle
         {
             if (args.WindowActivationState == WindowActivationState.Deactivated)
             {
-                this.Hide();
+                if (!_isModalDialogOpen)
+                {
+                    this.Hide();
+                }
             }
             else
             {
@@ -146,10 +149,28 @@ namespace Caiqelle
             }
         }
 
+        private void FolderInput_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == VirtualKey.Enter && ViewModel.CanAddFolderMapping)
+            {
+                ViewModel.AddMappingCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+
+        private void ActionInput_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == VirtualKey.Enter)
+            {
+                ViewModel.AddActionMappingCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+
         private void Grid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // テキストボックス等の入力中または規約ダイアログ表示中は無視する
-            if (_isLegalDialogOpen || e.OriginalSource is TextBox || e.OriginalSource is PasswordBox) return;
+            // テキストボックス等の入力中またはモーダルダイアログ表示中は無視する
+            if (_isModalDialogOpen || e.OriginalSource is TextBox || e.OriginalSource is PasswordBox) return;
 
             if (ViewModel.CurrentTab == MainTab.Home)
             {
@@ -249,8 +270,8 @@ namespace Caiqelle
         {
             if (sender is FrameworkElement fe && fe.Tag is FolderMapping mapping)
             {
-                if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return;
-                _isLegalDialogOpen = true;
+                if (_isModalDialogOpen || RootGrid.XamlRoot == null) return;
+                _isModalDialogOpen = true;
                 try
                 {
                     var folderBox = new TextBox
@@ -306,7 +327,7 @@ namespace Caiqelle
                 }
                 finally
                 {
-                    _isLegalDialogOpen = false;
+                    _isModalDialogOpen = false;
                 }
             }
         }
@@ -315,8 +336,8 @@ namespace Caiqelle
         {
             if (sender is FrameworkElement fe && fe.Tag is ActionFieldMapping mapping)
             {
-                if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return;
-                _isLegalDialogOpen = true;
+                if (_isModalDialogOpen || RootGrid.XamlRoot == null) return;
+                _isModalDialogOpen = true;
                 try
                 {
                     var keywordsBox = new TextBox
@@ -369,7 +390,7 @@ namespace Caiqelle
                 }
                 finally
                 {
-                    _isLegalDialogOpen = false;
+                    _isModalDialogOpen = false;
                 }
             }
         }
@@ -404,8 +425,8 @@ namespace Caiqelle
 
         private async System.Threading.Tasks.Task<bool> ShowConfirmDialogAsync(string title, string message)
         {
-            if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return false;
-            _isLegalDialogOpen = true;
+            if (_isModalDialogOpen || RootGrid.XamlRoot == null) return false;
+            _isModalDialogOpen = true;
             try
             {
                 var dialog = new ContentDialog
@@ -435,14 +456,14 @@ namespace Caiqelle
             }
             finally
             {
-                _isLegalDialogOpen = false;
+                _isModalDialogOpen = false;
             }
         }
 
         private async void ShowTermsDialogBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_isLegalDialogOpen || RootGrid.XamlRoot == null) return;
-            _isLegalDialogOpen = true;
+            if (_isModalDialogOpen || RootGrid.XamlRoot == null) return;
+            _isModalDialogOpen = true;
             try
             {
                 var contentText = new TextBlock
@@ -480,7 +501,7 @@ namespace Caiqelle
             }
             finally
             {
-                _isLegalDialogOpen = false;
+                _isModalDialogOpen = false;
             }
         }
 

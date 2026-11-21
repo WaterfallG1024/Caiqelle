@@ -65,7 +65,7 @@ namespace Caiqelle.Services
         public int JpegQuality { get; set; } = 100; // 1-100
         public bool IsHijackPrintScreen { get; set; } = true;
         public bool IsHijackWinShiftS { get; set; } = true;
-        public bool IsAutoCopyToClipboard { get; set; } = true;
+        public bool IsAutoCopyToClipboard { get; set; } = false;
         public bool IsIgnoreOutsideSelectionClick { get; set; } = true;
         public bool IsStickyTextStealthMode { get; set; } = false;
         public bool IsStickyTextSaveEnabled { get; set; } = false;

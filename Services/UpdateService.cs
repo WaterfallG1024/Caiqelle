@@ -116,9 +116,10 @@ namespace Caiqelle.Services
 
                 return (true, $"新バージョン ({version}) の準備が完了しました。");
             }
-            catch
+            catch (Exception ex)
             {
-                return (false, "最新バージョンです");
+                System.Diagnostics.Debug.WriteLine($"[UpdateService] Manual update check failed: {ex.Message}");
+                return (false, "更新の確認に失敗しました。ネットワーク接続を確認してください。");
             }
             finally
             {
@@ -156,13 +157,21 @@ namespace Caiqelle.Services
                 if (string.IsNullOrWhiteSpace(exePath)) return;
 
                 // 親プロセス終了後に単一インスタンス Mutex が確実に解放された状態で起動するよう約2秒待ってから起動
+                // パスをコマンド文字列へ直接展開せず環境変数経由で渡すことで、メタ文字によるコマンドインジェクションを防止する
                 var psi = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = "cmd.exe",
-                    Arguments = $"/c \"ping 127.0.0.1 -n 3 > nul && start \"\" \"{exePath}\"\"",
+                    FileName = "powershell.exe",
                     CreateNoWindow = true,
                     UseShellExecute = false
                 };
+                psi.ArgumentList.Add("-NoProfile");
+                psi.ArgumentList.Add("-NonInteractive");
+                psi.ArgumentList.Add("-WindowStyle");
+                psi.ArgumentList.Add("Hidden");
+                psi.ArgumentList.Add("-Command");
+                psi.ArgumentList.Add("Start-Sleep -Seconds 2; Start-Process -FilePath $env:CAIQELLE_RESTART_EXE");
+                psi.Environment["CAIQELLE_RESTART_EXE"] = exePath;
+
                 System.Diagnostics.Process.Start(psi);
                 Environment.Exit(0);
             }

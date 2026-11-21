@@ -71,6 +71,7 @@ namespace Caiqelle.Views
         public enum CaptureAction { None, Copy, Save }
         public CaptureAction ActionTaken { get; private set; } = CaptureAction.None;
         private bool _isOcrMode = false;
+        private bool _isPinMode = false;
         private bool _isLivePinMode = false;
 
         public event Action? CaptureCompleted;
@@ -144,6 +145,7 @@ namespace Caiqelle.Views
         public void UpdateAndShow(Microsoft.UI.Xaml.Media.ImageSource frozenImage, System.Drawing.Rectangle bounds, bool isOcrMode = false, bool isPinMode = false, bool isLivePinMode = false)
         {
             _isOcrMode = isOcrMode;
+            _isPinMode = isPinMode;
             _isLivePinMode = isLivePinMode;
             
             if (isLivePinMode)
@@ -391,6 +393,15 @@ namespace Caiqelle.Views
                     {
                         // ライブピン留め時は描画ツールを表示せず即座に開始する
                         ActionTaken = CaptureAction.Save;
+                        CompleteCapture();
+                    }
+                    else if (!_isPinMode &&
+                             Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                                 .GetRequiredService<Services.SettingsManager>(((App)Application.Current).Services)
+                                 .IsAutoCopyToClipboard)
+                    {
+                        // 自動クリップボードコピーON時（範囲選択キャプチャ）は描画ツールを表示せず即座にコピーして閉じる
+                        ActionTaken = CaptureAction.Copy;
                         CompleteCapture();
                     }
                     else

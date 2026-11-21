@@ -158,14 +158,7 @@ namespace Caiqelle.ViewModels
 
         public string FolderMappingCountText => $"{Mappings.Count}/{SettingsManager.MaxFolderMappingCount}";
         public bool CanAddFolderMapping => Mappings.Count < SettingsManager.MaxFolderMappingCount;
-
-        private FolderMapping? _editingFolderMapping;
-
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(FolderSubmitButtonText))]
-        public partial bool IsEditingFolderMapping { get; set; }
-
-        public string FolderSubmitButtonText => IsEditingFolderMapping ? "更新" : "追加";
+        public bool IsFolderLimitReached => !CanAddFolderMapping;
 
         [ObservableProperty]
         public partial string FolderNameInput { get; set; } = string.Empty;
@@ -387,6 +380,7 @@ namespace Caiqelle.ViewModels
             {
                 OnPropertyChanged(nameof(FolderMappingCountText));
                 OnPropertyChanged(nameof(CanAddFolderMapping));
+                OnPropertyChanged(nameof(IsFolderLimitReached));
             };
             if (_updateService != null)
             {
@@ -554,19 +548,27 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         public partial bool ActionRestoreClipboardAfterFill { get; set; } = true;
 
-        private ActionFieldMapping? _editingActionMapping;
-
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(ActionSubmitButtonText))]
-        public partial bool IsEditingActionMapping { get; set; }
-
-        public string ActionSubmitButtonText => IsEditingActionMapping ? "更新" : "追加";
-
         [ObservableProperty]
         public partial string NewActionKeywords { get; set; } = string.Empty;
 
+        partial void OnNewActionKeywordsChanged(string value)
+        {
+            IsActionValidationErrorOpen = false;
+        }
+
         [ObservableProperty]
         public partial string NewActionValue { get; set; } = string.Empty;
+
+        partial void OnNewActionValueChanged(string value)
+        {
+            IsActionValidationErrorOpen = false;
+        }
+
+        [ObservableProperty]
+        public partial bool IsActionValidationErrorOpen { get; set; }
+
+        [ObservableProperty]
+        public partial string ActionValidationErrorMessage { get; set; } = string.Empty;
 
         partial void OnIsActionAutoDetectEnabledChanged(bool value)
         {
@@ -597,23 +599,25 @@ namespace Caiqelle.ViewModels
         [RelayCommand]
         private void AddActionMapping()
         {
+            IsActionValidationErrorOpen = false;
             string keywords = NewActionKeywords?.Trim() ?? string.Empty;
             string value = NewActionValue?.Trim() ?? string.Empty;
-            if (string.IsNullOrEmpty(keywords) || string.IsNullOrEmpty(value)) return;
-
-            if (_editingActionMapping != null)
+            if (string.IsNullOrEmpty(keywords) || string.IsNullOrEmpty(value))
             {
-                _editingActionMapping.Keywords = keywords;
-                _editingActionMapping.PlainValue = value;
-                int idx = ActionMappings.IndexOf(_editingActionMapping);
-                if (idx >= 0)
-                {
-                    ActionMappings[idx] = _editingActionMapping;
-                }
-                _settings.SaveSettings();
-                CancelEditActionMapping();
-                _actionService?.ClearCompletedHistory();
+                ActionValidationErrorMessage = "ラベルキーワードと入力値を両方入力してください。";
+                IsActionValidationErrorOpen = true;
                 return;
+            }
+
+            // 既存項目との完全一致重複をチェック
+            foreach (var existing in ActionMappings)
+            {
+                if (string.Equals(existing.Keywords?.Trim(), keywords, StringComparison.OrdinalIgnoreCase))
+                {
+                    ActionValidationErrorMessage = "同じラベルキーワードがすでに登録されています。";
+                    IsActionValidationErrorOpen = true;
+                    return;
+                }
             }
 
             var mapping = new ActionFieldMapping
@@ -632,32 +636,9 @@ namespace Caiqelle.ViewModels
         }
 
         [RelayCommand]
-        private void EditActionMapping(ActionFieldMapping? mapping)
-        {
-            if (mapping == null) return;
-            _editingActionMapping = mapping;
-            IsEditingActionMapping = true;
-            NewActionKeywords = mapping.Keywords;
-            NewActionValue = mapping.PlainValue;
-        }
-
-        [RelayCommand]
-        private void CancelEditActionMapping()
-        {
-            _editingActionMapping = null;
-            IsEditingActionMapping = false;
-            NewActionKeywords = string.Empty;
-            NewActionValue = string.Empty;
-        }
-
-        [RelayCommand]
         private void DeleteActionMapping(ActionFieldMapping? mapping)
         {
             if (mapping == null) return;
-            if (ReferenceEquals(_editingActionMapping, mapping))
-            {
-                CancelEditActionMapping();
-            }
             _settings.ActionMappings.Remove(mapping);
             _settings.SaveSettings();
             ActionMappings.Remove(mapping);
@@ -757,44 +738,12 @@ namespace Caiqelle.ViewModels
         {
             IsValidationErrorOpen = false;
 
-            if (_editingFolderMapping != null)
-            {
-                if (!_settings.TryUpdateFolderMapping(_editingFolderMapping, FolderNameInput, KeyInput, out string updateError))
-                {
-                    ShowValidationError(updateError);
-                    return;
-                }
-                CancelEditFolderMapping();
-                return;
-            }
-
             if (!_settings.TryAddFolderMapping(FolderNameInput, KeyInput, createDirectory: false, out string errorMessage))
             {
                 ShowValidationError(errorMessage);
                 return;
             }
 
-            FolderNameInput = string.Empty;
-            KeyInput = string.Empty;
-        }
-
-        [RelayCommand]
-        private void EditFolderMapping(FolderMapping? mapping)
-        {
-            if (mapping == null) return;
-            IsValidationErrorOpen = false;
-            _editingFolderMapping = mapping;
-            IsEditingFolderMapping = true;
-            FolderNameInput = mapping.FolderName;
-            KeyInput = mapping.Key;
-        }
-
-        [RelayCommand]
-        private void CancelEditFolderMapping()
-        {
-            _editingFolderMapping = null;
-            IsEditingFolderMapping = false;
-            IsValidationErrorOpen = false;
             FolderNameInput = string.Empty;
             KeyInput = string.Empty;
         }
@@ -809,10 +758,6 @@ namespace Caiqelle.ViewModels
         private void RemoveMapping(FolderMapping? mapping)
         {
             if (mapping == null) return;
-            if (ReferenceEquals(_editingFolderMapping, mapping))
-            {
-                CancelEditFolderMapping();
-            }
             _settings.RemoveFolderMapping(mapping);
         }
 

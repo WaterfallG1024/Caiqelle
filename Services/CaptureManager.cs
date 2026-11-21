@@ -85,7 +85,9 @@ namespace Caiqelle.Services
                     var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<SettingsManager>(((App)Microsoft.UI.Xaml.Application.Current).Services);
                     if (settings.IsAutoCopyToClipboard)
                     {
-                        await CopyToClipboardAsync(imageBytes, false);
+                        // 自動クリップボードコピーON時はフォルダ選択画面を出さず直接コピー＋通知のみ行う
+                        await CopyToClipboardAsync(imageBytes, true);
+                        return;
                     }
 
                     SaveAndShowNotification(imageBytes);
@@ -193,7 +195,9 @@ namespace Caiqelle.Services
 
                     if (finalBytes != null && finalBytes.Length > 0)
                     {
-                        if (overlayAction == OverlayWindow.CaptureAction.Copy)
+                        var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<SettingsManager>(((App)Microsoft.UI.Xaml.Application.Current).Services);
+                        if (overlayAction == OverlayWindow.CaptureAction.Copy ||
+                            (key == CapturedKey.W && settings.IsAutoCopyToClipboard))
                         {
                             await CopyToClipboardAsync(finalBytes, true);
                         }
