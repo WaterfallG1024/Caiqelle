@@ -2,8 +2,10 @@ using Caiqelle.Services;
 using Caiqelle.ViewModels;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using System;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Caiqelle.Views
@@ -20,6 +22,14 @@ namespace Caiqelle.Views
             ViewModel.RequestClose = () => this.Close();
 
             this.InitializeComponent();
+            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
+            {
+                Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt
+            };
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
             ExtendsContentIntoTitleBar = true;
 
             // プレビュー表示中はリワインド録画を一時停止（映り込み防止）
@@ -29,7 +39,7 @@ namespace Caiqelle.Views
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
             var appWindow = AppWindow.GetFromWindowId(windowId);
             // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindow.SetIcon("Assets\\favicon.ico");
+            appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico"));
 
             if (appWindow.Presenter is OverlappedPresenter presenter)
             {
@@ -77,6 +87,8 @@ namespace Caiqelle.Views
 
             ViewModel.LoadFrames();
             BringToForeground(hWnd);
+            RootGrid.Loaded += (s, e) => RootGrid.Focus(FocusState.Programmatic);
+            RootGrid.Focus(FocusState.Programmatic);
         }
 
         private void Window_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -87,7 +99,20 @@ namespace Caiqelle.Views
 
         private void Grid_KeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key == Windows.System.VirtualKey.Left) ViewModel.Navigate(1);
+            var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control);
+            bool isCtrl = (ctrlState & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+            if (isCtrl && e.Key == Windows.System.VirtualKey.C)
+            {
+                ViewModel.CopyToClipboardCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (isCtrl && e.Key == Windows.System.VirtualKey.S)
+            {
+                ViewModel.SaveCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Left) ViewModel.Navigate(1);
             else if (e.Key == Windows.System.VirtualKey.Right) ViewModel.Navigate(-1);
             else if (e.Key == Windows.System.VirtualKey.Enter) ViewModel.OpenInEditorCommand.Execute(null);
             else if (e.Key == Windows.System.VirtualKey.Escape) ViewModel.CloseCommand.Execute(null);
@@ -97,6 +122,18 @@ namespace Caiqelle.Views
         {
             ViewModel.OpenInEditorCommand.Execute(null);
         }
+
+        private void ActionBtn_PointerEntered(object sender, PointerRoutedEventArgs e)
+            => AnimationHelper.OnPointerEnteredScale(sender, e);
+
+        private void ActionBtn_PointerExited(object sender, PointerRoutedEventArgs e)
+            => AnimationHelper.OnPointerExitedScale(sender, e);
+
+        private void ActionBtn_PointerPressed(object sender, PointerRoutedEventArgs e)
+            => AnimationHelper.OnPointerPressedScale(sender, e);
+
+        private void ActionBtn_PointerReleased(object sender, PointerRoutedEventArgs e)
+            => AnimationHelper.OnPointerReleasedScale(sender, e);
 
         private static void BringToForeground(IntPtr hWnd)
         {

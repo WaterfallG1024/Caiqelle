@@ -21,10 +21,44 @@ namespace Caiqelle.Services
             _editorWindow = editorWindow;
         }
 
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+        private static extern int DwmFlush();
+
         private OverlayWindow GetOverlayWindow() => _overlayWindow ??= new OverlayWindow();
         private WindowSelectionOverlay GetWindowSelectionOverlay() => _windowSelectionOverlay ??= new WindowSelectionOverlay();
         private FolderSelectionWindow GetFolderSelectionWindow() => _folderSelectionWindow ??= new FolderSelectionWindow((App)Microsoft.UI.Xaml.Application.Current);
         public EditorWindow GetEditorWindow() => _editorWindow ??= new EditorWindow();
+
+        /// <summary>
+        /// キャッシュ済みのフォルダ選択ウィンドウを再利用して表示する
+        /// </summary>
+        public Task<bool> ShowFolderSelectionAsync(byte[] imageBytes)
+        {
+            return GetFolderSelectionWindow().ShowAsync(imageBytes);
+        }
+
+        /// <summary>
+        /// 初回キャプチャ時の遅延をなくすため、オーバーレイ・保存ウィンドウを事前に生成しておく
+        /// </summary>
+        public void Prewarm()
+        {
+            _ = GetOverlayWindow();
+            _ = GetWindowSelectionOverlay();
+            _ = GetFolderSelectionWindow();
+        }
+
+        /// <summary>
+        /// UI スレッドをブロックしないよう、1 ウィンドウずつ段階的に事前生成する
+        /// </summary>
+        public void PrewarmStep(int step)
+        {
+            switch (step)
+            {
+                case 0: _ = GetOverlayWindow(); break;
+                case 1: _ = GetWindowSelectionOverlay(); break;
+                case 2: _ = GetFolderSelectionWindow(); break;
+            }
+        }
 
         public void CancelCapture()
         {
@@ -39,9 +73,7 @@ namespace Caiqelle.Services
 
             try
             {
-                // Wait a tiny bit for any UI to hide
-                await Task.Delay(10);
-
+                // FloatingWindow・NotificationWindow は WDA_EXCLUDEFROMCAPTURE で除外済みのため即時画面取得へ進む
                 var bounds = _screenshotService.GetVirtualScreenBounds();
 
                 if (key == CapturedKey.F)
@@ -53,7 +85,9 @@ namespace Caiqelle.Services
                     var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<SettingsManager>(((App)Microsoft.UI.Xaml.Application.Current).Services);
                     if (settings.IsAutoCopyToClipboard)
                     {
-                        await CopyToClipboardAsync(imageBytes, false);
+                        // 自動クリップボードコピーON時はフォルダ選択画面を出さず直接コピー＋通知のみ行う
+                        await CopyToClipboardAsync(imageBytes, true);
+                        return;
                     }
 
                     SaveAndShowNotification(imageBytes);
@@ -67,7 +101,7 @@ namespace Caiqelle.Services
                 byte[]? overlayCapturedBytes = null;
                 OverlayWindow.CaptureAction overlayAction = OverlayWindow.CaptureAction.None;
 
-                if (key == CapturedKey.C || key == CapturedKey.E || key == CapturedKey.P)
+                if (key == CapturedKey.C || key == CapturedKey.E || key == CapturedKey.P || key == CapturedKey.L)
                 {
                     var overlay = GetOverlayWindow();
                     var tcs = new TaskCompletionSource<Rectangle?>();
@@ -89,7 +123,7 @@ namespace Caiqelle.Services
                     };
                     
                     overlay.CaptureCompleted += handler;
-                    overlay.UpdateAndShow(frozenImage, bounds, key == CapturedKey.E, key == CapturedKey.P);
+                    overlay.UpdateAndShow(frozenImage, bounds, key == CapturedKey.E, key == CapturedKey.P, key == CapturedKey.L);
                     
                     selectedRegion = await tcs.Task;
                 }
@@ -121,6 +155,19 @@ namespace Caiqelle.Services
 
                 if (selectedRegion.HasValue)
                 {
+                    if (key == CapturedKey.L)
+                    {
+                        var liveRect = new Rectangle(
+                            selectedRegion.Value.X + bounds.X,
+                            selectedRegion.Value.Y + bounds.Y,
+                            selectedRegion.Value.Width,
+                            selectedRegion.Value.Height
+                        );
+                        var livePinWindow = new LivePinWindow(liveRect, _screenshotService);
+                        livePinWindow.Activate();
+                        return;
+                    }
+
                     byte[]? finalBytes = overlayCapturedBytes;
 
                     if (finalBytes == null || finalBytes.Length == 0)
@@ -132,7 +179,7 @@ namespace Caiqelle.Services
                             selectedRegion.Value.Height
                         );
                         
-                        await Task.Delay(50);
+                        await Task.Run(() => DwmFlush());
                         finalBytes = await _screenshotService.CaptureRegionToBytesAsync(absRect);
                     }
                     
@@ -148,7 +195,9 @@ namespace Caiqelle.Services
 
                     if (finalBytes != null && finalBytes.Length > 0)
                     {
-                        if (overlayAction == OverlayWindow.CaptureAction.Copy)
+                        var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<SettingsManager>(((App)Microsoft.UI.Xaml.Application.Current).Services);
+                        if (overlayAction == OverlayWindow.CaptureAction.Copy ||
+                            (key == CapturedKey.W && settings.IsAutoCopyToClipboard))
                         {
                             await CopyToClipboardAsync(finalBytes, true);
                         }
@@ -165,46 +214,12 @@ namespace Caiqelle.Services
             }
         }
 
-        private async Task CopyToClipboardAsync(byte[] imageBytes, bool showNotification)
+        private Task CopyToClipboardAsync(byte[] imageBytes, bool showNotification)
         {
-            var tcs = new TaskCompletionSource<bool>();
             var app = (App)Microsoft.UI.Xaml.Application.Current;
+            var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ClipboardService>(app.Services);
             var dispatcher = app.MainWindow?.DispatcherQueue ?? _editorWindow?.DispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-            
-            if (dispatcher == null) return;
-
-            dispatcher.TryEnqueue(async () =>
-            {
-                try
-                {
-                    var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
-                    dataPackage.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-                    
-                    var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                    using (var writer = new Windows.Storage.Streams.DataWriter(stream.GetOutputStreamAt(0)))
-                    {
-                        writer.WriteBytes(imageBytes);
-                        await writer.StoreAsync();
-                    }
-                    var rsr = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream);
-                    dataPackage.SetBitmap(rsr);
-                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
-                    Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
-                    
-                    if (showNotification)
-                    {
-                        var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<NotificationService>(app.Services);
-                        notificationService.ShowNotification("クリップボードにコピーしました", "\uE8C8");
-                    }
-                    tcs.SetResult(true);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Clipboard Copy Error: {ex.Message}");
-                    tcs.SetResult(false);
-                }
-            });
-            await tcs.Task;
+            return clipboardService.CopyImageAsync(imageBytes, showNotification, dispatcher);
         }
 
         private void SaveAndShowNotification(byte[] imageBytes)

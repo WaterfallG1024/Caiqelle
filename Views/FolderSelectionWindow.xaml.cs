@@ -21,18 +21,27 @@ namespace Caiqelle.Views
         {
             ViewModel = app.Services.GetRequiredService<FolderSelectionViewModel>();
             ViewModel.RequestCloseWithResult = CloseWithResult;
+            ViewModel.RequestRestoreDummyFocus = () => DummyFocus?.Focus(FocusState.Programmatic);
+            ViewModel.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(FolderSelectionViewModel.IsCreateErrorOpen))
+                {
+                    UpdateWindowHeight();
+                }
+            };
 
             this.InitializeComponent();
 
             ExtendsContentIntoTitleBar = true;
-            this.SystemBackdrop = new DesktopAcrylicBackdrop();
+            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+            app.Services.GetRequiredService<Services.ThemeService>().RegisterWindow(this, RootGrid);
 
             var hwnd = WindowNative.GetWindowHandle(this);
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
             _appWindow = AppWindow.GetFromWindowId(windowId);
 
             // TODO: Caiqelle用アイコンを用意したら設定する
-            // _appWindow.SetIcon("Assets\\favicon.ico");
+            _appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico"));
 
             ConfigureWindowChrome(hwnd);
             CenterOnCursorDisplay(hwnd);
@@ -54,11 +63,6 @@ namespace Caiqelle.Views
             int DWMWCP_ROUND = 2;
             NativeMethods.DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
 
-            // ウィンドウの白い線を完全に削除
-            int DWMWA_BORDER_COLOR = 34;
-            int DWM_BORDER_COLOR_NONE = -2;
-            NativeMethods.DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
-
             // OS レベルでキャプチャ除外
             const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
             SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
@@ -68,11 +72,22 @@ namespace Caiqelle.Views
             NativeMethods.RemoveWindowBorder(hwnd);
         }
 
+        private void UpdateWindowHeight()
+        {
+            var hwnd = WindowNative.GetWindowHandle(this);
+            double dpiScale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+            int baseHeight = ViewModel.IsCreateErrorOpen ? 595 : 525;
+            int targetWidth = (int)(410 * dpiScale);
+            int targetHeight = (int)(baseHeight * dpiScale);
+            _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
+        }
+
         private void CenterOnCursorDisplay(IntPtr hwnd)
         {
             double dpiScale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
-            int targetWidth = (int)(380 * dpiScale);
-            int targetHeight = (int)(460 * dpiScale);
+            int baseHeight = ViewModel.IsCreateErrorOpen ? 595 : 525;
+            int targetWidth = (int)(410 * dpiScale);
+            int targetHeight = (int)(baseHeight * dpiScale);
             _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
 
             NativeMethods.GetCursorPos(out NativeMethods.POINT cursorPos);
@@ -126,11 +141,26 @@ namespace Caiqelle.Views
             return new SolidColorBrush(Microsoft.UI.Colors.White);
         }
 
+        private void CreateInput_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                ViewModel.CreateFolderCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Escape)
+            {
+                DummyFocus?.Focus(FocusState.Programmatic);
+                e.Handled = true;
+            }
+        }
+
         private void Grid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key == Windows.System.VirtualKey.Escape)
             {
                 ViewModel.CancelCommand.Execute(null);
+                e.Handled = true;
                 return;
             }
 
@@ -219,17 +249,27 @@ namespace Caiqelle.Views
         [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
         public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
         private const int GWL_STYLE = -16;
         private const int WS_BORDER = 0x00800000;
         private const int WS_DLGFRAME = 0x00400000;
         private const int WS_THICKFRAME = 0x00040000;
         private const int WS_CAPTION = 0x00C00000;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint SWP_FRAMECHANGED = 0x0020;
 
         public static void RemoveWindowBorder(IntPtr hwnd)
         {
             IntPtr style = GetWindowLongPtr(hwnd, GWL_STYLE);
             long newStyle = style.ToInt64() & ~(WS_BORDER | WS_DLGFRAME | WS_THICKFRAME | WS_CAPTION);
             SetWindowLongPtr(hwnd, GWL_STYLE, new IntPtr(newStyle));
+            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
         }
     }
 }

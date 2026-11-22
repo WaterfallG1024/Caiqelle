@@ -1,0 +1,129 @@
+<Window
+    x:Class="Caiqelle.Views.StickyTextWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Caiqelle.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Sticky Text">
+
+    <Grid x:Name="RootGrid"
+          Background="Transparent"
+          PointerEntered="RootGrid_PointerEntered"
+          PointerExited="RootGrid_PointerExited"
+          PointerPressed="RootGrid_PointerPressed"
+          DoubleTapped="RootGrid_DoubleTapped"
+          KeyDown="RootGrid_KeyDown"
+          IsTabStop="True">
+
+        <!-- Card Surface (Background toggles between dark card and transparent overlay) -->
+        <Border x:Name="CardBackgroundBorder"
+                Background="{StaticResource M3SurfaceContainerBrush}"
+                BorderBrush="#33FFFFFF"
+                BorderThickness="1"
+                CornerRadius="16" />
+
+        <!-- Text Display & Edit Area -->
+        <Grid Margin="14,12,14,12">
+            <RichEditBox x:Name="InputRichEditBox"
+                         PlaceholderText="プレゼン・説明用テキストを入力... (Ctrl+Enterで確定)"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         FontSize="24"
+                         Foreground="White"
+                         Background="{StaticResource M3SurfaceContainerLowestBrush}"
+                         BorderThickness="0"
+                         CornerRadius="10"
+                         Padding="12,10"
+                         VerticalAlignment="Stretch"
+                         HorizontalAlignment="Stretch"
+                         TextChanged="InputRichEditBox_TextChanged"
+                         SelectionChanged="InputRichEditBox_SelectionChanged"
+                         PreviewKeyDown="InputRichEditBox_PreviewKeyDown" />
+
+            <!-- 空の表示モード時のヒント -->
+            <TextBlock x:Name="EmptyDisplayHint"
+                       Text="（ダブルクリックでテキスト編集）"
+                       FontSize="16"
+                       Foreground="#88FFFFFF"
+                       Padding="12,10"
+                       VerticalAlignment="Top"
+                       HorizontalAlignment="Left"
+                       Visibility="Collapsed"
+                       IsHitTestVisible="False" />
+
+            <!-- Stealth Mode Badge (Visible only to presenter when stealth is active) -->
+            <Border x:Name="StealthBadge"
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Left"
+                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    CornerRadius="6"
+                    Padding="8,3"
+                    Visibility="Collapsed"
+                    IsHitTestVisible="False">
+                <TextBlock Text="プライベート" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" />
+            </Border>
+
+            <!-- Real-time character count badge -->
+            <Border x:Name="CharCountBadge"
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Right"
+                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    CornerRadius="6"
+                    Padding="8,3"
+                    IsHitTestVisible="False">
+                <TextBlock x:Name="CharCountText"
+                           Text="0文字"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+            </Border>
+        </Grid>
+
+        <!-- 表示モードのホバー時に左上に表示する編集・移動ボタン -->
+        <StackPanel x:Name="HoverActionPanel"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="14,14,0,0"
+                    Visibility="Collapsed">
+            <Button x:Name="HoverEditBtn"
+                    ToolTipService.ToolTip="編集（ツールバーを表示）"
+                    Width="28"
+                    Height="28"
+                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    BorderBrush="#33FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="0"
+                    Click="HoverEditBtn_Click">
+                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+            </Button>
+
+            <Border x:Name="HoverMoveHandle"
+                    ToolTipService.ToolTip="ドラッグして移動"
+                    Width="28"
+                    Height="28"
+                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    BorderBrush="#33FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    PointerPressed="HoverMoveHandle_PointerPressed">
+                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7C2;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+        </StackPanel>
+
+        <!-- ウィンドウリサイズ用ヒット領域（上下左右・四隅の当たり判定を広めに確保） -->
+        <local:ResizeGrip Direction="Left" Background="Transparent" Width="14" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="0,16,0,16" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />
+        <local:ResizeGrip Direction="Right" Background="Transparent" Width="14" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,16,0,16" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />
+        <local:ResizeGrip Direction="Top" Background="Transparent" Height="14" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="16,0,16,0" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />
+        <local:ResizeGrip Direction="Bottom" Background="Transparent" Height="14" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Margin="16,0,16,0" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />
+
+        <local:ResizeGrip Direction="TopLeft" Background="Transparent" Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Top" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />
+        <local:ResizeGrip Direction="TopRight" Background="Transparent" Width="18" Height="18" HorizontalAlignment="Right" VerticalAlignment="Top" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />
+        <local:ResizeGrip Direction="BottomLeft" Background="Transparent" Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Bottom" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />
+        <local:ResizeGrip Direction="BottomRight" Background="Transparent" Width="18" Height="18" HorizontalAlignment="Right" VerticalAlignment="Bottom" PointerPressed="ResizeGrip_PointerPressed" PointerMoved="ResizeGrip_PointerMoved" PointerReleased="ResizeGrip_PointerReleased" PointerCaptureLost="ResizeGrip_PointerCaptureLost" />
+    </Grid>
+</Window>

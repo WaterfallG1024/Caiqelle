@@ -25,16 +25,6 @@ namespace Caiqelle
                 })
                 .Run();
 
-            try
-            {
-                var processes = System.Diagnostics.Process.GetProcessesByName("BranchShot");
-                foreach (var process in processes)
-                {
-                    process.Kill();
-                }
-            }
-            catch { }
-
             if (args != null && args.Length > 0 && args[0] == "--background")
             {
                 IsBackgroundStart = true;
@@ -42,8 +32,8 @@ namespace Caiqelle
 
             XamlCheckProcessRequirements();
 
-            const string mutexName = "Caiqelle_SingleInstance_Mutex";
-            const string eventName = "Caiqelle_ShowWindowEvent";
+            const string mutexName = @"Local\Caiqelle_SingleInstance_Mutex";
+            const string eventName = @"Local\Caiqelle_ShowWindowEvent";
             System.Threading.Mutex? mutex = null;
             bool isFirstInstance = false;
 
@@ -80,8 +70,10 @@ namespace Caiqelle
     {
         private Window? _window;
         public Window? MainWindow => _window;
+        public Window? ClipboardOwnerWindow => _hiddenTrayWindow ?? _window;
         
         private Views.FloatingWindow? _floatingWindow;
+        private Views.ActionPillWindow? _actionPillWindow;
         private Window? _hiddenTrayWindow;
         private EventWaitHandle? _showEvent;
         public IServiceProvider Services { get; }
@@ -90,13 +82,19 @@ namespace Caiqelle
         {
             this.UnhandledException += (s, e) => 
             {
-                System.IO.File.WriteAllText(@"C:\Dev\personal\Caiqelle\crash_log.txt", "UnhandledException: " + e.Exception.ToString());
+                try
+                {
+                    string logDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Caiqelle");
+                    System.IO.Directory.CreateDirectory(logDir);
+                    System.IO.File.WriteAllText(System.IO.Path.Combine(logDir, "crash_log.txt"), "UnhandledException: " + e.Exception.ToString());
+                }
+                catch { }
             };
 
             Services = ConfigureServices();
             InitializeComponent();
 
-            const string eventName = "Caiqelle_ShowWindowEvent";
+            const string eventName = @"Local\Caiqelle_ShowWindowEvent";
             
             // IPCスレッドの開始
             _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, eventName);
@@ -194,8 +192,12 @@ namespace Caiqelle
                 }
                 else if (key == CapturedKey.PrintScreen || key == CapturedKey.WinShiftS)
                 {
-                    GetFloatingWindow().ShowAnimated();
-                    
+                    var floating = GetFloatingWindow();
+                    if (!floating.IsWindowVisible)
+                    {
+                        floating.ShowAnimated();
+                    }
+
                     var hookService = Services.GetRequiredService<HookService>();
                     hookService.IsFloatingUiActive = true;
                 }
@@ -204,7 +206,30 @@ namespace Caiqelle
                     _floatingWindow?.CloseWithAnimation();
                     CaptureManager?.CancelCapture();
                 }
-                else if (key == CapturedKey.C || key == CapturedKey.W || key == CapturedKey.F || key == CapturedKey.E || key == CapturedKey.P)
+                else if (key == CapturedKey.ActionApply)
+                {
+                    _actionPillWindow?.TriggerApplyFromShortcut();
+                }
+                else if (key == CapturedKey.ActionDismiss)
+                {
+                    _actionPillWindow?.TriggerDismissFromShortcut();
+                }
+                else if (key == CapturedKey.R)
+                {
+                    _floatingWindow?.HideInstantlyAndClose();
+                    ShowMainWindowAtTab(ViewModels.MainTab.Rewind);
+                }
+                else if (key == CapturedKey.S)
+                {
+                    _floatingWindow?.HideInstantlyAndClose();
+                    Services.GetRequiredService<StickyTextService>().OpenStickyText();
+                }
+                else if (key == CapturedKey.V)
+                {
+                    _floatingWindow?.HideInstantlyAndClose();
+                    Services.GetRequiredService<StickyTextService>().OpenStickyTextList();
+                }
+                else if (key == CapturedKey.C || key == CapturedKey.W || key == CapturedKey.F || key == CapturedKey.E || key == CapturedKey.P || key == CapturedKey.L)
                 {
                     System.Diagnostics.Debug.WriteLine($"Action: {key}");
                     _floatingWindow?.HideInstantlyAndClose();
@@ -230,11 +255,16 @@ namespace Caiqelle
         {
             var services = new ServiceCollection();
             services.AddSingleton<SettingsManager>();
+            services.AddSingleton<ThemeService>();
             services.AddSingleton<RewindService>();
             services.AddSingleton<HookService>();
             services.AddSingleton<ScreenshotService>();
+            services.AddSingleton<OcrService>();
+            services.AddSingleton<ActionService>();
             services.AddSingleton<StartupService>();
             services.AddSingleton<NotificationService>();
+            services.AddSingleton<ClipboardService>();
+            services.AddSingleton<StickyTextService>();
             services.AddSingleton<UpdateService>();
             services.AddTransient<ViewModels.MainViewModel>();
             services.AddTransient<ViewModels.FolderSelectionViewModel>();
@@ -247,6 +277,13 @@ namespace Caiqelle
         {
             try
             {
+                // .ico が存在する場合は直接読み込み、GDI+ ビットマップ変換を回避して起動を高速化
+                string icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico");
+                if (System.IO.File.Exists(icoPath))
+                {
+                    return new System.Drawing.Icon(icoPath);
+                }
+
                 string pngPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Square44x44Logo.scale-200.png");
                 if (System.IO.File.Exists(pngPath))
                 {
@@ -265,14 +302,16 @@ namespace Caiqelle
         {
             try
             {
+                var settings = Services.GetRequiredService<SettingsManager>();
+                Services.GetRequiredService<ThemeService>().ApplyTheme(settings.AccentTheme, settings.AppThemeMode);
+
                 // Instantiate a hidden window to provide a XamlRoot and DispatcherQueue for the background logic
                 _hiddenTrayWindow = new Views.HiddenTrayWindow();
 
-                var settings = Services.GetRequiredService<SettingsManager>();
                 var startupService = Services.GetRequiredService<StartupService>();
                 if (settings.IsRunAtStartup)
                 {
-                    startupService.SetRunAtStartup(true);
+                    _ = Task.Run(() => startupService.SetRunAtStartup(true));
                 }
                 
                 if (settings.IsRewindEnabled)
@@ -285,7 +324,7 @@ namespace Caiqelle
                 var updateService = Services.GetRequiredService<UpdateService>();
                 updateService.StartAutoUpdateLoop();
 
-                // 軽量な CaptureManager 初期化（内部ウィンドウは遅延生成）
+                // 軽量な CaptureManager 初期化（内部ウィンドウはアイドル時に段階分散して事前生成）
                 CaptureManager = new CaptureManager(Services.GetRequiredService<ScreenshotService>());
 
                 // トレイアイコンの初期化（右クリックメニューはWin32ネイティブで処理）
@@ -323,10 +362,92 @@ namespace Caiqelle
                         PositionAndShowWindow();
                     });
                 }
+
+                // 保存有効かつ「Sticky Text起動時に復元」がOFFの場合は、アプリ起動と同時に自動復元
+                if (settings.IsStickyTextSaveEnabled && !settings.IsStickyTextRestoreOnOpen && settings.SavedStickyTexts.Count > 0)
+                {
+                    _hiddenTrayWindow?.DispatcherQueue?.TryEnqueue(() =>
+                    {
+                        Services.GetRequiredService<StickyTextService>().RestoreSavedStickyTexts();
+                    });
+                }
+
+                // ActionService（OCR 自動認識＆確認ピル表示）を起動・連携
+                var actionService = Services.GetRequiredService<ActionService>();
+                var actionHookService = Services.GetRequiredService<HookService>();
+                var actionThemeService = Services.GetRequiredService<ThemeService>();
+                var uiQueue = _hiddenTrayWindow?.DispatcherQueue;
+                actionService.IsPillCurrentlyVisible = () => _actionPillWindow?.IsPillVisible == true;
+                actionService.DetectionReady += (ctx) =>
+                {
+                    uiQueue?.TryEnqueue(() =>
+                    {
+                        try
+                        {
+                            _actionPillWindow ??= new Views.ActionPillWindow(actionService, actionHookService, actionThemeService);
+                            _actionPillWindow.ShowContext(ctx);
+                        }
+                        catch { }
+                    });
+                };
+                actionService.ContextInvalidated += () =>
+                {
+                    uiQueue?.TryEnqueue(() =>
+                    {
+                        try { _actionPillWindow?.HideWithAnimation(); } catch { }
+                    });
+                };
+                actionService.StartMonitoring();
+
+                // アイドル時にフローティングUI・通知・各オーバーレイを1ステップずつ分散生成（UIフレーム落ち防止）
+                var prewarmQueue = _hiddenTrayWindow?.DispatcherQueue;
+                if (prewarmQueue != null)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(400);
+                        prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                        {
+                            try { _ = GetFloatingWindow(); } catch { }
+                        });
+                        await Task.Delay(120);
+                        prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                        {
+                            try { Services.GetService<NotificationService>()?.Prewarm(); } catch { }
+                        });
+                        for (int step = 0; step < 3; step++)
+                        {
+                            int s = step;
+                            await Task.Delay(120);
+                            prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                            {
+                                try { CaptureManager?.PrewarmStep(s); } catch { }
+                            });
+                        }
+                        if (settings.IsActionAutoDetectEnabled)
+                        {
+                            await Task.Delay(120);
+                            prewarmQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                            {
+                                try
+                                {
+                                    _actionPillWindow ??= new Views.ActionPillWindow(actionService, actionHookService, actionThemeService);
+                                }
+                                catch { }
+                            });
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {
-                System.IO.File.WriteAllText(@"C:\Dev\personal\Caiqelle\crash_log.txt", "OnLaunched: " + ex.ToString());
+                try
+                {
+                    string logDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Caiqelle");
+                    System.IO.Directory.CreateDirectory(logDir);
+                    System.IO.File.WriteAllText(System.IO.Path.Combine(logDir, "crash_log.txt"), "OnLaunched: " + ex.ToString());
+                }
+                catch { }
                 throw;
             }
         }
@@ -343,9 +464,11 @@ namespace Caiqelle
         // Win32ネイティブのコンテキストメニューを表示
         private void ShowNativeTrayContextMenu()
         {
+            const int IDM_RESTART = 1002;
             const int IDM_EXIT = 1001;
 
             IntPtr hMenu = CreatePopupMenu();
+            AppendMenuW(hMenu, 0x0000 /* MF_STRING */, IDM_RESTART, "再起動");
             AppendMenuW(hMenu, 0x0000 /* MF_STRING */, IDM_EXIT, "終了");
 
             // カーソル位置を取得
@@ -360,17 +483,54 @@ namespace Caiqelle
             int cmd = TrackPopupMenu(hMenu, 0x0100 /* TPM_RETURNCMD */, pt.X, pt.Y, 0, hwnd, IntPtr.Zero);
             DestroyMenu(hMenu);
 
-            if (cmd == IDM_EXIT)
+            if (cmd == IDM_RESTART)
             {
-                try
-                {
-                    _trayIcon?.Dispose();
-                    Services.GetService<HookService>()?.Stop();
-                    Services.GetService<RewindService>()?.Stop();
-                }
-                catch { }
-                
+                var updateService = Services.GetService<UpdateService>();
+                CleanupBeforeExit();
+                updateService?.RestartApplication();
+            }
+            else if (cmd == IDM_EXIT)
+            {
+                CleanupBeforeExit();
                 System.Diagnostics.Process.GetCurrentProcess().Kill();
+            }
+        }
+
+        /// <summary>
+        /// 終了・再起動前に常駐サービスやトレイアイコンのリソースを解放する
+        /// </summary>
+        private void CleanupBeforeExit()
+        {
+            try { _trayIcon?.Dispose(); } catch { }
+            try { Services.GetService<HookService>()?.Stop(); } catch { }
+            try { Services.GetService<RewindService>()?.Stop(); } catch { }
+            try { Services.GetService<ActionService>()?.Dispose(); } catch { }
+            try { Services.GetService<UpdateService>()?.Dispose(); } catch { }
+        }
+
+        public void ShowMainWindowAtTab(ViewModels.MainTab tab)
+        {
+            PositionAndShowWindow();
+            if (_window is MainWindow mainWindow)
+            {
+                switch (tab)
+                {
+                    case ViewModels.MainTab.Home:
+                        mainWindow.ViewModel.NavigateToHomeCommand.Execute(null);
+                        break;
+                    case ViewModels.MainTab.Folder:
+                        mainWindow.ViewModel.NavigateToFolderCommand.Execute(null);
+                        break;
+                    case ViewModels.MainTab.Rewind:
+                        mainWindow.ViewModel.NavigateToRewindCommand.Execute(null);
+                        break;
+                    case ViewModels.MainTab.Action:
+                        mainWindow.ViewModel.NavigateToActionCommand.Execute(null);
+                        break;
+                    case ViewModels.MainTab.Settings:
+                        mainWindow.ViewModel.NavigateToSettingsCommand.Execute(null);
+                        break;
+                }
             }
         }
 
@@ -387,21 +547,24 @@ namespace Caiqelle
             
             var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(_window);
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-            var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(windowId, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
-            
-            var workArea = displayArea.WorkArea;
             var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-            
-            // Quick Access Window size
-            int width = 360;
-            int height = 500;
-            
-            // Place bottom right, just above the taskbar
-            int margin = 12;
-            int x = workArea.X + workArea.Width - width - margin;
-            int y = workArea.Y + workArea.Height - height - margin;
-            
-            appWindow.Move(new Windows.Graphics.PointInt32(x, y));
+
+            GetCursorPos(out POINT cursorPos);
+            var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromPoint(
+                new Windows.Graphics.PointInt32(cursorPos.X, cursorPos.Y),
+                Microsoft.UI.Windowing.DisplayAreaFallback.Primary)
+                ?? Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(windowId, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
+
+            var workArea = displayArea.WorkArea;
+            double dpiScale = Views.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+            int width = Math.Max(appWindow.Size.Width, (int)(500 * dpiScale));
+            int height = Math.Max(appWindow.Size.Height, (int)(580 * dpiScale));
+            int margin = (int)(12 * dpiScale);
+
+            int x = Math.Max(workArea.X, workArea.X + workArea.Width - width - margin);
+            int y = Math.Max(workArea.Y, workArea.Y + workArea.Height - height - margin);
+
+            appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
             
             Caiqelle.Views.WindowExtensions.Show(_window);
             SetForegroundWindow(hwnd);

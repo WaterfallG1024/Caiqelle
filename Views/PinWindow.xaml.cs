@@ -23,11 +23,15 @@ namespace Caiqelle.Views
         public PinWindow(byte[] imageBytes)
         {
             this.InitializeComponent();
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
             var hWndForIcon = WinRT.Interop.WindowNative.GetWindowHandle(this);
             var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
             var appWindowForIcon = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowIdForIcon);
             // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindowForIcon.SetIcon("Assets\\favicon.ico");
+            appWindowForIcon.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico"));
             _imageBytes = imageBytes;
 
             var hWnd = WindowNative.GetWindowHandle(this);
@@ -65,22 +69,26 @@ namespace Caiqelle.Views
             _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
 
             LoadImage();
+            this.Activated += (s, e) => RootGrid.Focus(FocusState.Programmatic);
         }
 
         private async void LoadImage()
         {
-            using var ms = new MemoryStream(_imageBytes);
-            var randomAccessStream = new InMemoryRandomAccessStream();
-            var outputStream = randomAccessStream.GetOutputStreamAt(0);
-            var dataWriter = new DataWriter(outputStream);
-            dataWriter.WriteBytes(ms.ToArray());
-            await dataWriter.StoreAsync();
-            await outputStream.FlushAsync();
-            randomAccessStream.Seek(0);
+            try
+            {
+                using var randomAccessStream = new InMemoryRandomAccessStream();
+                using var outputStream = randomAccessStream.GetOutputStreamAt(0);
+                using var dataWriter = new DataWriter(outputStream);
+                dataWriter.WriteBytes(_imageBytes);
+                await dataWriter.StoreAsync();
+                await outputStream.FlushAsync();
+                randomAccessStream.Seek(0);
 
-            var bitmapImage = new BitmapImage();
-            await bitmapImage.SetSourceAsync(randomAccessStream);
-            PinnedImage.Source = bitmapImage;
+                var bitmapImage = new BitmapImage();
+                await bitmapImage.SetSourceAsync(randomAccessStream);
+                PinnedImage.Source = bitmapImage;
+            }
+            catch { }
         }
 
         private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
@@ -107,27 +115,12 @@ namespace Caiqelle.Views
             }
         }
 
-        private void CopyBtn_Click(object sender, RoutedEventArgs e)
+        private async void CopyBtn_Click(object sender, RoutedEventArgs e)
         {
             if (_imageBytes != null && _imageBytes.Length > 0)
             {
-                try
-                {
-                    var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
-                    var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                    using (var writer = new Windows.Storage.Streams.DataWriter(stream.GetOutputStreamAt(0)))
-                    {
-                        writer.WriteBytes(_imageBytes);
-                        writer.StoreAsync().AsTask().Wait();
-                    }
-                    var rsr = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream);
-                    dataPackage.SetBitmap(rsr);
-                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
-                    
-                    var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.NotificationService>(((App)Application.Current).Services);
-                    notificationService.ShowNotification("クリップボードにコピーしました", "\uE8C8");
-                }
-                catch { }
+                var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.ClipboardService>(((App)Application.Current).Services);
+                await clipboardService.CopyImageAsync(_imageBytes, showNotification: true, DispatcherQueue);
             }
         }
 

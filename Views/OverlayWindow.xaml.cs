@@ -1,3 +1,4 @@
+using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,6 +17,24 @@ using System.IO;
 
 namespace Caiqelle.Views
 {
+    public sealed class CursorCanvas : Canvas
+    {
+        public new InputCursor? ProtectedCursor
+        {
+            get => base.ProtectedCursor;
+            set => base.ProtectedCursor = value;
+        }
+    }
+
+    public sealed class CursorGrid : Grid
+    {
+        public new InputCursor? ProtectedCursor
+        {
+            get => base.ProtectedCursor;
+            set => base.ProtectedCursor = value;
+        }
+    }
+
     public sealed partial class OverlayWindow : Window
     {
         private enum OverlayState { Initial, Selecting, Adjusting }
@@ -27,15 +46,18 @@ namespace Caiqelle.Views
         private FrameworkElement? _currentHandle = null;
         
         // Drawing
-        public enum EditorTool { Pen, Line, Arrow, Rect, Number }
-        private EditorTool _currentTool = EditorTool.Pen;
+        public enum EditorTool { Pen, Line, DashedLine, Arrow, Rect, Ellipse, Number, Erase }
+        private EditorTool _currentTool = EditorTool.Rect;
+        private EditorTool _lastShapeTool = EditorTool.Rect;
         private bool _isDrawing = false;
         private SolidColorBrush _currentBrush = new SolidColorBrush(Microsoft.UI.Colors.Red);
         private bool _isFillEnabled = false;
+        private double _penThickness = 4.0;
         private Polyline? _currentPolyline;
         private Microsoft.UI.Xaml.Shapes.Line? _currentLine;
         private Microsoft.UI.Xaml.Shapes.Path? _currentArrow;
         private Microsoft.UI.Xaml.Shapes.Rectangle? _currentRect;
+        private Microsoft.UI.Xaml.Shapes.Ellipse? _currentEllipse;
         private Stack<UIElement> _undoStack = new Stack<UIElement>();
         private Stack<UIElement> _redoStack = new Stack<UIElement>();
         private int _stepNumber = 1;
@@ -49,23 +71,36 @@ namespace Caiqelle.Views
         public enum CaptureAction { None, Copy, Save }
         public CaptureAction ActionTaken { get; private set; } = CaptureAction.None;
         private bool _isOcrMode = false;
+        private bool _isPinMode = false;
+        private bool _isLivePinMode = false;
 
         public event Action? CaptureCompleted;
+
+        private readonly IntPtr _hwnd;
+        private readonly AppWindow _appWindow;
+        private System.Drawing.Rectangle _lastBounds = System.Drawing.Rectangle.Empty;
+
+        // 場所・操作に応じたシステムカーソル
+        private readonly InputSystemCursor _cursorCross = InputSystemCursor.Create(InputSystemCursorShape.Cross);
+        private readonly InputSystemCursor _cursorArrow = InputSystemCursor.Create(InputSystemCursorShape.Arrow);
+        private readonly InputSystemCursor _cursorNWSE = InputSystemCursor.Create(InputSystemCursorShape.SizeNorthwestSoutheast);
+        private readonly InputSystemCursor _cursorNESW = InputSystemCursor.Create(InputSystemCursorShape.SizeNortheastSouthwest);
+        private readonly InputSystemCursor _cursorNS = InputSystemCursor.Create(InputSystemCursorShape.SizeNorthSouth);
+        private readonly InputSystemCursor _cursorWE = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
 
         public OverlayWindow()
         {
             this.InitializeComponent();
-            var hWndForIcon = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
-            var appWindowForIcon = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowIdForIcon);
-            // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindowForIcon.SetIcon("Assets/favicon.ico");
+            if (((App)Application.Current).Services.GetService(typeof(Services.ThemeService)) is Services.ThemeService themeService)
+            {
+                themeService.RegisterWindow(this, RootGrid);
+            }
+            _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hwnd);
+            _appWindow = AppWindow.GetFromWindowId(windowId);
+            _appWindow.IsShownInSwitchers = false;
 
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-
-            if (appWindow.Presenter is OverlappedPresenter presenter)
+            if (_appWindow.Presenter is OverlappedPresenter presenter)
             {
                 presenter.SetBorderAndTitleBar(false, false);
                 presenter.IsMaximizable = false;
@@ -77,21 +112,24 @@ namespace Caiqelle.Views
             // ウィンドウの白い境界線を完全に削除
             int DWMWA_BORDER_COLOR = 34;
             int DWM_BORDER_COLOR_NONE = -2; // 0xFFFFFFFE
-            NativeMethods.DwmSetWindowAttribute(hWnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
+            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
 
             var margins = new NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
-            NativeMethods.DwmExtendFrameIntoClientArea(hWnd, ref margins);
-            NativeMethods.RemoveWindowBorder(hWnd);
+            NativeMethods.DwmExtendFrameIntoClientArea(_hwnd, ref margins);
+            NativeMethods.RemoveWindowBorder(_hwnd);
 
-            // Attach hit testing to handles
-            HandleTL.PointerPressed += Handle_PointerPressed;
-            HandleTR.PointerPressed += Handle_PointerPressed;
-            HandleBL.PointerPressed += Handle_PointerPressed;
-            HandleBR.PointerPressed += Handle_PointerPressed;
-            HandleT.PointerPressed += Handle_PointerPressed;
-            HandleB.PointerPressed += Handle_PointerPressed;
-            HandleL.PointerPressed += Handle_PointerPressed;
-            HandleR.PointerPressed += Handle_PointerPressed;
+            // デフォルトカーソル設定と各リサイズハンドルのイベント・カーソル登録
+            DrawCanvas.ProtectedCursor = _cursorCross;
+            FloatingToolbar.ProtectedCursor = _cursorArrow;
+
+            RegisterHandle(HandleTL, _cursorNWSE);
+            RegisterHandle(HandleBR, _cursorNWSE);
+            RegisterHandle(HandleTR, _cursorNESW);
+            RegisterHandle(HandleBL, _cursorNESW);
+            RegisterHandle(HandleT, _cursorNS);
+            RegisterHandle(HandleB, _cursorNS);
+            RegisterHandle(HandleL, _cursorWE);
+            RegisterHandle(HandleR, _cursorWE);
 
             FloatingToolbar.SizeChanged += (s, e) =>
             {
@@ -104,11 +142,18 @@ namespace Caiqelle.Views
             this.Activated += OverlayWindow_Activated;
         }
 
-        public void UpdateAndShow(Microsoft.UI.Xaml.Media.ImageSource frozenImage, System.Drawing.Rectangle bounds, bool isOcrMode = false, bool isPinMode = false)
+        public void UpdateAndShow(Microsoft.UI.Xaml.Media.ImageSource frozenImage, System.Drawing.Rectangle bounds, bool isOcrMode = false, bool isPinMode = false, bool isLivePinMode = false)
         {
             _isOcrMode = isOcrMode;
+            _isPinMode = isPinMode;
+            _isLivePinMode = isLivePinMode;
             
-            if (isPinMode)
+            if (isLivePinMode)
+            {
+                ToolTipService.SetToolTip(SaveButton, "ライブピン留め(またはCtrl + S)");
+                if (SaveButton.Content is FontIcon icon) icon.Glyph = "\uE8A3"; // ZoomIn / Live Pin icon
+            }
+            else if (isPinMode)
             {
                 ToolTipService.SetToolTip(SaveButton, "ピン留め(またはCtrl + S)");
                 if (SaveButton.Content is FontIcon icon) icon.Glyph = "\uE718"; // Pin icon
@@ -119,17 +164,16 @@ namespace Caiqelle.Views
                 if (SaveButton.Content is FontIcon icon) icon.Glyph = "\uE792"; // Save icon
             }
             FrozenImage = frozenImage;
-            Bounds = new Windows.Foundation.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-            
             BackgroundImage.Source = frozenImage;
 
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
+            if (_lastBounds != bounds)
+            {
+                _lastBounds = bounds;
+                Bounds = new Windows.Foundation.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+                _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+                OuterDimmerRect.Rect = Bounds;
+            }
 
-            appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
-            
-            OuterDimmerRect.Rect = Bounds;
             CutoutRect.Rect = new Windows.Foundation.Rect(0, 0, 0, 0);
 
             _state = OverlayState.Initial;
@@ -138,21 +182,38 @@ namespace Caiqelle.Views
             OverlayDimmer.Visibility = Visibility.Visible;
             SetHandlesVisibility(Visibility.Collapsed);
             AnnotationCanvas.Visibility = Visibility.Collapsed;
-            AnnotationCanvas.Children.Clear();
+            if (AnnotationCanvas.Children.Count > 0) AnnotationCanvas.Children.Clear();
             _undoStack.Clear();
             _redoStack.Clear();
             _stepNumber = 1;
             UpdateUndoRedoButtons();
+            DrawCanvas.ProtectedCursor = _cursorCross;
+            _currentTool = EditorTool.Rect;
+            _lastShapeTool = EditorTool.Rect;
+            _currentBrush = new SolidColorBrush(Microsoft.UI.Colors.Red);
+            ColorPreviewBorder.Background = _currentBrush;
+            EditorColorPicker.Color = Microsoft.UI.Colors.Red;
+            PenBtn.IsChecked = false;
+            ShapesBtn.IsChecked = true;
+            NumberBtn.IsChecked = false;
+            DeleteBtn.IsChecked = false;
+            EraseModeBtn.IsChecked = true;
+            RectBtn.IsChecked = true;
+            EllipseBtn.IsChecked = false;
+            LineBtn.IsChecked = false;
+            DashedLineBtn.IsChecked = false;
+            ArrowBtn.IsChecked = false;
+            FillBtn.IsEnabled = true;
+            PenSubBar.Visibility = Visibility.Collapsed;
+            ShapesSubBar.Visibility = Visibility.Visible;
+            DeleteSubBar.Visibility = Visibility.Collapsed;
 
-            appWindow.Show();
+            _appWindow.Show();
         }
 
         private void HideAndComplete()
         {
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-            appWindow.Hide();
+            _appWindow.Hide();
             CaptureCompleted?.Invoke();
         }
 
@@ -184,11 +245,25 @@ namespace Caiqelle.Views
                 var rect = CutoutRect.Rect;
                 if (p.X >= rect.X && p.X <= rect.X + rect.Width && p.Y >= rect.Y && p.Y <= rect.Y + rect.Height)
                 {
-                    StartDrawing(p);
-                    DrawCanvas.CapturePointer(e.Pointer);
+                    if (_currentTool == EditorTool.Erase)
+                    {
+                        var hostPos = e.GetCurrentPoint(null).Position;
+                        AnnotationHelper.TryEraseAtPoint(AnnotationCanvas, hostPos);
+                    }
+                    else
+                    {
+                        StartDrawing(p);
+                        DrawCanvas.CapturePointer(e.Pointer);
+                    }
                 }
                 else
                 {
+                    var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.SettingsManager>(((App)Application.Current).Services);
+                    if (settings.IsIgnoreOutsideSelectionClick)
+                    {
+                        return;
+                    }
+
                     // Clicked outside, start new selection
                     _state = OverlayState.Selecting;
                     _isDragging = true;
@@ -202,12 +277,41 @@ namespace Caiqelle.Views
             }
         }
 
+        private void RegisterHandle(FrameworkElement handle, InputSystemCursor cursor)
+        {
+            handle.PointerPressed += Handle_PointerPressed;
+            handle.PointerEntered += (s, e) =>
+            {
+                if (_state == OverlayState.Adjusting && !_isResizing && !_isDrawing)
+                {
+                    DrawCanvas.ProtectedCursor = cursor;
+                }
+            };
+            handle.PointerExited += (s, e) =>
+            {
+                if (!_isResizing)
+                {
+                    DrawCanvas.ProtectedCursor = _cursorCross;
+                }
+            };
+        }
+
+        private InputSystemCursor GetHandleCursor(FrameworkElement? handle)
+        {
+            if (handle == HandleTL || handle == HandleBR) return _cursorNWSE;
+            if (handle == HandleTR || handle == HandleBL) return _cursorNESW;
+            if (handle == HandleT || handle == HandleB) return _cursorNS;
+            if (handle == HandleL || handle == HandleR) return _cursorWE;
+            return _cursorCross;
+        }
+
         private void Handle_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (_state == OverlayState.Adjusting)
             {
                 _isResizing = true;
                 _currentHandle = sender as FrameworkElement;
+                DrawCanvas.ProtectedCursor = GetHandleCursor(_currentHandle);
                 _startPoint = e.GetCurrentPoint(DrawCanvas).Position;
                 DrawCanvas.CapturePointer(e.Pointer);
                 e.Handled = true;
@@ -285,6 +389,21 @@ namespace Caiqelle.Views
                         // Direct OCR processing
                         StartOcrScanAnimation();
                     }
+                    else if (_isLivePinMode)
+                    {
+                        // ライブピン留め時は描画ツールを表示せず即座に開始する
+                        ActionTaken = CaptureAction.Save;
+                        CompleteCapture();
+                    }
+                    else if (!_isPinMode &&
+                             Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                                 .GetRequiredService<Services.SettingsManager>(((App)Application.Current).Services)
+                                 .IsAutoCopyToClipboard)
+                    {
+                        // 自動クリップボードコピーON時（範囲選択キャプチャ）は描画ツールを表示せず即座にコピーして閉じる
+                        ActionTaken = CaptureAction.Copy;
+                        CompleteCapture();
+                    }
                     else
                     {
                         _state = OverlayState.Adjusting;
@@ -308,6 +427,7 @@ namespace Caiqelle.Views
                 {
                     _isResizing = false;
                     _currentHandle = null;
+                    DrawCanvas.ProtectedCursor = _cursorCross;
                 }
                 else if (_isDrawing)
                 {
@@ -331,15 +451,15 @@ namespace Caiqelle.Views
 
         private void UpdateHandles(double x, double y, double w, double h)
         {
-            Canvas.SetLeft(HandleTL, x - 2); Canvas.SetTop(HandleTL, y - 2);
-            Canvas.SetLeft(HandleTR, x + w - 18); Canvas.SetTop(HandleTR, y - 2);
-            Canvas.SetLeft(HandleBL, x - 2); Canvas.SetTop(HandleBL, y + h - 18);
-            Canvas.SetLeft(HandleBR, x + w - 18); Canvas.SetTop(HandleBR, y + h - 18);
+            Canvas.SetLeft(HandleTL, x - 6); Canvas.SetTop(HandleTL, y - 6);
+            Canvas.SetLeft(HandleTR, x + w - 22); Canvas.SetTop(HandleTR, y - 6);
+            Canvas.SetLeft(HandleBL, x - 6); Canvas.SetTop(HandleBL, y + h - 22);
+            Canvas.SetLeft(HandleBR, x + w - 22); Canvas.SetTop(HandleBR, y + h - 22);
             
-            Canvas.SetLeft(HandleT, x + w / 2 - 12); Canvas.SetTop(HandleT, y - 3);
-            Canvas.SetLeft(HandleB, x + w / 2 - 12); Canvas.SetTop(HandleB, y + h - 3);
-            Canvas.SetLeft(HandleL, x - 3); Canvas.SetTop(HandleL, y + h / 2 - 12);
-            Canvas.SetLeft(HandleR, x + w - 3); Canvas.SetTop(HandleR, y + h / 2 - 12);
+            Canvas.SetLeft(HandleT, x + w / 2 - 20); Canvas.SetTop(HandleT, y - 11);
+            Canvas.SetLeft(HandleB, x + w / 2 - 20); Canvas.SetTop(HandleB, y + h - 11);
+            Canvas.SetLeft(HandleL, x - 11); Canvas.SetTop(HandleL, y + h / 2 - 20);
+            Canvas.SetLeft(HandleR, x + w - 11); Canvas.SetTop(HandleR, y + h / 2 - 20);
         }
 
         private void SetHandlesVisibility(Visibility v)
@@ -400,13 +520,48 @@ namespace Caiqelle.Views
         {
             if (sender is Microsoft.UI.Xaml.Controls.Primitives.ToggleButton tb)
             {
-                PenBtn.IsChecked = false; LineBtn.IsChecked = false; ArrowBtn.IsChecked = false; RectBtn.IsChecked = false; NumberBtn.IsChecked = false;
-                tb.IsChecked = true;
-                if (tb == PenBtn) _currentTool = EditorTool.Pen;
-                else if (tb == LineBtn) _currentTool = EditorTool.Line;
-                else if (tb == ArrowBtn) _currentTool = EditorTool.Arrow;
-                else if (tb == RectBtn) _currentTool = EditorTool.Rect;
+                if (tb == ShapesBtn)
+                {
+                    _currentTool = _lastShapeTool;
+                }
+                else if (tb == PenBtn) _currentTool = EditorTool.Pen;
+                else if (tb == LineBtn) { _currentTool = EditorTool.Line; _lastShapeTool = EditorTool.Line; }
+                else if (tb == DashedLineBtn) { _currentTool = EditorTool.DashedLine; _lastShapeTool = EditorTool.DashedLine; }
+                else if (tb == ArrowBtn) { _currentTool = EditorTool.Arrow; _lastShapeTool = EditorTool.Arrow; }
+                else if (tb == RectBtn) { _currentTool = EditorTool.Rect; _lastShapeTool = EditorTool.Rect; }
+                else if (tb == EllipseBtn) { _currentTool = EditorTool.Ellipse; _lastShapeTool = EditorTool.Ellipse; }
                 else if (tb == NumberBtn) _currentTool = EditorTool.Number;
+                else if (tb == DeleteBtn) _currentTool = EditorTool.Erase;
+
+                bool isShape = _currentTool is EditorTool.Line or EditorTool.DashedLine or EditorTool.Arrow or EditorTool.Rect or EditorTool.Ellipse;
+                PenBtn.IsChecked = _currentTool == EditorTool.Pen;
+                ShapesBtn.IsChecked = isShape;
+                NumberBtn.IsChecked = _currentTool == EditorTool.Number;
+                DeleteBtn.IsChecked = _currentTool == EditorTool.Erase;
+                EraseModeBtn.IsChecked = true;
+                LineBtn.IsChecked = _currentTool == EditorTool.Line;
+                DashedLineBtn.IsChecked = _currentTool == EditorTool.DashedLine;
+                ArrowBtn.IsChecked = _currentTool == EditorTool.Arrow;
+                RectBtn.IsChecked = _currentTool == EditorTool.Rect;
+                EllipseBtn.IsChecked = _currentTool == EditorTool.Ellipse;
+                FillBtn.IsEnabled = _currentTool is EditorTool.Rect or EditorTool.Ellipse;
+                PenSubBar.Visibility = _currentTool == EditorTool.Pen ? Visibility.Visible : Visibility.Collapsed;
+                ShapesSubBar.Visibility = isShape ? Visibility.Visible : Visibility.Collapsed;
+                DeleteSubBar.Visibility = _currentTool == EditorTool.Erase ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void EraseModeBtn_Click(object sender, RoutedEventArgs e)
+        {
+            EraseModeBtn.IsChecked = true;
+        }
+
+        private void PenThicknessSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            _penThickness = e.NewValue;
+            if (PenThicknessText != null)
+            {
+                PenThicknessText.Text = $"{(int)Math.Round(_penThickness)}px";
             }
         }
         
@@ -453,6 +608,26 @@ namespace Caiqelle.Views
             _redoStack.Clear();
             _stepNumber = 1;
             UpdateUndoRedoButtons();
+            DrawCanvas.ProtectedCursor = _cursorCross;
+            _currentTool = EditorTool.Rect;
+            _lastShapeTool = EditorTool.Rect;
+            _currentBrush = new SolidColorBrush(Microsoft.UI.Colors.Red);
+            ColorPreviewBorder.Background = _currentBrush;
+            EditorColorPicker.Color = Microsoft.UI.Colors.Red;
+            PenBtn.IsChecked = false;
+            ShapesBtn.IsChecked = true;
+            NumberBtn.IsChecked = false;
+            DeleteBtn.IsChecked = false;
+            EraseModeBtn.IsChecked = true;
+            RectBtn.IsChecked = true;
+            EllipseBtn.IsChecked = false;
+            LineBtn.IsChecked = false;
+            DashedLineBtn.IsChecked = false;
+            ArrowBtn.IsChecked = false;
+            FillBtn.IsEnabled = true;
+            PenSubBar.Visibility = Visibility.Collapsed;
+            ShapesSubBar.Visibility = Visibility.Visible;
+            DeleteSubBar.Visibility = Visibility.Collapsed;
         }
 
         private async void StartOcrScanAnimation()
@@ -481,6 +656,7 @@ namespace Caiqelle.Views
             SelectedRegion = new System.Drawing.Rectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height);
             CapturedBytes = await GetCompositedImageBytesAsync();
 
+            bool copied = false;
             try
             {
                 var ocrService = new Caiqelle.Services.OcrService();
@@ -490,6 +666,8 @@ namespace Caiqelle.Views
                     var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
                     dataPackage.SetText(text);
                     Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
+                    Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+                    copied = true;
                 }
             }
             catch { }
@@ -500,6 +678,13 @@ namespace Caiqelle.Views
             ActionTaken = CaptureAction.None; 
             
             HideAndComplete();
+
+            if (copied)
+            {
+                var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                    .GetService<Services.NotificationService>(((App)Application.Current).Services);
+                notificationService?.ShowNotification("クリップボードにコピーしました", "\uE8C8");
+            }
         }
 
         private void CopyButton_Click(object? sender, RoutedEventArgs? e) { ActionTaken = CaptureAction.Copy; CompleteCapture(); }
@@ -576,7 +761,15 @@ namespace Caiqelle.Views
             FloatingToolbar.Visibility = Visibility.Collapsed;
             SetHandlesVisibility(Visibility.Collapsed);
 
-            await Task.Delay(50);
+            // アノテーションがない場合は RenderTargetBitmap をスキップし、高速な直接キャプチャへ委ねる
+            if (_isLivePinMode || AnnotationCanvas.Children.Count == 0)
+            {
+                CapturedBytes = null;
+                HideAndComplete();
+                return;
+            }
+
+            await Task.Delay(16);
 
             CapturedBytes = await GetCompositedImageBytesAsync();
 
@@ -618,7 +811,16 @@ namespace Caiqelle.Views
                 }
 
                 using var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                await renderTarget.SaveAsync(ms, Microsoft.Graphics.Canvas.CanvasBitmapFileFormat.Png);
+                var settings = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.SettingsManager>(((App)Application.Current).Services);
+                if (settings.ImageFormat == "JPEG")
+                {
+                    float quality = Math.Clamp(settings.JpegQuality, 1, 100) / 100.0f;
+                    await renderTarget.SaveAsync(ms, Microsoft.Graphics.Canvas.CanvasBitmapFileFormat.Jpeg, quality);
+                }
+                else
+                {
+                    await renderTarget.SaveAsync(ms, Microsoft.Graphics.Canvas.CanvasBitmapFileFormat.Png);
+                }
 
                 var outBuffer = new byte[ms.Size];
                 using (var dataReader = new Windows.Storage.Streams.DataReader(ms.GetInputStreamAt(0)))
@@ -639,21 +841,25 @@ namespace Caiqelle.Views
             
             if (_currentTool == EditorTool.Pen)
             {
-                _currentPolyline = new Polyline { Stroke = _currentBrush, StrokeThickness = 4, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+                _currentPolyline = new Polyline { Stroke = _currentBrush, StrokeThickness = _penThickness, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
                 _currentPolyline.Points.Add(p);
                 AnnotationCanvas.Children.Add(_currentPolyline);
                 _undoStack.Push(_currentPolyline);
             }
-            else if (_currentTool == EditorTool.Line)
+            else if (_currentTool == EditorTool.Line || _currentTool == EditorTool.DashedLine)
             {
                 _currentLine = new Microsoft.UI.Xaml.Shapes.Line { Stroke = _currentBrush, StrokeThickness = 4, X1 = p.X, Y1 = p.Y, X2 = p.X, Y2 = p.Y, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+                if (_currentTool == EditorTool.DashedLine)
+                {
+                    _currentLine.StrokeDashArray = new DoubleCollection { 2, 2 };
+                }
                 AnnotationCanvas.Children.Add(_currentLine);
                 _undoStack.Push(_currentLine);
             }
             else if (_currentTool == EditorTool.Arrow)
             {
                 _currentArrow = new Microsoft.UI.Xaml.Shapes.Path { Stroke = _currentBrush, StrokeThickness = 4, StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
-                UpdateArrowPath(p, p);
+                AnnotationHelper.UpdateArrowPath(_currentArrow, p, p);
                 AnnotationCanvas.Children.Add(_currentArrow);
                 _undoStack.Push(_currentArrow);
             }
@@ -665,6 +871,15 @@ namespace Caiqelle.Views
                 Canvas.SetLeft(_currentRect, p.X); Canvas.SetTop(_currentRect, p.Y);
                 AnnotationCanvas.Children.Add(_currentRect);
                 _undoStack.Push(_currentRect);
+            }
+            else if (_currentTool == EditorTool.Ellipse)
+            {
+                _currentEllipse = new Microsoft.UI.Xaml.Shapes.Ellipse { StrokeThickness = 4 };
+                if (_isFillEnabled) { _currentEllipse.Fill = _currentBrush; _currentEllipse.Stroke = new SolidColorBrush(Microsoft.UI.Colors.Transparent); }
+                else { _currentEllipse.Stroke = _currentBrush; _currentEllipse.Fill = new SolidColorBrush(Microsoft.UI.Colors.Transparent); }
+                Canvas.SetLeft(_currentEllipse, p.X); Canvas.SetTop(_currentEllipse, p.Y);
+                AnnotationCanvas.Children.Add(_currentEllipse);
+                _undoStack.Push(_currentEllipse);
             }
             else if (_currentTool == EditorTool.Number)
             {
@@ -682,32 +897,17 @@ namespace Caiqelle.Views
         private void UpdateDrawing(Windows.Foundation.Point p)
         {
             if (_currentTool == EditorTool.Pen && _currentPolyline != null) _currentPolyline.Points.Add(p);
-            else if (_currentTool == EditorTool.Line && _currentLine != null) { _currentLine.X2 = p.X; _currentLine.Y2 = p.Y; }
-            else if (_currentTool == EditorTool.Arrow && _currentArrow != null) UpdateArrowPath(_startPoint, p);
+            else if ((_currentTool == EditorTool.Line || _currentTool == EditorTool.DashedLine) && _currentLine != null) { _currentLine.X2 = p.X; _currentLine.Y2 = p.Y; }
+            else if (_currentTool == EditorTool.Arrow && _currentArrow != null) AnnotationHelper.UpdateArrowPath(_currentArrow, _startPoint, p);
             else if (_currentTool == EditorTool.Rect && _currentRect != null)
             {
                 Canvas.SetLeft(_currentRect, Math.Min(_startPoint.X, p.X)); Canvas.SetTop(_currentRect, Math.Min(_startPoint.Y, p.Y));
                 _currentRect.Width = Math.Abs(p.X - _startPoint.X); _currentRect.Height = Math.Abs(p.Y - _startPoint.Y);
             }
-        }
-
-        private void UpdateArrowPath(Windows.Foundation.Point p1, Windows.Foundation.Point p2)
-        {
-            double headLen = 15;
-            double headAngle = Math.PI / 6;
-            double angle = Math.Atan2(p2.Y - p1.Y, p2.X - p1.X);
-            var p3 = new Windows.Foundation.Point(p2.X - headLen * Math.Cos(angle - headAngle), p2.Y - headLen * Math.Sin(angle - headAngle));
-            var p4 = new Windows.Foundation.Point(p2.X - headLen * Math.Cos(angle + headAngle), p2.Y - headLen * Math.Sin(angle + headAngle));
-            var pg = new PathGeometry();
-            var pf = new PathFigure { StartPoint = p1, IsClosed = false };
-            pf.Segments.Add(new LineSegment { Point = p2 });
-            pf.Segments.Add(new LineSegment { Point = p3 });
-            var pf2 = new PathFigure { StartPoint = p2, IsClosed = false };
-            pf2.Segments.Add(new LineSegment { Point = p4 });
-            pg.Figures.Add(pf); pg.Figures.Add(pf2);
-            if (_currentArrow != null)
+            else if (_currentTool == EditorTool.Ellipse && _currentEllipse != null)
             {
-                _currentArrow.Data = pg;
+                Canvas.SetLeft(_currentEllipse, Math.Min(_startPoint.X, p.X)); Canvas.SetTop(_currentEllipse, Math.Min(_startPoint.Y, p.Y));
+                _currentEllipse.Width = Math.Abs(p.X - _startPoint.X); _currentEllipse.Height = Math.Abs(p.Y - _startPoint.Y);
             }
         }
     }

@@ -34,7 +34,31 @@ namespace Caiqelle.ViewModels
         private Task CapturePinAsync() => ExecuteCaptureAsync(CapturedKey.P);
 
         [RelayCommand]
+        private Task CaptureLivePinAsync() => ExecuteCaptureAsync(CapturedKey.L);
+
+        [RelayCommand]
         private Task CaptureOcrAsync() => ExecuteCaptureAsync(CapturedKey.E);
+
+        [RelayCommand]
+        private void OpenRewind()
+        {
+            RequestHideWindow?.Invoke();
+            ((App)Microsoft.UI.Xaml.Application.Current).ShowMainWindowAtTab(MainTab.Rewind);
+        }
+
+        [RelayCommand]
+        private void OpenStickyText()
+        {
+            RequestHideWindow?.Invoke();
+            ((StickyTextService)((App)Microsoft.UI.Xaml.Application.Current).Services.GetService(typeof(StickyTextService))!).OpenStickyText();
+        }
+
+        [RelayCommand]
+        private void OpenStickyTextList()
+        {
+            RequestHideWindow?.Invoke();
+            ((StickyTextService)((App)Microsoft.UI.Xaml.Application.Current).Services.GetService(typeof(StickyTextService))!).OpenStickyTextList();
+        }
 
         [RelayCommand]
         private void Hide() => RequestHideWindow?.Invoke();

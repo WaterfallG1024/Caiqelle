@@ -2,9 +2,11 @@ using Caiqelle.Services;
 using Caiqelle.ViewModels;
 using Caiqelle.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Numerics;
 using Windows.System;
@@ -14,6 +16,8 @@ namespace Caiqelle
     public sealed partial class MainWindow : Window
     {
         public MainViewModel ViewModel { get; }
+        private bool _isSyncingNav = false;
+        private bool _isModalDialogOpen = false;
 
         public MainWindow()
         {
@@ -25,6 +29,10 @@ namespace Caiqelle
 
             this.InitializeComponent();
 
+            // Fluent 2 準拠の Mica Backdrop（BaseAlt）を適用
+            this.SystemBackdrop = new MicaBackdrop { Kind = MicaKind.BaseAlt };
+            app.Services.GetRequiredService<ThemeService>().RegisterWindow(this, RootGrid);
+
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
 
@@ -33,7 +41,7 @@ namespace Caiqelle
             this.Closed += MainWindow_Closed;
             this.Activated += MainWindow_Activated;
 
-            UpdateNavButtonHighlight();
+            SyncTopNavSelection();
         }
 
         private void ConfigureWindowChrome()
@@ -41,8 +49,7 @@ namespace Caiqelle
             var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
             var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-            // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindow.SetIcon("Assets\\favicon.ico");
+            appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico"));
 
             if (appWindow.Presenter is OverlappedPresenter presenter)
             {
@@ -51,50 +58,72 @@ namespace Caiqelle
                 presenter.IsResizable = false;
                 presenter.SetBorderAndTitleBar(false, false);
             }
-            appWindow.Resize(new Windows.Graphics.SizeInt32(360, 500));
+            double dpiScale = Views.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+            appWindow.Resize(new Windows.Graphics.SizeInt32((int)(560 * dpiScale), (int)(580 * dpiScale)));
 
-            // ウィンドウの角を丸くする
+            // Windows 11 標準の角丸を適用
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
             int DWMWCP_ROUND = 2;
             Views.NativeMethods.DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref DWMWCP_ROUND, sizeof(int));
 
-            // ウィンドウの白い枠線を完全に削除
-            int DWMWA_BORDER_COLOR = 34;
-            int DWM_BORDER_COLOR_NONE = -2;
-            Views.NativeMethods.DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
-
-            // フレームをクライアント領域に拡張して枠線を非表示にする
+            // フレームをクライアント領域に拡張して MicaBackdrop をウィンドウ全面へ表示
             var margins = new Views.NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
             Views.NativeMethods.DwmExtendFrameIntoClientArea(hwnd, ref margins);
-
-            // ウィンドウスタイルから枠線を除去
             Views.NativeMethods.RemoveWindowBorder(hwnd);
         }
 
         private void ViewModel_TabChanged(object? sender, EventArgs e)
         {
-            UpdateNavButtonHighlight();
+            SyncTopNavSelection();
             ContentScrollViewer?.ChangeView(null, 0, null, true);
         }
 
-        private void UpdateNavButtonHighlight()
+        private void SyncTopNavSelection()
         {
-            Button? activeBtn = ViewModel.CurrentTab switch
+            if (TopNavView == null) return;
+            _isSyncingNav = true;
+            try
             {
-                MainTab.Home => NavHomeBtn,
-                MainTab.Folder => NavFolderBtn,
-                MainTab.Settings => NavSettingsBtn,
-                _ => null
-            };
+                TopNavView.SelectedItem = ViewModel.CurrentTab switch
+                {
+                    MainTab.Home => NavHomeItem,
+                    MainTab.Folder => NavFolderItem,
+                    MainTab.Rewind => NavRewindItem,
+                    MainTab.Action => NavActionItem,
+                    MainTab.Settings => NavSettingsItem,
+                    _ => NavHomeItem
+                };
+            }
+            finally
+            {
+                _isSyncingNav = false;
+            }
+        }
 
-            var activeBg = (Application.Current.Resources.TryGetValue("M3SurfaceContainerHighestBrush", out var brush) && brush is Microsoft.UI.Xaml.Media.Brush m3Brush)
-                ? m3Brush
-                : new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x33, 0x33, 0x42));
-            var transparentBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-
-            if (NavHomeBtn != null) NavHomeBtn.Background = (NavHomeBtn == activeBtn) ? activeBg : transparentBg;
-            if (NavFolderBtn != null) NavFolderBtn.Background = (NavFolderBtn == activeBtn) ? activeBg : transparentBg;
-            if (NavSettingsBtn != null) NavSettingsBtn.Background = (NavSettingsBtn == activeBtn) ? activeBg : transparentBg;
+        private void TopNavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+        {
+            if (_isSyncingNav) return;
+            if (args.SelectedItem is NavigationViewItem item && item.Tag is string tag)
+            {
+                switch (tag)
+                {
+                    case "Home":
+                        ViewModel.NavigateToHomeCommand.Execute(null);
+                        break;
+                    case "Folder":
+                        ViewModel.NavigateToFolderCommand.Execute(null);
+                        break;
+                    case "Rewind":
+                        ViewModel.NavigateToRewindCommand.Execute(null);
+                        break;
+                    case "Action":
+                        ViewModel.NavigateToActionCommand.Execute(null);
+                        break;
+                    case "Settings":
+                        ViewModel.NavigateToSettingsCommand.Execute(null);
+                        break;
+                }
+            }
         }
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)
@@ -107,14 +136,40 @@ namespace Caiqelle
         {
             if (args.WindowActivationState == WindowActivationState.Deactivated)
             {
-                this.Hide();
+                if (!_isModalDialogOpen)
+                {
+                    this.Hide();
+                }
+            }
+            else
+            {
+                // ナビゲーションタブへの白枠フォーカスを防ぎ、ショートカットキーを即座に有効化する
+                RootGrid.Focus(FocusState.Programmatic);
+            }
+        }
+
+        private void FolderInput_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == VirtualKey.Enter && ViewModel.CanAddFolderMapping)
+            {
+                ViewModel.AddMappingCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+
+        private void ActionInput_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == VirtualKey.Enter && ViewModel.CanAddActionMapping)
+            {
+                ViewModel.AddActionMappingCommand.Execute(null);
+                e.Handled = true;
             }
         }
 
         private void Grid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // テキストボックス等の入力中の場合は無視する
-            if (e.OriginalSource is TextBox || e.OriginalSource is PasswordBox) return;
+            // テキストボックス等の入力中またはモーダルダイアログ表示中は無視する
+            if (_isModalDialogOpen || e.OriginalSource is TextBox || e.OriginalSource is PasswordBox) return;
 
             if (ViewModel.CurrentTab == MainTab.Home)
             {
@@ -136,12 +191,24 @@ namespace Caiqelle
                         ViewModel.CapturePinCommand.Execute(null);
                         e.Handled = true;
                         break;
+                    case VirtualKey.L:
+                        ViewModel.CaptureLivePinCommand.Execute(null);
+                        e.Handled = true;
+                        break;
                     case VirtualKey.E:
                         ViewModel.CaptureOcrCommand.Execute(null);
                         e.Handled = true;
                         break;
                     case VirtualKey.R:
                         ViewModel.NavigateToRewindCommand.Execute(null);
+                        e.Handled = true;
+                        break;
+                    case VirtualKey.S:
+                        ViewModel.OpenStickyTextCommand.Execute(null);
+                        e.Handled = true;
+                        break;
+                    case VirtualKey.V:
+                        ViewModel.OpenStickyTextListCommand.Execute(null);
                         e.Handled = true;
                         break;
                     case VirtualKey.Escape:
@@ -177,6 +244,18 @@ namespace Caiqelle
         private void RewindCombo_DropDownOpened(object? sender, object e)
         {
             if (sender is not ComboBox combo) return;
+            ApplyComboItemEnabledState(combo);
+
+            // 初回ドロップダウン展開時は ComboBoxItem コンテナが未生成の場合があるため、レイアウト確定後にも再適用する
+            combo.DispatcherQueue?.TryEnqueue(() =>
+            {
+                combo.UpdateLayout();
+                ApplyComboItemEnabledState(combo);
+            });
+        }
+
+        private static void ApplyComboItemEnabledState(ComboBox combo)
+        {
             foreach (var item in combo.Items)
             {
                 if (item is SelectableOption option && combo.ContainerFromItem(item) is ComboBoxItem container)
@@ -185,5 +264,260 @@ namespace Caiqelle
                 }
             }
         }
+
+        private async void EditFolderMappingBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is FolderMapping mapping)
+            {
+                if (_isModalDialogOpen || RootGrid.XamlRoot == null) return;
+                _isModalDialogOpen = true;
+                try
+                {
+                    var folderBox = new TextBox
+                    {
+                        Header = "フォルダ名",
+                        Text = mapping.FolderName,
+                        PlaceholderText = "フォルダ名"
+                    };
+                    var keyBox = new TextBox
+                    {
+                        Header = "ショートカットキー (1文字)",
+                        Text = mapping.Key,
+                        PlaceholderText = "キー",
+                        MaxLength = 1,
+                        Width = 120,
+                        HorizontalAlignment = HorizontalAlignment.Left
+                    };
+                    var errorText = new TextBlock
+                    {
+                        Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
+                        FontSize = 12,
+                        TextWrapping = TextWrapping.Wrap,
+                        Visibility = Visibility.Collapsed
+                    };
+
+                    var panel = new StackPanel { Spacing = 12, MinWidth = 320 };
+                    panel.Children.Add(folderBox);
+                    panel.Children.Add(keyBox);
+                    panel.Children.Add(errorText);
+
+                    var dialog = new ContentDialog
+                    {
+                        Title = "フォルダの編集",
+                        Content = panel,
+                        PrimaryButtonText = "保存",
+                        CloseButtonText = "キャンセル",
+                        DefaultButton = ContentDialogButton.Primary,
+                        XamlRoot = RootGrid.XamlRoot,
+                        RequestedTheme = RootGrid.ActualTheme
+                    };
+
+                    dialog.PrimaryButtonClick += (_, args) =>
+                    {
+                        if (!ViewModel.TryUpdateFolderMappingDirect(mapping, folderBox.Text, keyBox.Text, out string err))
+                        {
+                            errorText.Text = err;
+                            errorText.Visibility = Visibility.Visible;
+                            args.Cancel = true;
+                        }
+                    };
+
+                    await dialog.ShowAsync();
+                }
+                finally
+                {
+                    _isModalDialogOpen = false;
+                }
+            }
+        }
+
+        private async void EditActionMappingBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is ActionFieldMapping mapping)
+            {
+                if (_isModalDialogOpen || RootGrid.XamlRoot == null) return;
+                _isModalDialogOpen = true;
+                try
+                {
+                    var keywordsBox = new TextBox
+                    {
+                        Header = $"ラベルキーワード（, または ， で複数指定 / 最大{SettingsManager.MaxActionKeywordsLength}文字）",
+                        Text = mapping.Keywords,
+                        MaxLength = SettingsManager.MaxActionKeywordsLength,
+                        PlaceholderText = "例: 名前,氏名,お名前"
+                    };
+                    var valueBox = new TextBox
+                    {
+                        Header = $"入力値（最大{SettingsManager.MaxActionValueLength}文字）",
+                        Text = mapping.PlainValue,
+                        MaxLength = SettingsManager.MaxActionValueLength,
+                        PlaceholderText = "入力値"
+                    };
+                    var errorText = new TextBlock
+                    {
+                        Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
+                        FontSize = 12,
+                        TextWrapping = TextWrapping.Wrap,
+                        Visibility = Visibility.Collapsed
+                    };
+
+                    var panel = new StackPanel { Spacing = 12, MinWidth = 340 };
+                    panel.Children.Add(keywordsBox);
+                    panel.Children.Add(valueBox);
+                    panel.Children.Add(errorText);
+
+                    var dialog = new ContentDialog
+                    {
+                        Title = "登録項目の編集",
+                        Content = panel,
+                        PrimaryButtonText = "保存",
+                        CloseButtonText = "キャンセル",
+                        DefaultButton = ContentDialogButton.Primary,
+                        XamlRoot = RootGrid.XamlRoot,
+                        RequestedTheme = RootGrid.ActualTheme
+                    };
+
+                    dialog.PrimaryButtonClick += (_, args) =>
+                    {
+                        if (!ViewModel.TryUpdateActionMappingDirect(mapping, keywordsBox.Text, valueBox.Text, out string err))
+                        {
+                            errorText.Text = err;
+                            errorText.Visibility = Visibility.Visible;
+                            args.Cancel = true;
+                        }
+                    };
+
+                    await dialog.ShowAsync();
+                }
+                finally
+                {
+                    _isModalDialogOpen = false;
+                }
+            }
+        }
+
+        private async void RemoveFolderMappingBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is FolderMapping mapping)
+            {
+                bool confirmed = await ShowConfirmDialogAsync(
+                    "フォルダの登録を解除しますか？",
+                    "この操作では Caiqelle からのリンク（登録）のみが解除され、PC 上のフォルダや画像ファイル自体は削除されません。");
+                if (confirmed)
+                {
+                    ViewModel.RemoveMappingCommand.Execute(mapping);
+                }
+            }
+        }
+
+        private async void DeleteActionMappingBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is ActionFieldMapping mapping)
+            {
+                bool confirmed = await ShowConfirmDialogAsync(
+                    "登録項目を削除しますか？",
+                    "このキーワードと登録された入力値を削除します。この操作は元に戻せません。");
+                if (confirmed)
+                {
+                    ViewModel.DeleteActionMappingCommand.Execute(mapping);
+                }
+            }
+        }
+
+        private async System.Threading.Tasks.Task<bool> ShowConfirmDialogAsync(string title, string message)
+        {
+            if (_isModalDialogOpen || RootGrid.XamlRoot == null) return false;
+            _isModalDialogOpen = true;
+            try
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = title,
+                    Content = new TextBlock
+                    {
+                        Text = message,
+                        TextWrapping = TextWrapping.Wrap,
+                        FontSize = 13,
+                        LineHeight = 20
+                    },
+                    PrimaryButtonText = "はい",
+                    CloseButtonText = "いいえ",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = RootGrid.XamlRoot,
+                    RequestedTheme = RootGrid.ActualTheme
+                };
+
+                var result = await dialog.ShowAsync();
+                return result == ContentDialogResult.Primary;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] ShowConfirmDialog error: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                _isModalDialogOpen = false;
+            }
+        }
+
+        private async void ShowTermsDialogBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isModalDialogOpen || RootGrid.XamlRoot == null) return;
+            _isModalDialogOpen = true;
+            try
+            {
+                var contentText = new TextBlock
+                {
+                    Text = LegalNoticeText,
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = 13,
+                    LineHeight = 20,
+                    IsTextSelectionEnabled = true
+                };
+
+                var scrollViewer = new ScrollViewer
+                {
+                    Content = contentText,
+                    MaxHeight = 360,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    Padding = new Thickness(0, 4, 12, 4)
+                };
+
+                var dialog = new ContentDialog
+                {
+                    Title = "利用規約・免責事項",
+                    Content = scrollViewer,
+                    CloseButtonText = "閉じる",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = RootGrid.XamlRoot,
+                    RequestedTheme = RootGrid.ActualTheme
+                };
+
+                await dialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] ShowTermsDialog error: {ex.Message}");
+            }
+            finally
+            {
+                _isModalDialogOpen = false;
+            }
+        }
+
+        private const string LegalNoticeText =
+@"【利用規約】
+1. ユーザーは、法令および関係各所・各サービスの規約を遵守したうえで、本ソフトウェア（Caiqelle）を利用するものとします。
+2. 本ソフトウェアを不正な目的（第三者の権利侵害、スパム行為、不正アクセス、アクセス制御の回避、その他法令または公序良俗に反する行為等）で利用することを禁止します。
+3. 本ソフトウェアの利用に際して発生するデータおよび環境・設定の管理は、ユーザー自身の責任で行うものとします。
+
+【免責事項】
+1. 本ソフトウェアは現状有姿（AS-IS）で提供され、動作の完全性、正確性、安全性、特定目的への適合性についていかなる保証も行いません。
+2. 本ソフトウェアの利用または利用不能によって生じたいかなる損害（直接的・間接的損害、データ損失、誤動作、第三者との紛争等を含むがこれに限らない）についても、開発者は一切の責任を負いません。
+3. 本ソフトウェアの内容・仕様および本規約は、予告なく変更または提供を終了する場合があります。
+
+【商標・権利表記】
+本ソフトウェアおよび関連資料に記載されている会社名・製品名・サービス名は、各社の商標または登録商標です。本ソフトウェアはこれら各社と提携、協賛、または承認されたものではありません。";
     }
 }

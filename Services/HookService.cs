@@ -14,9 +14,15 @@ namespace Caiqelle.Services
         F,
         E,
         P,
+        R,
+        L,
+        S,
+        V,
         Esc,
         OpenDashboard,
-        ToggleRewind
+        ToggleRewind,
+        ActionApply,
+        ActionDismiss
     }
 
     public class HookService : IDisposable
@@ -66,6 +72,8 @@ namespace Caiqelle.Services
         private const int VK_SNAPSHOT = 0x2C;
         private const int VK_S = 0x53;
         private const int VK_CONTROL = 0x11;
+        private const int VK_LCONTROL = 0xA2;
+        private const int VK_RCONTROL = 0xA3;
         private const int VK_CAPITAL = 0x14;
 
         // Scan codes for 1-key accelerators (independent of IME)
@@ -75,12 +83,16 @@ namespace Caiqelle.Services
         private const uint SC_S = 0x1F;
         private const uint SC_E = 0x12;
         private const uint SC_P = 0x19;
+        private const uint SC_R = 0x13;
+        private const uint SC_L = 0x26;
+        private const uint SC_V = 0x2F;
         private const uint SC_ESC = 0x01;
 
         public event Action<CapturedKey>? OnKeyPressed;
         
         public bool IsFloatingUiActive { get; set; } = false;
         public bool IsCaptureOverlayActive { get; set; } = false;
+        public bool IsActionPillActive { get; set; } = false;
         public bool IsHijackPrintScreen { get; set; } = true;
         public bool IsHijackWinShiftS { get; set; } = true;
         public bool IsShiftCapsLockRewindEnabled { get; set; } = false;
@@ -124,13 +136,15 @@ namespace Caiqelle.Services
                 int vkCode = (int)hookStruct.vkCode;
                 uint scanCode = hookStruct.scanCode;
 
+                // 低レベルフックではスレッド依存の GetKeyState による誤判定を避け、GetAsyncKeyState のみで物理押下状態を判定する
                 bool isShift = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0
                             || (GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0
-                            || (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0
-                            || (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                            || (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
 
                 bool isWin = (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 || (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0;
-                bool isCtrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0 || (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+                bool isCtrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0
+                           || (GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0
+                           || (GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0;
 
                 // 1. PrintScreen Hijack
                 if (IsHijackPrintScreen && vkCode == VK_SNAPSHOT)
@@ -168,6 +182,10 @@ namespace Caiqelle.Services
                     else if (scanCode == SC_F) capturedKey = CapturedKey.F;
                     else if (scanCode == SC_E) capturedKey = CapturedKey.E;
                     else if (scanCode == SC_P) capturedKey = CapturedKey.P;
+                    else if (scanCode == SC_R) capturedKey = CapturedKey.R;
+                    else if (scanCode == SC_L) capturedKey = CapturedKey.L;
+                    else if (scanCode == SC_S) capturedKey = CapturedKey.S;
+                    else if (scanCode == SC_V) capturedKey = CapturedKey.V;
                     else if (scanCode == SC_ESC) capturedKey = CapturedKey.Esc;
 
                     if (capturedKey.HasValue)
@@ -181,6 +199,21 @@ namespace Caiqelle.Services
                     if (scanCode == SC_ESC)
                     {
                         OnKeyPressed?.Invoke(CapturedKey.Esc);
+                        return (IntPtr)1;
+                    }
+                }
+                else if (IsActionPillActive && !isCtrl && !isShift && !isWin)
+                {
+                    const int VK_RETURN = 0x0D;
+                    const int VK_ESCAPE = 0x1B;
+                    if (vkCode == VK_RETURN)
+                    {
+                        OnKeyPressed?.Invoke(CapturedKey.ActionApply);
+                        return (IntPtr)1;
+                    }
+                    if (vkCode == VK_ESCAPE)
+                    {
+                        OnKeyPressed?.Invoke(CapturedKey.ActionDismiss);
                         return (IntPtr)1;
                     }
                 }

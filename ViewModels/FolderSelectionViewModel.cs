@@ -32,6 +32,15 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         public partial string FileNameInput { get; set; } = string.Empty;
 
+        partial void OnFileNameInputChanged(string value)
+        {
+            if (IsErrorState)
+            {
+                IsErrorState = false;
+                PageIndicatorText = $"{_currentPage}/{_totalPages}";
+            }
+        }
+
         [ObservableProperty]
         public partial string PageIndicatorText { get; set; } = "1/1";
 
@@ -43,6 +52,33 @@ namespace Caiqelle.ViewModels
 
         [ObservableProperty]
         public partial bool IsErrorState { get; set; }
+
+        /// <summary>
+        /// フォルダ作成完了後にダミーボタンへフォーカスを戻すコールバック（キー保存をすぐ使えるようにする）
+        /// </summary>
+        public Action? RequestRestoreDummyFocus { get; set; }
+
+        [ObservableProperty]
+        public partial string NewFolderName { get; set; } = string.Empty;
+
+        partial void OnNewFolderNameChanged(string value)
+        {
+            IsCreateErrorOpen = false;
+        }
+
+        [ObservableProperty]
+        public partial string NewFolderKey { get; set; } = string.Empty;
+
+        partial void OnNewFolderKeyChanged(string value)
+        {
+            IsCreateErrorOpen = false;
+        }
+
+        [ObservableProperty]
+        public partial bool IsCreateErrorOpen { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateErrorMessage { get; set; } = string.Empty;
 
         [ObservableProperty]
         public partial bool IsSaving { get; set; }
@@ -61,9 +97,37 @@ namespace Caiqelle.ViewModels
         {
             _imageBytes = imageBytes;
             FileNameInput = string.Empty;
+            NewFolderName = string.Empty;
+            NewFolderKey = string.Empty;
+            IsCreateErrorOpen = false;
+            CreateErrorMessage = string.Empty;
             IsErrorState = false;
             IsSaving = false;
             ReloadMappings();
+        }
+
+        [RelayCommand]
+        private void CreateFolder()
+        {
+            IsCreateErrorOpen = false;
+
+            if (!_settings.TryAddFolderMapping(NewFolderName, NewFolderKey, createDirectory: true, out string errorMessage))
+            {
+                CreateErrorMessage = errorMessage;
+                IsCreateErrorOpen = true;
+                return;
+            }
+
+            NewFolderName = string.Empty;
+            NewFolderKey = string.Empty;
+
+            // 新規作成したフォルダが見える最終ページを表示
+            _allMappings.Clear();
+            _allMappings.AddRange(_settings.ImageFolderMappings);
+            _totalPages = Math.Max(1, (int)Math.Ceiling(_allMappings.Count / 10.0));
+            LoadPage(_totalPages);
+
+            RequestRestoreDummyFocus?.Invoke();
         }
 
         public void ReloadMappings()
@@ -155,38 +219,64 @@ namespace Caiqelle.ViewModels
 
             try
             {
-                await Task.Run(() =>
+                bool saved = await Task.Run(() =>
                 {
-                    string finalFolderPath = folderPath;
-                    if (!Path.IsPathRooted(finalFolderPath))
-                    {
-                        string myPictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-                        finalFolderPath = Path.Combine(myPictures, "Caiqelle", folderPath);
-                    }
+                    string finalFolderPath = SettingsManager.ResolveFolderPath(folderPath);
 
                     if (!Directory.Exists(finalFolderPath))
                     {
                         Directory.CreateDirectory(finalFolderPath);
                     }
 
-                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    string fileName;
+                    // バイト列のヘッダーから実際の画像形式（JPEG / PNG）を判定し、中身と拡張子の不一致を防ぐ
+                    bool isJpeg = imageBytes.Length >= 2 && imageBytes[0] == 0xFF && imageBytes[1] == 0xD8;
+                    string defaultExt = isJpeg ? ".jpg" : ".png";
+
+                    string fileName = string.Empty;
                     if (!string.IsNullOrEmpty(inputName))
                     {
                         foreach (char c in Path.GetInvalidFileNameChars())
                         {
                             inputName = inputName.Replace(c, '_');
                         }
-                        fileName = $"{inputName}_{timestamp}.png";
+                        inputName = inputName.Trim().TrimEnd('.');
+
+                        if (SettingsManager.IsSafeEntryName(inputName))
+                        {
+                            bool hasMatchingExt = isJpeg
+                                ? (inputName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || inputName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                                : inputName.EndsWith(".png", StringComparison.OrdinalIgnoreCase);
+
+                            fileName = hasMatchingExt ? inputName : $"{inputName}{defaultExt}";
+                        }
                     }
-                    else
+
+                    if (string.IsNullOrEmpty(fileName))
                     {
-                        fileName = $"Caiqelle_{timestamp}.png";
+                        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                        fileName = $"Caiqelle_{timestamp}{defaultExt}";
                     }
 
                     string fullPath = Path.Combine(finalFolderPath, fileName);
+                    if (!SettingsManager.IsPathWithinDirectory(finalFolderPath, fullPath))
+                    {
+                        return false;
+                    }
+                    if (File.Exists(fullPath))
+                    {
+                        return false;
+                    }
+
                     File.WriteAllBytes(fullPath, imageBytes);
+                    return true;
                 });
+
+                if (!saved)
+                {
+                    IsErrorState = true;
+                    PageIndicatorText = "同名のファイルが既に存在します";
+                    return;
+                }
 
                 _notificationService.ShowNotification($"{folderPath} に保存しました", "\uE8D5");
                 RequestCloseWithResult?.Invoke(true);

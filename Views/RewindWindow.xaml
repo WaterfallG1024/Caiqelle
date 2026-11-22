@@ -9,11 +9,7 @@
     mc:Ignorable="d"
     Title="Rewind Viewer">
 
-    <Window.SystemBackdrop>
-        <DesktopAcrylicBackdrop />
-    </Window.SystemBackdrop>
-
-    <Grid Background="Transparent" KeyDown="Grid_KeyDown" PointerWheelChanged="Window_PointerWheelChanged">
+    <Grid x:Name="RootGrid" Background="Transparent" IsTabStop="True" UseSystemFocusVisuals="False" KeyDown="Grid_KeyDown" PointerWheelChanged="Window_PointerWheelChanged">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -35,7 +31,13 @@
             </Grid.ColumnDefinitions>
 
             <!-- Left Arrow (Older Frame, M3 Squircle Button) -->
-            <Button x:Name="LeftArrowBtn" Grid.Column="0" Width="64" Height="64" Background="{StaticResource M3SurfaceContainerHighBrush}" BorderThickness="0" CornerRadius="18" Padding="0" VerticalAlignment="Center" Command="{x:Bind ViewModel.GoOlderCommand}" IsEnabled="{x:Bind ViewModel.CanGoOlder, Mode=OneWay}" Opacity="{x:Bind ViewModel.OlderButtonOpacity, Mode=OneWay}" ToolTipService.ToolTip="過去のフレームへ (← または ホイール下)">
+            <Button x:Name="LeftArrowBtn" Grid.Column="0" Width="64" Height="64" Background="{StaticResource M3SurfaceContainerHighBrush}" BorderThickness="0" CornerRadius="18" Padding="0" VerticalAlignment="Center" Command="{x:Bind ViewModel.GoOlderCommand}" IsEnabled="{x:Bind ViewModel.CanGoOlder, Mode=OneWay}" Opacity="{x:Bind ViewModel.OlderButtonOpacity, Mode=OneWay}" ToolTipService.ToolTip="過去のフレームへ (← または ホイール下)" PointerEntered="ActionBtn_PointerEntered" PointerExited="ActionBtn_PointerExited" PointerPressed="ActionBtn_PointerPressed" PointerReleased="ActionBtn_PointerReleased">
+                <Button.Resources>
+                    <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="M3SurfaceContainerHighBrush" />
+                    <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="M3SurfaceContainerHighBrush" />
+                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="AfterGlowTextPrimaryBrush" />
+                    <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="AfterGlowTextPrimaryBrush" />
+                </Button.Resources>
                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE76B;" FontSize="28" Foreground="{StaticResource AfterGlowTextPrimaryBrush}"/>
             </Button>
 
@@ -45,18 +47,56 @@
             </Border>
 
             <!-- Right Arrow (Newer Frame, M3 Squircle Button) -->
-            <Button x:Name="RightArrowBtn" Grid.Column="2" Width="64" Height="64" Background="{StaticResource M3SurfaceContainerHighBrush}" BorderThickness="0" CornerRadius="18" Padding="0" VerticalAlignment="Center" Command="{x:Bind ViewModel.GoNewerCommand}" IsEnabled="{x:Bind ViewModel.CanGoNewer, Mode=OneWay}" Opacity="{x:Bind ViewModel.NewerButtonOpacity, Mode=OneWay}" ToolTipService.ToolTip="新しいフレームへ (→ または ホイール上)">
+            <Button x:Name="RightArrowBtn" Grid.Column="2" Width="64" Height="64" Background="{StaticResource M3SurfaceContainerHighBrush}" BorderThickness="0" CornerRadius="18" Padding="0" VerticalAlignment="Center" Command="{x:Bind ViewModel.GoNewerCommand}" IsEnabled="{x:Bind ViewModel.CanGoNewer, Mode=OneWay}" Opacity="{x:Bind ViewModel.NewerButtonOpacity, Mode=OneWay}" ToolTipService.ToolTip="新しいフレームへ (→ または ホイール上)" PointerEntered="ActionBtn_PointerEntered" PointerExited="ActionBtn_PointerExited" PointerPressed="ActionBtn_PointerPressed" PointerReleased="ActionBtn_PointerReleased">
+                <Button.Resources>
+                    <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="M3SurfaceContainerHighBrush" />
+                    <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="M3SurfaceContainerHighBrush" />
+                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="AfterGlowTextPrimaryBrush" />
+                    <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="AfterGlowTextPrimaryBrush" />
+                </Button.Resources>
                 <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE76C;" FontSize="28" Foreground="{StaticResource AfterGlowTextPrimaryBrush}"/>
             </Button>
         </Grid>
 
         <!-- Bottom Controls & Index (M3 Expressive Pill Bar) -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16" Margin="0,0,0,36">
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" Margin="0,0,0,36">
             <Border Background="{StaticResource M3SurfaceContainerHighestBrush}" CornerRadius="14" Padding="20,8">
                 <TextBlock x:Name="IndexLabel" Text="{x:Bind ViewModel.IndexText, Mode=OneWay}" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
+
+            <Button x:Name="CopyBtn" Background="{StaticResource M3SurfaceContainerHighestBrush}" BorderThickness="0" CornerRadius="14" Command="{x:Bind ViewModel.CopyToClipboardCommand}" IsEnabled="{x:Bind ViewModel.HasFrames, Mode=OneWay}" Padding="16,10" ToolTipService.ToolTip="クリップボードにコピー (Ctrl + C)" PointerEntered="ActionBtn_PointerEntered" PointerExited="ActionBtn_PointerExited" PointerPressed="ActionBtn_PointerPressed" PointerReleased="ActionBtn_PointerReleased">
+                <Button.Resources>
+                    <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="M3SurfaceContainerHighestBrush" />
+                    <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="M3SurfaceContainerHighestBrush" />
+                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="AfterGlowTextPrimaryBrush" />
+                    <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="AfterGlowTextPrimaryBrush" />
+                </Button.Resources>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C8;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                    <TextBlock Text="コピー" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </StackPanel>
+            </Button>
+
+            <Button x:Name="SaveBtn" Background="{StaticResource M3SurfaceContainerHighestBrush}" BorderThickness="0" CornerRadius="14" Command="{x:Bind ViewModel.SaveCommand}" IsEnabled="{x:Bind ViewModel.HasFrames, Mode=OneWay}" Padding="16,10" ToolTipService.ToolTip="フォルダを選択して保存 (Ctrl + S)" PointerEntered="ActionBtn_PointerEntered" PointerExited="ActionBtn_PointerExited" PointerPressed="ActionBtn_PointerPressed" PointerReleased="ActionBtn_PointerReleased">
+                <Button.Resources>
+                    <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="M3SurfaceContainerHighestBrush" />
+                    <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="M3SurfaceContainerHighestBrush" />
+                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="AfterGlowTextPrimaryBrush" />
+                    <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="AfterGlowTextPrimaryBrush" />
+                </Button.Resources>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE792;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                    <TextBlock Text="保存" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                </StackPanel>
+            </Button>
             
-            <Button x:Name="OpenInEditorBtn" Style="{StaticResource M3FilledPrimaryButtonStyle}" Command="{x:Bind ViewModel.OpenInEditorCommand}" IsEnabled="{x:Bind ViewModel.HasFrames, Mode=OneWay}" Padding="18,8" ToolTipService.ToolTip="このフレームをエディターで編集">
+            <Button x:Name="OpenInEditorBtn" Style="{StaticResource M3FilledPrimaryButtonStyle}" Command="{x:Bind ViewModel.OpenInEditorCommand}" IsEnabled="{x:Bind ViewModel.HasFrames, Mode=OneWay}" Padding="18,10" ToolTipService.ToolTip="このフレームをエディターで編集" PointerEntered="ActionBtn_PointerEntered" PointerExited="ActionBtn_PointerExited" PointerPressed="ActionBtn_PointerPressed" PointerReleased="ActionBtn_PointerReleased">
+                <Button.Resources>
+                    <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="M3PrimaryBrush" />
+                    <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="M3PrimaryBrush" />
+                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="M3OnPrimaryBrush" />
+                    <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="M3OnPrimaryBrush" />
+                </Button.Resources>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70F;" FontSize="16" Foreground="{StaticResource M3OnPrimaryBrush}" />
                     <TextBlock Text="エディターで開く" FontSize="14" FontWeight="Bold" Foreground="{StaticResource M3OnPrimaryBrush}" />

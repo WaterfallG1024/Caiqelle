@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -18,6 +19,7 @@ namespace Caiqelle.ViewModels
         Home,
         Folder,
         Rewind,
+        Action,
         Settings
     }
 
@@ -40,6 +42,38 @@ namespace Caiqelle.ViewModels
     }
 
     /// <summary>
+    /// カラーテーマ選択用の表示モデル
+    /// </summary>
+    public class AccentThemeOption
+    {
+        public string Label { get; }
+        public AccentTheme Value { get; }
+        public Microsoft.UI.Xaml.Media.SolidColorBrush ColorBrush { get; }
+
+        public AccentThemeOption(AccentThemeInfo info)
+        {
+            Label = info.DisplayName;
+            Value = info.Theme;
+            ColorBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(info.Color);
+        }
+    }
+
+    /// <summary>
+    /// アプリテーマ（システム／ライト／ダーク）選択用の表示モデル
+    /// </summary>
+    public class AppThemeOption
+    {
+        public string Label { get; }
+        public AppThemeMode Value { get; }
+
+        public AppThemeOption(AppThemeMode value, string label)
+        {
+            Value = value;
+            Label = label;
+        }
+    }
+
+    /// <summary>
     /// MainWindow の状態・コマンドを管理する ViewModel
     /// </summary>
     public partial class MainViewModel : ObservableObject
@@ -50,6 +84,10 @@ namespace Caiqelle.ViewModels
         private readonly ScreenshotService _screenshotService;
         private readonly StartupService _startupService;
         private readonly NotificationService _notificationService;
+        private readonly ThemeService _themeService;
+        private readonly StickyTextService _stickyTextService;
+        private readonly ActionService? _actionService;
+        private readonly UpdateService? _updateService;
         private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
         private bool _isInitializing = true;
@@ -77,6 +115,7 @@ namespace Caiqelle.ViewModels
         [NotifyPropertyChangedFor(nameof(IsHomeTabVisible))]
         [NotifyPropertyChangedFor(nameof(IsFolderTabVisible))]
         [NotifyPropertyChangedFor(nameof(IsRewindTabVisible))]
+        [NotifyPropertyChangedFor(nameof(IsActionTabVisible))]
         [NotifyPropertyChangedFor(nameof(IsSettingsTabVisible))]
         [NotifyPropertyChangedFor(nameof(HeaderTitle))]
         public partial MainTab CurrentTab { get; set; } = MainTab.Home;
@@ -84,6 +123,7 @@ namespace Caiqelle.ViewModels
         public bool IsHomeTabVisible => CurrentTab == MainTab.Home;
         public bool IsFolderTabVisible => CurrentTab == MainTab.Folder;
         public bool IsRewindTabVisible => CurrentTab == MainTab.Rewind;
+        public bool IsActionTabVisible => CurrentTab == MainTab.Action;
         public bool IsSettingsTabVisible => CurrentTab == MainTab.Settings;
 
         public string HeaderTitle => CurrentTab switch
@@ -91,6 +131,7 @@ namespace Caiqelle.ViewModels
             MainTab.Home => "クイック アクセス",
             MainTab.Folder => "フォルダ管理",
             MainTab.Rewind => "リワインド",
+            MainTab.Action => "アクション",
             MainTab.Settings => "設定",
             _ => "クイック アクセス"
         };
@@ -115,11 +156,25 @@ namespace Caiqelle.ViewModels
 
         public ObservableCollection<FolderMapping> Mappings { get; } = new();
 
+        public string FolderMappingCountText => $"{Mappings.Count}/{SettingsManager.MaxFolderMappingCount}";
+        public bool CanAddFolderMapping => Mappings.Count < SettingsManager.MaxFolderMappingCount;
+        public bool IsFolderLimitReached => !CanAddFolderMapping;
+
         [ObservableProperty]
         public partial string FolderNameInput { get; set; } = string.Empty;
 
+        partial void OnFolderNameInputChanged(string value)
+        {
+            IsValidationErrorOpen = false;
+        }
+
         [ObservableProperty]
         public partial string KeyInput { get; set; } = string.Empty;
+
+        partial void OnKeyInputChanged(string value)
+        {
+            IsValidationErrorOpen = false;
+        }
 
         [ObservableProperty]
         public partial bool IsValidationErrorOpen { get; set; }
@@ -139,6 +194,9 @@ namespace Caiqelle.ViewModels
         public partial bool IsShiftCapsLockRewindEnabled { get; set; }
 
         [ObservableProperty]
+        public partial bool IsRewindTileCompressionEnabled { get; set; } = false;
+
+        [ObservableProperty]
         public partial string RewindMemoryInfoTitle { get; set; } = "メモリ搭載量に応じた制限について";
 
         [ObservableProperty]
@@ -155,11 +213,14 @@ namespace Caiqelle.ViewModels
             new SelectableOption("20秒", "20"),
             new SelectableOption("30秒", "30"),
             new SelectableOption("60秒", "60"),
-            new SelectableOption("90秒", "90"),
-            new SelectableOption("120秒", "120"),
-            new SelectableOption("180秒", "180"),
-            new SelectableOption("240秒", "240"),
-            new SelectableOption("300秒", "300")
+            new SelectableOption("1分30秒", "90"),
+            new SelectableOption("2分", "120"),
+            new SelectableOption("3分", "180"),
+            new SelectableOption("4分", "240"),
+            new SelectableOption("5分", "300"),
+            new SelectableOption("10分", "600"),
+            new SelectableOption("15分", "900"),
+            new SelectableOption("20分", "1200")
         };
 
         public ObservableCollection<SelectableOption> RewindQualityOptions { get; } = new()
@@ -214,6 +275,18 @@ namespace Caiqelle.ViewModels
         public partial bool IsAutoCopyToClipboard { get; set; }
 
         [ObservableProperty]
+        public partial bool IsIgnoreOutsideSelectionClick { get; set; } = true;
+
+        [ObservableProperty]
+        public partial bool IsStickyTextStealthMode { get; set; } = false;
+
+        [ObservableProperty]
+        public partial bool IsStickyTextSaveEnabled { get; set; } = false;
+
+        [ObservableProperty]
+        public partial bool IsStickyTextRestoreOnOpen { get; set; } = true;
+
+        [ObservableProperty]
         public partial bool IsAutoUpdateEnabled { get; set; }
 
         [ObservableProperty]
@@ -225,13 +298,69 @@ namespace Caiqelle.ViewModels
         [ObservableProperty]
         public partial bool IsUpdateStatusVisible { get; set; }
 
+        [ObservableProperty]
+        public partial bool IsRestartToUpdateVisible { get; set; }
+
+        [ObservableProperty]
+        public partial string PendingUpdateBannerText { get; set; } = string.Empty;
+
+        public ObservableCollection<AccentThemeOption> AccentThemeOptions { get; } = new();
+
+        [ObservableProperty]
+        public partial AccentTheme SelectedAccentTheme { get; set; } = AccentTheme.System;
+
+        public int SelectedAccentThemeIndex
+        {
+            get
+            {
+                for (int i = 0; i < AccentThemeOptions.Count; i++)
+                {
+                    if (AccentThemeOptions[i].Value == SelectedAccentTheme) return i;
+                }
+                return 0;
+            }
+            set
+            {
+                if (value >= 0 && value < AccentThemeOptions.Count)
+                {
+                    SelectedAccentTheme = AccentThemeOptions[value].Value;
+                }
+            }
+        }
+
+        public ObservableCollection<AppThemeOption> AppThemeOptions { get; } = new()
+        {
+            new AppThemeOption(AppThemeMode.System, "システム既定"),
+            new AppThemeOption(AppThemeMode.Light, "ライト"),
+            new AppThemeOption(AppThemeMode.Dark, "ダーク")
+        };
+
+        [ObservableProperty]
+        public partial AppThemeMode SelectedAppTheme { get; set; } = AppThemeMode.System;
+
+        public int SelectedAppThemeIndex
+        {
+            get => (int)SelectedAppTheme;
+            set
+            {
+                if (value >= 0 && value < AppThemeOptions.Count)
+                {
+                    SelectedAppTheme = AppThemeOptions[value].Value;
+                }
+            }
+        }
+
         public MainViewModel(
             SettingsManager settings,
             RewindService rewindService,
             HookService hookService,
             ScreenshotService screenshotService,
             StartupService startupService,
-            NotificationService notificationService)
+            NotificationService notificationService,
+            ThemeService themeService,
+            StickyTextService stickyTextService,
+            ActionService? actionService = null,
+            UpdateService? updateService = null)
         {
             _settings = settings;
             _rewindService = rewindService;
@@ -239,12 +368,71 @@ namespace Caiqelle.ViewModels
             _screenshotService = screenshotService;
             _startupService = startupService;
             _notificationService = notificationService;
+            _themeService = themeService;
+            _stickyTextService = stickyTextService;
+            _actionService = actionService;
+            _updateService = updateService;
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+            foreach (var info in ThemeService.AvailableThemes)
+            {
+                AccentThemeOptions.Add(new AccentThemeOption(info));
+            }
 
             InitializeFromSettings();
 
             _rewindService.StateChanged += RewindService_StateChanged;
+            _settings.MappingsChanged += Settings_MappingsChanged;
+            Mappings.CollectionChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(FolderMappingCountText));
+                OnPropertyChanged(nameof(CanAddFolderMapping));
+                OnPropertyChanged(nameof(IsFolderLimitReached));
+            };
+            ActionMappings.CollectionChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(ActionMappingCountText));
+                OnPropertyChanged(nameof(CanAddActionMapping));
+                OnPropertyChanged(nameof(IsActionLimitReached));
+            };
+            if (_updateService != null)
+            {
+                _updateService.UpdateDownloaded += UpdateService_UpdateDownloaded;
+                if (_updateService.HasPendingUpdate)
+                {
+                    ApplyPendingUpdateUi(_updateService.PendingUpdateVersion ?? string.Empty);
+                }
+            }
             _ = CheckAndShowWhatsNewBannerAsync();
+        }
+
+        private void UpdateService_UpdateDownloaded(string version)
+        {
+            _dispatcherQueue?.TryEnqueue(() => ApplyPendingUpdateUi(version));
+        }
+
+        private void ApplyPendingUpdateUi(string version)
+        {
+            IsUpdateStatusVisible = true;
+            UpdateStatusText = string.IsNullOrEmpty(version)
+                ? "更新の準備が完了しました。"
+                : $"新バージョン ({version}) の準備が完了しました。";
+            PendingUpdateBannerText = string.IsNullOrEmpty(version)
+                ? "アップデートの適用準備が完了しました"
+                : $"新バージョン ({version}) の適用準備が完了しました";
+            IsRestartToUpdateVisible = true;
+        }
+
+        private void Settings_MappingsChanged()
+        {
+            _dispatcherQueue?.TryEnqueue(() =>
+            {
+                Mappings.Clear();
+                foreach (var mapping in _settings.ImageFolderMappings)
+                {
+                    Mappings.Add(mapping);
+                }
+            });
         }
 
         private void InitializeFromSettings()
@@ -262,12 +450,27 @@ namespace Caiqelle.ViewModels
                 IsHijackWinShiftS = _settings.IsHijackWinShiftS;
                 IsRunAtStartup = _settings.IsRunAtStartup;
                 IsAutoCopyToClipboard = _settings.IsAutoCopyToClipboard;
+                IsIgnoreOutsideSelectionClick = _settings.IsIgnoreOutsideSelectionClick;
+                IsStickyTextStealthMode = _settings.IsStickyTextStealthMode;
+                IsStickyTextSaveEnabled = _settings.IsStickyTextSaveEnabled;
+                IsStickyTextRestoreOnOpen = _settings.IsStickyTextRestoreOnOpen;
                 IsAutoUpdateEnabled = _settings.IsAutoUpdateEnabled;
+
+                IsActionAutoDetectEnabled = _settings.IsActionAutoDetectEnabled;
+                IsActionOnlyOnBrowsers = _settings.IsActionOnlyOnBrowsers;
+                ActionRestoreClipboardAfterFill = _settings.ActionRestoreClipboardAfterFill;
+                ActionMappings.Clear();
+                foreach (var actionItem in _settings.ActionMappings)
+                {
+                    ActionMappings.Add(actionItem);
+                }
 
                 VersionText = $"v{GetCurrentVersionString()}";
 
                 SelectedImageFormat = string.IsNullOrEmpty(_settings.ImageFormat) ? "PNG" : _settings.ImageFormat;
                 SelectedJpegQuality = _settings.JpegQuality.ToString();
+                SelectedAccentTheme = _settings.AccentTheme;
+                SelectedAppTheme = _settings.AppThemeMode;
 
                 LoadRewindSettings();
                 UpdateRewindUIConstraints();
@@ -298,9 +501,21 @@ namespace Caiqelle.ViewModels
             }
 
             IsRewindStatusVisible = true;
+            string durationLabel = FormatDuration(_settings.RewindDurationSeconds);
             RewindStatusText = _rewindService.IsPaused
-                ? $"リワインド一時停止中 ({_settings.RewindDurationSeconds}秒 / {_settings.RewindQuality})"
-                : $"リワインド録画中 ({_settings.RewindDurationSeconds}秒 / {_settings.RewindQuality})";
+                ? $"リワインド一時停止中 ({durationLabel} / {_settings.RewindQuality})"
+                : $"リワインド録画中 ({durationLabel} / {_settings.RewindQuality})";
+        }
+
+        /// <summary>
+        /// 秒数を表示用文字列へ変換する（61秒以上は○分○秒表記）
+        /// </summary>
+        public static string FormatDuration(int seconds)
+        {
+            if (seconds <= 60) return $"{seconds}秒";
+            int mins = seconds / 60;
+            int secs = seconds % 60;
+            return secs == 0 ? $"{mins}分" : $"{mins}分{secs}秒";
         }
 
         // --- ナビゲーションコマンド ---
@@ -328,7 +543,187 @@ namespace Caiqelle.ViewModels
         }
 
         [RelayCommand]
+        private void NavigateToAction() => SwitchTab(MainTab.Action);
+
+        [RelayCommand]
         private void NavigateToSettings() => SwitchTab(MainTab.Settings);
+
+        // --- Action タブ設定・コマンド ---
+
+        public ObservableCollection<ActionFieldMapping> ActionMappings { get; } = new();
+
+        public string ActionMappingCountText => $"{ActionMappings.Count}/{SettingsManager.MaxActionMappingCount}";
+        public bool CanAddActionMapping => ActionMappings.Count < SettingsManager.MaxActionMappingCount;
+        public bool IsActionLimitReached => !CanAddActionMapping;
+
+        [ObservableProperty]
+        public partial bool IsActionAutoDetectEnabled { get; set; }
+
+        [ObservableProperty]
+        public partial bool IsActionOnlyOnBrowsers { get; set; } = true;
+
+        [ObservableProperty]
+        public partial bool ActionRestoreClipboardAfterFill { get; set; } = true;
+
+        [ObservableProperty]
+        public partial string NewActionKeywords { get; set; } = string.Empty;
+
+        partial void OnNewActionKeywordsChanged(string value)
+        {
+            IsActionValidationErrorOpen = false;
+        }
+
+        [ObservableProperty]
+        public partial string NewActionValue { get; set; } = string.Empty;
+
+        partial void OnNewActionValueChanged(string value)
+        {
+            IsActionValidationErrorOpen = false;
+        }
+
+        [ObservableProperty]
+        public partial bool IsActionValidationErrorOpen { get; set; }
+
+        [ObservableProperty]
+        public partial string ActionValidationErrorMessage { get; set; } = string.Empty;
+
+        partial void OnIsActionAutoDetectEnabledChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsActionAutoDetectEnabled = value;
+            _settings.SaveSettings();
+            if (value)
+            {
+                _actionService?.ClearCompletedHistory();
+                _actionService?.StartMonitoring();
+            }
+        }
+
+        partial void OnIsActionOnlyOnBrowsersChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsActionOnlyOnBrowsers = value;
+            _settings.SaveSettings();
+        }
+
+        partial void OnActionRestoreClipboardAfterFillChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.ActionRestoreClipboardAfterFill = value;
+            _settings.SaveSettings();
+        }
+
+        [RelayCommand]
+        private void AddActionMapping()
+        {
+            IsActionValidationErrorOpen = false;
+            if (!CanAddActionMapping)
+            {
+                ActionValidationErrorMessage = $"登録上限（{SettingsManager.MaxActionMappingCount}件）に達しています。";
+                IsActionValidationErrorOpen = true;
+                return;
+            }
+
+            string keywords = NewActionKeywords?.Trim() ?? string.Empty;
+            string value = NewActionValue?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(keywords) || string.IsNullOrEmpty(value))
+            {
+                ActionValidationErrorMessage = "ラベルキーワードと入力値を両方入力してください。";
+                IsActionValidationErrorOpen = true;
+                return;
+            }
+            if (keywords.Length > SettingsManager.MaxActionKeywordsLength)
+            {
+                ActionValidationErrorMessage = $"ラベルキーワードは{SettingsManager.MaxActionKeywordsLength}文字以内で入力してください。";
+                IsActionValidationErrorOpen = true;
+                return;
+            }
+            if (value.Length > SettingsManager.MaxActionValueLength)
+            {
+                ActionValidationErrorMessage = $"入力値は{SettingsManager.MaxActionValueLength}文字以内で入力してください。";
+                IsActionValidationErrorOpen = true;
+                return;
+            }
+
+            // 既存項目との完全一致重複をチェック
+            foreach (var existing in ActionMappings)
+            {
+                if (string.Equals(existing.Keywords?.Trim(), keywords, StringComparison.OrdinalIgnoreCase))
+                {
+                    ActionValidationErrorMessage = "同じラベルキーワードがすでに登録されています。";
+                    IsActionValidationErrorOpen = true;
+                    return;
+                }
+            }
+
+            var mapping = new ActionFieldMapping
+            {
+                Keywords = keywords,
+                PlainValue = value
+            };
+
+            _settings.ActionMappings.Add(mapping);
+            _settings.SaveSettings();
+            ActionMappings.Add(mapping);
+
+            NewActionKeywords = string.Empty;
+            NewActionValue = string.Empty;
+            _actionService?.ClearCompletedHistory();
+        }
+
+        [RelayCommand]
+        private void DeleteActionMapping(ActionFieldMapping? mapping)
+        {
+            if (mapping == null) return;
+            _settings.ActionMappings.Remove(mapping);
+            _settings.SaveSettings();
+            ActionMappings.Remove(mapping);
+        }
+
+        public bool TryUpdateActionMappingDirect(ActionFieldMapping target, string keywordsInput, string valueInput, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            string keywords = keywordsInput?.Trim() ?? string.Empty;
+            string value = valueInput?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(keywords) || string.IsNullOrEmpty(value))
+            {
+                errorMessage = "ラベルキーワードと入力値を両方入力してください。";
+                return false;
+            }
+            if (keywords.Length > SettingsManager.MaxActionKeywordsLength)
+            {
+                errorMessage = $"ラベルキーワードは{SettingsManager.MaxActionKeywordsLength}文字以内で入力してください。";
+                return false;
+            }
+            if (value.Length > SettingsManager.MaxActionValueLength)
+            {
+                errorMessage = $"入力値は{SettingsManager.MaxActionValueLength}文字以内で入力してください。";
+                return false;
+            }
+
+            target.Keywords = keywords;
+            target.PlainValue = value;
+            int idx = ActionMappings.IndexOf(target);
+            if (idx >= 0)
+            {
+                ActionMappings[idx] = target;
+            }
+            _settings.SaveSettings();
+            _actionService?.ClearCompletedHistory();
+            return true;
+        }
+
+        public bool TryUpdateFolderMappingDirect(FolderMapping target, string folderInput, string keyInput, out string errorMessage)
+        {
+            return _settings.TryUpdateFolderMapping(target, folderInput, keyInput, out errorMessage);
+        }
+
+        [RelayCommand]
+        private void ResetActionCompletedHistory()
+        {
+            _actionService?.ClearCompletedHistory();
+            _notificationService.ShowNotification("入力済み履歴をリセットしました", "\uE72C");
+        }
 
         private void SwitchTab(MainTab tab)
         {
@@ -351,7 +746,26 @@ namespace Caiqelle.ViewModels
         private Task CapturePinAsync() => ExecuteCaptureAsync(CapturedKey.P);
 
         [RelayCommand]
+        private Task CaptureLivePinAsync() => ExecuteCaptureAsync(CapturedKey.L);
+
+        [RelayCommand]
         private Task CaptureOcrAsync() => ExecuteCaptureAsync(CapturedKey.E);
+
+        [RelayCommand]
+        private void OpenStickyText()
+        {
+            var mainWin = ((App)Microsoft.UI.Xaml.Application.Current).MainWindow;
+            if (mainWin != null) Caiqelle.Views.WindowExtensions.Hide(mainWin);
+            _stickyTextService.OpenStickyText();
+        }
+
+        [RelayCommand]
+        private void OpenStickyTextList()
+        {
+            var mainWin = ((App)Microsoft.UI.Xaml.Application.Current).MainWindow;
+            if (mainWin != null) Caiqelle.Views.WindowExtensions.Hide(mainWin);
+            _stickyTextService.OpenStickyTextList();
+        }
 
         private async Task ExecuteCaptureAsync(CapturedKey key)
         {
@@ -370,50 +784,11 @@ namespace Caiqelle.ViewModels
         {
             IsValidationErrorOpen = false;
 
-            string folder = FolderNameInput.Trim();
-            string key = KeyInput.Trim().ToUpper();
-
-            if (string.IsNullOrEmpty(folder) || string.IsNullOrEmpty(key))
+            if (!_settings.TryAddFolderMapping(FolderNameInput, KeyInput, createDirectory: false, out string errorMessage))
             {
-                ShowValidationError("フォルダ名とキーを入力してください。");
+                ShowValidationError(errorMessage);
                 return;
             }
-
-            char[] invalidChars = new[] { '\\', '/', ':', '*', '?', '"', '<', '>', '|' };
-            if (folder.IndexOfAny(invalidChars) >= 0)
-            {
-                ShowValidationError("フォルダ名に \\ / : * ? \" < > | は使用できません。");
-                return;
-            }
-
-            if (key.Length != 1)
-            {
-                ShowValidationError("キーは1文字のみ指定できます。");
-                return;
-            }
-
-            char k = key[0];
-            bool isAlphaNumeric = (k >= '0' && k <= '9') || (k >= 'A' && k <= 'Z');
-            bool isAllowedSymbol = "/[]-^;:@".Contains(k);
-            if (!isAlphaNumeric && !isAllowedSymbol)
-            {
-                ShowValidationError("キーには半角英数字(0-9, A-Z)または / [ ] - ^ ; : @ のみが使用可能です。");
-                return;
-            }
-
-            foreach (var m in Mappings)
-            {
-                if (m.Key == key)
-                {
-                    ShowValidationError($"キー '{key}' はすでに登録されています。");
-                    return;
-                }
-            }
-
-            var newMapping = new FolderMapping { FolderName = folder, Key = key };
-            Mappings.Add(newMapping);
-            _settings.ImageFolderMappings.Add(newMapping);
-            _settings.SaveSettings();
 
             FolderNameInput = string.Empty;
             KeyInput = string.Empty;
@@ -429,9 +804,7 @@ namespace Caiqelle.ViewModels
         private void RemoveMapping(FolderMapping? mapping)
         {
             if (mapping == null) return;
-            Mappings.Remove(mapping);
-            _settings.ImageFolderMappings.Remove(mapping);
-            _settings.SaveSettings();
+            _settings.RemoveFolderMapping(mapping);
         }
 
         // --- アップデート確認・What's New ---
@@ -442,50 +815,71 @@ namespace Caiqelle.ViewModels
             IsUpdateStatusVisible = true;
             UpdateStatusText = "更新を確認中...";
 
-            try
+            if (_updateService != null)
             {
-                var mgr = new Velopack.UpdateManager(new Velopack.Sources.GithubSource("https://github.com/WaterfallG1024/Caiqelle-Release", null, false));
-                if (mgr.IsInstalled)
+                var (hasUpdate, message) = await _updateService.CheckAndDownloadManualAsync(progress =>
                 {
-                    var updateInfo = await mgr.CheckForUpdatesAsync();
-                    if (updateInfo == null)
-                    {
-                        UpdateStatusText = "最新バージョンです";
-                    }
-                    else
-                    {
-                        UpdateStatusText = $"新バージョン {updateInfo.TargetFullRelease.Version} をダウンロード中...";
-                        await mgr.DownloadUpdatesAsync(updateInfo);
+                    _dispatcherQueue?.TryEnqueue(() => UpdateStatusText = progress);
+                });
 
-                        // アプリ終了後に適用処理を予約する
-                        mgr.WaitExitThenApplyUpdates(updateInfo, silent: true, restart: false);
-
-                        UpdateStatusText = "更新の準備が完了しました。次回起動時に適用されます。";
-                    }
-                }
-                else
+                UpdateStatusText = message;
+                if (hasUpdate)
                 {
-                    UpdateStatusText = "最新バージョンです (開発環境)";
+                    IsRestartToUpdateVisible = true;
                 }
+                return;
             }
-            catch
+
+            UpdateStatusText = "最新バージョンです (開発環境)";
+        }
+
+        [RelayCommand]
+        private void RestartToUpdate()
+        {
+            if (_updateService?.HasPendingUpdate == true)
             {
-                UpdateStatusText = "最新バージョンです";
+                _updateService.ApplyUpdateAndRestart();
+            }
+            else
+            {
+                _updateService?.RestartApplication();
             }
         }
 
         [RelayCommand]
-        private async Task OpenWhatsNewDetailAsync()
+        private async Task OpenReleaseNotesAsync()
         {
-            if (_latestRelease != null && !string.IsNullOrEmpty(_latestRelease.HtmlUrl))
+            string targetUrl = "https://github.com/WaterfallG1024/Caiqelle/releases";
+            if (_latestRelease == null)
             {
                 try
                 {
-                    await Launcher.LaunchUriAsync(new Uri(_latestRelease.HtmlUrl));
+                    var releaseService = new GitHubReleaseService();
+                    _latestRelease = await releaseService.GetLatestReleaseAsync();
+                }
+                catch { }
+            }
+
+            if (_latestRelease != null &&
+                Uri.TryCreate(_latestRelease.HtmlUrl, UriKind.Absolute, out var releaseUri) &&
+                releaseUri.Scheme == Uri.UriSchemeHttps &&
+                string.Equals(releaseUri.Host, "github.com", StringComparison.OrdinalIgnoreCase))
+            {
+                targetUrl = _latestRelease.HtmlUrl;
+            }
+
+            if (Uri.TryCreate(targetUrl, UriKind.Absolute, out var uri))
+            {
+                try
+                {
+                    await Launcher.LaunchUriAsync(uri);
                 }
                 catch { }
             }
         }
+
+        [RelayCommand]
+        private async Task OpenWhatsNewDetailAsync() => await OpenReleaseNotesAsync();
 
         [RelayCommand]
         private void DismissWhatsNew()
@@ -518,30 +912,9 @@ namespace Caiqelle.ViewModels
         {
             try
             {
+                // リリースノートは通知バナーではなく設定タブの「リリースノートを見る」ボタンから参照するため、ここではURL情報のみ事前取得
                 var releaseService = new GitHubReleaseService();
                 _latestRelease = await releaseService.GetLatestReleaseAsync();
-                if (_latestRelease != null && !string.IsNullOrEmpty(_latestRelease.TagName))
-                {
-                    string currentVersionStr = GetCurrentVersionString();
-                    string cleanLatestTag = _latestRelease.TagName.TrimStart('v', 'V');
-                    string cleanCurrentTag = currentVersionStr.TrimStart('v', 'V');
-
-                    if (Version.TryParse(cleanLatestTag, out Version? latestVersion) &&
-                        Version.TryParse(cleanCurrentTag, out Version? currentVersion) &&
-                        latestVersion <= currentVersion)
-                    {
-                        return;
-                    }
-
-                    if (_latestRelease.TagName != _settings.LastDismissedReleaseTag)
-                    {
-                        _dispatcherQueue?.TryEnqueue(() =>
-                        {
-                            WhatsNewTitle = $"{_latestRelease.TagName} がリリースされました！";
-                            IsWhatsNewVisible = true;
-                        });
-                    }
-                }
             }
             catch { }
         }
@@ -574,6 +947,17 @@ namespace Caiqelle.ViewModels
             _hookService.IsShiftCapsLockRewindEnabled = value;
         }
 
+        partial void OnIsRewindTileCompressionEnabledChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsRewindTileCompressionEnabled = value;
+            _settings.SaveSettings();
+            if (_settings.IsRewindEnabled)
+            {
+                _rewindService.Restart(clearBuffer: false);
+            }
+        }
+
         partial void OnSelectedRewindDurationChanged(string value)
         {
             if (_isInitializing || _isUpdatingConstraints || string.IsNullOrEmpty(value)) return;
@@ -597,7 +981,7 @@ namespace Caiqelle.ViewModels
             _settings.SaveSettings();
             if (_settings.IsRewindEnabled)
             {
-                _rewindService.Restart();
+                _rewindService.Restart(clearBuffer: false);
             }
             UpdateRewindStatusCard();
         }
@@ -650,11 +1034,59 @@ namespace Caiqelle.ViewModels
             _settings.SaveSettings();
         }
 
+        partial void OnIsIgnoreOutsideSelectionClickChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsIgnoreOutsideSelectionClick = value;
+            _settings.SaveSettings();
+        }
+
+        partial void OnIsStickyTextStealthModeChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsStickyTextStealthMode = value;
+            _settings.SaveSettings();
+            _stickyTextService.SetAllStealthMode(value);
+        }
+
+        partial void OnIsStickyTextSaveEnabledChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsStickyTextSaveEnabled = value;
+            _settings.SaveSettings();
+            _stickyTextService.SetSaveEnabled(value);
+        }
+
+        partial void OnIsStickyTextRestoreOnOpenChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsStickyTextRestoreOnOpen = value;
+            _settings.SaveSettings();
+        }
+
         partial void OnIsAutoUpdateEnabledChanged(bool value)
         {
             if (_isInitializing) return;
             _settings.IsAutoUpdateEnabled = value;
             _settings.SaveSettings();
+        }
+
+        partial void OnSelectedAccentThemeChanged(AccentTheme value)
+        {
+            OnPropertyChanged(nameof(SelectedAccentThemeIndex));
+            if (_isInitializing) return;
+            _settings.AccentTheme = value;
+            _settings.SaveSettings();
+            _themeService.ApplyTheme(value, SelectedAppTheme);
+        }
+
+        partial void OnSelectedAppThemeChanged(AppThemeMode value)
+        {
+            OnPropertyChanged(nameof(SelectedAppThemeIndex));
+            if (_isInitializing) return;
+            _settings.AppThemeMode = value;
+            _settings.SaveSettings();
+            _themeService.ApplyAppTheme(value);
         }
 
         // --- リワインド設定とハードウェア制約 ---
@@ -663,6 +1095,7 @@ namespace Caiqelle.ViewModels
         {
             IsRewindEnabled = _settings.IsRewindEnabled;
             IsShiftCapsLockRewindEnabled = _settings.IsShiftCapsLockRewindEnabled;
+            IsRewindTileCompressionEnabled = _settings.IsRewindTileCompressionEnabled;
             SelectedRewindDuration = _settings.RewindDurationSeconds.ToString();
             SelectedRewindQuality = string.IsNullOrEmpty(_settings.RewindQuality) ? "FulHD" : _settings.RewindQuality;
         }
@@ -679,75 +1112,69 @@ namespace Caiqelle.ViewModels
 
                 double totalMemoryGB = memStatus.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
 
-                int maxDuration = int.MaxValue;
-                bool allowHighQuality = true;
-                bool allow4KOnlyShort = false;
+                // メモリ帯ごとの許可画質と最大秒数マップ
+                Dictionary<string, int> qualityMaxDurations;
 
                 if (totalMemoryGB < 7.0)
                 {
-                    IsRewindEnabled = false;
-                    CanEnableRewind = false;
-                    RewindMemoryInfoTitle = "メモリ不足";
-                    RewindMemoryInfoMessage = "メモリが8GB未満のため、この機能は使用できません。";
-                    RewindMemoryInfoSeverity = InfoBarSeverity.Error;
-                    return;
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 10 }
+                    };
+                    RewindMemoryInfoTitle = "メモリ8GB未満制限";
+                    RewindMemoryInfoMessage = "メモリが8GB未満のため、720p・最大10秒に制限されています。";
+                    RewindMemoryInfoSeverity = InfoBarSeverity.Warning;
                 }
                 else if (totalMemoryGB < 14.0)
                 {
-                    maxDuration = 10;
-                    allowHighQuality = false;
-                    RewindMemoryInfoTitle = "メモリ8GB制限";
-                    RewindMemoryInfoMessage = "メモリが8GBのため、最大10秒・720p/FullHDに制限されています。";
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 90 },
+                        { "FulHD", 60 }
+                    };
+                    RewindMemoryInfoTitle = "メモリ16GB未満制限";
+                    RewindMemoryInfoMessage = "メモリが16GB未満のため、720pは最大1分30秒、FullHDは最大60秒に制限されています。";
                     RewindMemoryInfoSeverity = InfoBarSeverity.Warning;
                 }
                 else if (totalMemoryGB < 28.0)
                 {
-                    maxDuration = 60;
-                    allowHighQuality = true;
-                    RewindMemoryInfoTitle = "メモリ16GB制限";
-                    RewindMemoryInfoMessage = "メモリが16GBのため、最大60秒までに制限されています。";
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 300 },
+                        { "FulHD", 180 }
+                    };
+                    RewindMemoryInfoTitle = "メモリ32GB未満制限";
+                    RewindMemoryInfoMessage = "メモリが32GB未満のため、720pは最大5分、FullHDは最大3分に制限されています。";
                     RewindMemoryInfoSeverity = InfoBarSeverity.Informational;
                 }
                 else if (totalMemoryGB < 56.0)
                 {
-                    maxDuration = 300;
-                    allowHighQuality = true;
-                    allow4KOnlyShort = true;
-                    RewindMemoryInfoTitle = "メモリ32GB推奨構成";
-                    RewindMemoryInfoMessage = "4K録画時は最大180秒、2K以下は最大300秒まで設定可能です。";
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 1200 },
+                        { "FulHD", 1200 },
+                        { "2K", 300 },
+                        { "4K", 180 }
+                    };
+                    RewindMemoryInfoTitle = "メモリ64GB未満構成";
+                    RewindMemoryInfoMessage = "720p/FullHDは最大20分、2Kは最大5分、4Kは最大3分まで設定可能です。";
                     RewindMemoryInfoSeverity = InfoBarSeverity.Informational;
                 }
                 else
                 {
-                    maxDuration = 300;
-                    allowHighQuality = true;
-                    allow4KOnlyShort = false;
+                    qualityMaxDurations = new Dictionary<string, int>
+                    {
+                        { "720p", 1200 },
+                        { "FulHD", 1200 },
+                        { "2K", 1200 },
+                        { "4K", 300 }
+                    };
                     RewindMemoryInfoTitle = "フルパフォーマンス構成";
-                    RewindMemoryInfoMessage = "大容量メモリが搭載されています。すべての画質・秒数を制限なくご利用いただけます。";
+                    RewindMemoryInfoMessage = "720p〜2Kは最大20分、4Kは最大5分まで設定可能です。";
                     RewindMemoryInfoSeverity = InfoBarSeverity.Success;
                 }
 
                 CanEnableRewind = true;
-                string currentQuality = string.IsNullOrEmpty(SelectedRewindQuality) ? "FulHD" : SelectedRewindQuality;
-
-                int currentMaxDuration = maxDuration;
-                if (allow4KOnlyShort && currentQuality == "4K")
-                {
-                    currentMaxDuration = Math.Min(maxDuration, 180);
-                }
-
-                foreach (var option in RewindDurationOptions)
-                {
-                    if (int.TryParse(option.Value, out int dur))
-                    {
-                        option.IsEnabled = dur <= currentMaxDuration;
-                        if (SelectedRewindDuration == option.Value && !option.IsEnabled)
-                        {
-                            SelectedRewindDuration = currentMaxDuration.ToString();
-                            _settings.RewindDurationSeconds = currentMaxDuration;
-                        }
-                    }
-                }
 
                 int screenHeight = _screenshotService.GetVirtualScreenBounds().Height;
                 foreach (var option in RewindQualityOptions)
@@ -762,14 +1189,34 @@ namespace Caiqelle.ViewModels
                     };
 
                     bool isResolutionAllowed = screenHeight >= requiredHeight;
-                    bool isMemoryAllowed = (option.Value == "2K" || option.Value == "4K") ? allowHighQuality : true;
+                    bool isMemoryAllowed = qualityMaxDurations.ContainsKey(option.Value);
                     option.IsEnabled = isResolutionAllowed && isMemoryAllowed;
 
                     if (SelectedRewindQuality == option.Value && !option.IsEnabled)
                     {
-                        string fallback = (screenHeight >= 1080 && allowHighQuality) ? "FulHD" : "720p";
+                        string fallback = (screenHeight >= 1080 && qualityMaxDurations.ContainsKey("FulHD"))
+                            ? "FulHD"
+                            : "720p";
                         SelectedRewindQuality = fallback;
                         _settings.RewindQuality = fallback;
+                    }
+                }
+
+                string currentQuality = string.IsNullOrEmpty(SelectedRewindQuality) ? "FulHD" : SelectedRewindQuality;
+                int currentMaxDuration = qualityMaxDurations.TryGetValue(currentQuality, out int maxForQuality)
+                    ? maxForQuality
+                    : 10;
+
+                foreach (var option in RewindDurationOptions)
+                {
+                    if (int.TryParse(option.Value, out int dur))
+                    {
+                        option.IsEnabled = dur <= currentMaxDuration;
+                        if (SelectedRewindDuration == option.Value && !option.IsEnabled)
+                        {
+                            SelectedRewindDuration = currentMaxDuration.ToString();
+                            _settings.RewindDurationSeconds = currentMaxDuration;
+                        }
                     }
                 }
             }

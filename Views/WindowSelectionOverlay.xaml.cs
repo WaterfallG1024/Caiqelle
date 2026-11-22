@@ -66,22 +66,21 @@ namespace Caiqelle.Views
 
         public event Action? CaptureCompleted;
 
+        private readonly IntPtr _hwnd;
+        private readonly AppWindow _appWindow;
+        private Rectangle _lastBounds = Rectangle.Empty;
+
         public WindowSelectionOverlay()
         {
             this.InitializeComponent();
-            var hWndForIcon = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
-            var appWindowForIcon = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowIdForIcon);
-            // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindowForIcon.SetIcon("Assets\\favicon.ico");
-
             ExtendsContentIntoTitleBar = true;
 
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
+            _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hwnd);
+            _appWindow = AppWindow.GetFromWindowId(windowId);
+            _appWindow.IsShownInSwitchers = false;
 
-            if (appWindow.Presenter is OverlappedPresenter presenter)
+            if (_appWindow.Presenter is OverlappedPresenter presenter)
             {
                 presenter.SetBorderAndTitleBar(false, false);
                 presenter.IsMaximizable = false;
@@ -93,11 +92,11 @@ namespace Caiqelle.Views
             // ウィンドウの白い境界線を完全に削除
             int DWMWA_BORDER_COLOR = 34;
             int DWM_BORDER_COLOR_NONE = -2; // 0xFFFFFFFE
-            NativeMethods.DwmSetWindowAttribute(hWnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
+            NativeMethods.DwmSetWindowAttribute(_hwnd, DWMWA_BORDER_COLOR, ref DWM_BORDER_COLOR_NONE, sizeof(int));
 
             var margins = new NativeMethods.MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
-            NativeMethods.DwmExtendFrameIntoClientArea(hWnd, ref margins);
-            NativeMethods.RemoveWindowBorder(hWnd);
+            NativeMethods.DwmExtendFrameIntoClientArea(_hwnd, ref margins);
+            NativeMethods.RemoveWindowBorder(_hwnd);
 
             _currentProcessId = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
         }
@@ -107,21 +106,21 @@ namespace Caiqelle.Views
             _virtualBounds = bounds;
             BackgroundImage.Source = frozenImage;
 
-            IntPtr hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-            Microsoft.UI.WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-
-            appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            if (_lastBounds != bounds)
+            {
+                _lastBounds = bounds;
+                _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            }
 
             HighlightBox.Visibility = Visibility.Collapsed;
             IsSelected = false;
 
             EnumerateVisibleWindows();
 
-            appWindow.Show();
+            _appWindow.Show();
             this.Activate();
 
-            NativeMethods.SetForegroundWindow(hWnd);
+            NativeMethods.SetForegroundWindow(_hwnd);
             DrawCanvas.Focus(FocusState.Programmatic);
         }
 

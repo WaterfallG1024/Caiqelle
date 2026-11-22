@@ -10,46 +10,55 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Material You 3 Expressive: Surface Hierarchy (Enhanced Contrast & Glass Translucency) -->
-            <SolidColorBrush x:Key="M3SurfaceBrush" Color="#D9111116" />
-            <SolidColorBrush x:Key="M3SurfaceContainerLowestBrush" Color="#CC0B0B0F" />
-            <SolidColorBrush x:Key="M3SurfaceContainerLowBrush" Color="#CC191922" />
-            <SolidColorBrush x:Key="M3SurfaceContainerBrush" Color="#D9232330" />
-            <SolidColorBrush x:Key="M3SurfaceContainerHighBrush" Color="#E62F2F3F" />
-            <SolidColorBrush x:Key="M3SurfaceContainerHighestBrush" Color="#E63E3E52" />
+            <!-- Pure Black / Neutral Dark Surface Hierarchy (ブラーが透ける半透明設計) -->
+            <SolidColorBrush x:Key="M3SurfaceBrush" Color="#9E0A0A0A" />
+            <SolidColorBrush x:Key="M3SurfaceContainerLowestBrush" Color="#88050505" />
+            <SolidColorBrush x:Key="M3SurfaceContainerLowBrush" Color="#90121212" />
+            <SolidColorBrush x:Key="M3SurfaceContainerBrush" Color="#9E1A1A1A" />
+            <SolidColorBrush x:Key="M3SurfaceContainerHighBrush" Color="#B8242424" />
+            <SolidColorBrush x:Key="M3SurfaceContainerHighestBrush" Color="#CC303030" />
 
-            <!-- Material You 3 Expressive: Dynamic Sunset Palette (Primary, Secondary, Tertiary) -->
-            <SolidColorBrush x:Key="M3PrimaryBrush" Color="#FF8469" />
-            <SolidColorBrush x:Key="M3PrimaryContainerBrush" Color="#4A2016" />
-            <SolidColorBrush x:Key="M3PrimaryContainerGlassBrush" Color="#44FF8469" />
-            <SolidColorBrush x:Key="M3OnPrimaryBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="M3OnPrimaryContainerBrush" Color="#FFDBCF" />
+            <!-- Dynamic Accent Palette (Primary, Secondary, Tertiary) -->
+            <SolidColorBrush x:Key="M3PrimaryBrush" Color="#00FF7F" />
+            <SolidColorBrush x:Key="M3PrimaryContainerBrush" Color="#004724" />
+            <SolidColorBrush x:Key="M3PrimaryContainerGlassBrush" Color="#4400FF7F" />
+            <SolidColorBrush x:Key="M3OnPrimaryBrush" Color="#111116" />
+            <SolidColorBrush x:Key="M3OnPrimaryContainerBrush" Color="#C7FFE3" />
 
-            <SolidColorBrush x:Key="M3SecondaryBrush" Color="#FFBA82" />
-            <SolidColorBrush x:Key="M3SecondaryContainerBrush" Color="#453118" />
-            <SolidColorBrush x:Key="M3SecondaryContainerGlassBrush" Color="#40FFBA82" />
-            <SolidColorBrush x:Key="M3OnSecondaryContainerBrush" Color="#FFE0B2" />
+            <SolidColorBrush x:Key="M3SecondaryBrush" Color="#47FFA3" />
+            <SolidColorBrush x:Key="M3SecondaryContainerBrush" Color="#113D27" />
+            <SolidColorBrush x:Key="M3SecondaryContainerGlassBrush" Color="#4047FFA3" />
+            <SolidColorBrush x:Key="M3OnSecondaryContainerBrush" Color="#D1FFE8" />
 
-            <SolidColorBrush x:Key="M3TertiaryBrush" Color="#C19BFF" />
-            <SolidColorBrush x:Key="M3TertiaryContainerBrush" Color="#3B265C" />
-            <SolidColorBrush x:Key="M3TertiaryContainerGlassBrush" Color="#40C19BFF" />
-            <SolidColorBrush x:Key="M3OnTertiaryContainerBrush" Color="#F0E5FF" />
+            <SolidColorBrush x:Key="M3TertiaryBrush" Color="#A3A3A3" />
+            <SolidColorBrush x:Key="M3TertiaryContainerBrush" Color="#262626" />
+            <SolidColorBrush x:Key="M3TertiaryContainerGlassBrush" Color="#40A3A3A3" />
+            <SolidColorBrush x:Key="M3OnTertiaryContainerBrush" Color="#E5E5E5" />
 
-            <!-- Base Colors (Crisp White Text & Clear Hierarchy) -->
-            <SolidColorBrush x:Key="AfterGlowBackgroundBrush" Color="#111116" />
-            <SolidColorBrush x:Key="AfterGlowSurfaceGlassBrush" Color="#D8232330" />
-            <SolidColorBrush x:Key="AfterGlowSurfaceHoverBrush" Color="#F02F2F3F" />
+            <!-- Base Colors (Crisp White Text & Pure Black Hierarchy) -->
+            <SolidColorBrush x:Key="AfterGlowBackgroundBrush" Color="#0A0A0A" />
+            <SolidColorBrush x:Key="AfterGlowSurfaceGlassBrush" Color="#D81A1A1A" />
+            <SolidColorBrush x:Key="AfterGlowSurfaceHoverBrush" Color="#F0242424" />
             <SolidColorBrush x:Key="AfterGlowTextPrimaryBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="AfterGlowTextSecondaryBrush" Color="#B8B7C5" />
-            <SolidColorBrush x:Key="AfterGlowTextTertiaryBrush" Color="#848394" />
+            <SolidColorBrush x:Key="AfterGlowTextSecondaryBrush" Color="#B8B8B8" />
+            <SolidColorBrush x:Key="AfterGlowTextTertiaryBrush" Color="#848484" />
 
-            <!-- Accent Gradient (AfterGlow Expressive) -->
+            <!-- Accent Gradient -->
             <LinearGradientBrush x:Key="AfterGlowAccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#FF8469" Offset="0.0" />
-                <GradientStop Color="#FFBA82" Offset="1.0" />
+                <GradientStop Color="#00FF7F" Offset="0.0" />
+                <GradientStop Color="#47FFA3" Offset="1.0" />
+            </LinearGradientBrush>
+
+            <!-- 半透明ダーク＋テーマカラーグラデーション背景 -->
+            <LinearGradientBrush x:Key="ThemeWindowBackgroundGradientBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#C60B2217" Offset="0.0" />
+                <GradientStop Color="#BC0B0D0C" Offset="0.55" />
+                <GradientStop Color="#C80D1C14" Offset="1.0" />
             </LinearGradientBrush>
             
-            <SolidColorBrush x:Key="AfterGlowAccentBrush" Color="#FF8469" />
+            <SolidColorBrush x:Key="AfterGlowAccentBrush" Color="#00FF7F" />
+            <SolidColorBrush x:Key="FluentCardStrokeBrush" Color="#18FFFFFF" />
+            <SolidColorBrush x:Key="FluentSurfaceStrokeBrush" Color="#28FFFFFF" />
 
             <!-- Material You 3 Expressive Functional Colors (Vibrant & Legible) -->
             <SolidColorBrush x:Key="FuncBlueBrush" Color="#5EA2FF" />
@@ -79,37 +88,65 @@
                 <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
             </Style>
 
-            <!-- M3 Expressive Card Button Style (No Border, Tonal Surface Container, CornerRadius 16) -->
+            <!-- Fluent 2 Card Button Style -->
             <Style x:Key="CardButtonStyle" TargetType="Button">
-                <Setter Property="Background" Value="{StaticResource M3SurfaceContainerBrush}" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="VerticalAlignment" Value="Stretch" />
-                <Setter Property="Padding" Value="12,16" />
+                <Setter Property="Padding" Value="12,14" />
                 <Setter Property="Margin" Value="4" />
+                <Setter Property="UseSystemFocusVisuals" Value="False" />
             </Style>
 
-            <!-- M3 Tonal Button Style -->
-            <Style x:Key="M3PillTonalButtonStyle" TargetType="Button">
-                <Setter Property="Background" Value="{StaticResource M3SurfaceContainerHighestBrush}" />
-                <Setter Property="Foreground" Value="{StaticResource AfterGlowTextPrimaryBrush}" />
+            <!-- Fluent 2 Settings Card Container Style -->
+            <Style x:Key="FluentSettingsCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
+            </Style>
+
+            <!-- Fluent 2 Group Container Style -->
+            <Style x:Key="FluentGroupContainerStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource LayerFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
+            </Style>
+
+            <!-- Fluent 2 Icon Button Style -->
+            <Style x:Key="FluentIconButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
                 <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="12" />
-                <Setter Property="Padding" Value="16,8" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="0" />
             </Style>
 
-            <!-- M3 Filled Primary Button Style -->
+            <!-- Fluent 2 Tonal Button Style -->
+            <Style x:Key="M3PillTonalButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="14,6" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text" />
+            </Style>
+
+            <!-- Fluent 2 Accent Primary Button Style -->
             <Style x:Key="M3FilledPrimaryButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="{StaticResource M3PrimaryBrush}" />
                 <Setter Property="Foreground" Value="{StaticResource M3OnPrimaryBrush}" />
                 <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="12" />
-                <Setter Property="Padding" Value="16,8" />
-                <Setter Property="FontWeight" Value="Bold" />
-                <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="14,6" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text" />
             </Style>
 
         </ResourceDictionary>

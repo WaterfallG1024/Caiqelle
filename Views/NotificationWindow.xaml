@@ -8,27 +8,31 @@
     Title="Notification">
 
     <Grid x:Name="RootGrid" Background="Transparent" Loaded="RootGrid_Loaded">
-        <!-- M3 Expressive Snackbar Container -->
-        <Border x:Name="ContentBorder" Background="Transparent" CornerRadius="0" 
-                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                BorderThickness="0"
-                Opacity="0" RenderTransformOrigin="0.5,0.5" Padding="18,12">
-            <Border.RenderTransform>
-                <ScaleTransform x:Name="ContentScale" ScaleX="0.95" ScaleY="0.95" />
-            </Border.RenderTransform>
+        <Grid.Shadow>
+            <ThemeShadow />
+        </Grid.Shadow>
+        <!-- Floating Fluent Toast Container (視認性を高めるため不透明ベース背景＋影) -->
+        <Border x:Name="ContentBorder"
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Translation="0,0,16"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Opacity="0" Padding="18,12">
             <Grid HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="320">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Border x:Name="IconContainer" Grid.Column="0" Width="28" Height="28" CornerRadius="8" Background="{StaticResource FuncGreenBgBrush}" VerticalAlignment="Center" Margin="0,0,10,0">
+                <Border x:Name="IconContainer" Grid.Column="0" Width="28" Height="28" CornerRadius="6" Background="{StaticResource FuncGreenBgBrush}" VerticalAlignment="Center" Margin="0,0,10,0">
                     <FontIcon x:Name="IconElement" FontFamily="Segoe Fluent Icons" Glyph="&#xE73E;" FontSize="16" Foreground="{StaticResource FuncGreenBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <!-- 対象名（長い場合は...で短縮） -->
-                <TextBlock x:Name="MessageText" Grid.Column="1" Text="Notification" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="MessageText" Grid.Column="1" Text="Notification" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                 <!-- アクション（「に保存しました」等、必ず右側に固定表示） -->
-                <TextBlock x:Name="SuffixText" Grid.Column="2" Text="" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="NoWrap"/>
+                <TextBlock x:Name="SuffixText" Grid.Column="2" Text="" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="NoWrap"/>
             </Grid>
         </Border>
     </Grid>
