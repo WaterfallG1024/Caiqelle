@@ -52,17 +52,17 @@
                 <Rectangle Width="1" Height="16" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
 
                 <Button x:Name="FontDownBtn" ToolTipService.ToolTip="文字を小さく" Width="24" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="FontDownBtn_Click">
-                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE738;" FontSize="11" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE738;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                 </Button>
-                <TextBlock x:Name="FontSizeText" Text="24" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" MinWidth="22" TextAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock x:Name="FontSizeText" Text="24" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" MinWidth="22" TextAlignment="Center" VerticalAlignment="Center" />
                 <Button x:Name="FontUpBtn" ToolTipService.ToolTip="文字を大きく" Width="24" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="FontUpBtn_Click">
-                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE710;" FontSize="11" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE710;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                 </Button>
 
                 <Rectangle Width="1" Height="16" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
 
                 <Button x:Name="BgModeBtn" ToolTipService.ToolTip="背景: 半透明（クリックで不透明へ）" Height="28" Padding="8,0" Background="Transparent" BorderThickness="0" CornerRadius="6" Click="BgModeBtn_Click">
-                    <TextBlock x:Name="BgModeText" Text="半透明" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="BgModeText" Text="半透明" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
                 </Button>
 
                 <ToggleButton x:Name="StealthBtn" ToolTipService.ToolTip="パブリック（共有・録画に表示）" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="StealthBtn_Click">

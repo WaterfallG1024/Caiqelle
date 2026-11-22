@@ -81,11 +81,30 @@ namespace Caiqelle.Services
             ItemsChanged?.Invoke();
         }
 
+        public int GetTotalStickyTextCount()
+        {
+            return _settings.IsStickyTextSaveEnabled
+                ? _settings.SavedStickyTexts.Count
+                : _windows.Count;
+        }
+
+        public bool CanCreateNewStickyText() => GetTotalStickyTextCount() < SettingsManager.MaxStickyTextCount;
+
         /// <summary>
         /// 新しい Sticky Text ウィンドウを作成して表示する
         /// </summary>
-        public StickyTextWindow CreateNewStickyText()
+        public StickyTextWindow? CreateNewStickyText()
         {
+            if (!CanCreateNewStickyText())
+            {
+                var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                    .GetService<NotificationService>(((App)Microsoft.UI.Xaml.Application.Current).Services);
+                notificationService?.ShowNotification(
+                    $"Sticky Text の作成上限（{SettingsManager.MaxStickyTextCount}件）に達しています",
+                    "\uE7BA");
+                return null;
+            }
+
             var window = CreateWindowInternal(null);
             window.Activate();
             window.FocusEditor();

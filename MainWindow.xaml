@@ -476,11 +476,11 @@
                                                     CornerRadius="4"
                                                     Padding="6,1"
                                                     VerticalAlignment="Center">
-                                                <TextBlock Text="Beta" FontSize="10" FontWeight="Bold" Foreground="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Beta" FontSize="11" FontWeight="Bold" Foreground="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center"/>
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Text="画面を16分割し、変化した部分のみ記録します" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"/>
-                                        <TextBlock Text="全画面での動画視聴やゲームプレイ時に本機能をONにすると、メモリ消費量が微増します" Foreground="{ThemeResource TextFillColorTertiaryBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Text="全画面での動画視聴やゲームプレイ時に本機能をONにすると、メモリ消費量が微増します" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleSwitch Grid.Column="1" x:Name="RewindTileCompressionSwitch" IsOn="{x:Bind ViewModel.IsRewindTileCompressionEnabled, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>
                                 </Grid>
@@ -538,7 +538,7 @@
                                             CornerRadius="4"
                                             Padding="6,1"
                                             VerticalAlignment="Center">
-                                        <TextBlock Text="Beta" FontSize="10" FontWeight="Bold" Foreground="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Beta" FontSize="11" FontWeight="Bold" Foreground="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center"/>
                                     </Border>
                                 </StackPanel>
                                 <Border Style="{StaticResource FluentSettingsCardStyle}">
@@ -583,7 +583,23 @@
                             </StackPanel>
 
                             <StackPanel Spacing="6">
-                                <TextBlock Text="自動入力する項目の登録" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0"/>
+                                <Grid Margin="4,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="自動入力する項目の登録" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                    <Border Grid.Column="1"
+                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                            CornerRadius="6"
+                                            Padding="8,3"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind ViewModel.ActionMappingCountText, Mode=OneWay}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </Border>
+                                </Grid>
                                 <Border Style="{StaticResource FluentSettingsCardStyle}" Padding="16,12">
                                     <StackPanel Spacing="10">
                                         <InfoBar x:Name="ActionValidationErrorBar"
@@ -598,18 +614,29 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
                                                      PlaceholderText="ラベル (例: 名前,氏名,お名前)"
-                                                     ToolTipService.ToolTip="半角カンマ(,)または全角カンマ(，)区切りで1つの入力値に複数キーワードを設定できます"
+                                                     ToolTipService.ToolTip="半角カンマ(,)または全角カンマ(，)区切りで1つの入力値に複数キーワードを設定できます（最大200文字）"
+                                                     MaxLength="200"
+                                                     IsEnabled="{x:Bind ViewModel.CanAddActionMapping, Mode=OneWay}"
                                                      Text="{x:Bind ViewModel.NewActionKeywords, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      KeyDown="ActionInput_KeyDown" />
                                             <TextBox Grid.Column="1"
                                                      PlaceholderText="入力値"
+                                                     ToolTipService.ToolTip="最大300文字まで登録できます"
+                                                     MaxLength="300"
+                                                     IsEnabled="{x:Bind ViewModel.CanAddActionMapping, Mode=OneWay}"
                                                      Text="{x:Bind ViewModel.NewActionValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      KeyDown="ActionInput_KeyDown" />
                                             <Button Grid.Column="2"
                                                     Content="追加"
                                                     Style="{StaticResource M3FilledPrimaryButtonStyle}"
+                                                    IsEnabled="{x:Bind ViewModel.CanAddActionMapping, Mode=OneWay}"
                                                     Command="{x:Bind ViewModel.AddActionMappingCommand}" />
                                         </Grid>
+                                        <TextBlock Text="登録上限（50件）に達しています。新しく追加するには不要な項目を削除してください。"
+                                                   Visibility="{x:Bind ViewModel.IsActionLimitReached, Mode=OneWay}"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource SystemFillColorCautionBrush}" />
 
                                         <ItemsControl ItemsSource="{x:Bind ViewModel.ActionMappings}">
                                             <ItemsControl.ItemTemplate>

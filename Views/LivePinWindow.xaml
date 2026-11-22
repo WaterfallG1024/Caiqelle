@@ -40,7 +40,7 @@
                 IsHitTestVisible="False">
             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center" />
-                <TextBlock x:Name="StatusText" Text="LIVE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
+                <TextBlock x:Name="StatusText" Text="LIVE" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
 

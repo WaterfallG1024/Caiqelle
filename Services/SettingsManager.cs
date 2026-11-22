@@ -89,6 +89,11 @@ namespace Caiqelle.Services
         private readonly object _saveLock = new();
         private const long MaxSettingsFileBytes = 10 * 1024 * 1024; // 10MB 上限
         public const int MaxFolderMappingCount = 44; // 0-9, A-Z, /[]-^;:@ の合計44キー
+        public const int MaxActionMappingCount = 50;
+        public const int MaxActionKeywordsLength = 200;
+        public const int MaxActionValueLength = 300;
+        public const int MaxStickyTextCount = 20;
+        public const int MaxStickyTextBodyLength = 3000;
         private SettingsData _data;
 
         public List<FolderMapping> ImageFolderMappings => _data.ImageFolderMappings;

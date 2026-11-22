@@ -13,7 +13,7 @@ namespace Caiqelle.Tests
             const string secret = "yamada.taro@example.com";
             string encrypted = DpapiHelper.Protect(secret);
 
-            Assert.StartsWith("dpapi:", encrypted);
+            Assert.StartsWith("dpapi2:", encrypted);
             Assert.NotEqual(secret, encrypted);
             Assert.Equal(secret, DpapiHelper.Unprotect(encrypted));
         }

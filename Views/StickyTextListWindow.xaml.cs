@@ -149,8 +149,14 @@ namespace Caiqelle.Views
 
             ItemsList.ItemsSource = viewItems;
             SubtitleText.Text = isSaveEnabled
-                ? $"保存済み: {viewItems.Count} 件"
-                : $"表示中: {viewItems.Count} 件（保存設定 OFF）";
+                ? $"保存済み: {viewItems.Count}/{SettingsManager.MaxStickyTextCount} 件"
+                : $"表示中: {viewItems.Count}/{SettingsManager.MaxStickyTextCount} 件（保存設定 OFF）";
+
+            bool canCreate = viewItems.Count < SettingsManager.MaxStickyTextCount;
+            NewBtn.IsEnabled = canCreate;
+            ToolTipService.SetToolTip(NewBtn, canCreate
+                ? "新しい Sticky Text を作成"
+                : $"作成上限（{SettingsManager.MaxStickyTextCount}件）に達しています");
 
             if (viewItems.Count == 0)
             {

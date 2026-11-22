@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -10,14 +10,14 @@
 
   <Identity
     Name="17644ce3-5e88-4a24-aa29-ff725b3467b1"
-    Publisher="CN=winim"
+    Publisher="CN=WaterfallG1024"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="17644ce3-5e88-4a24-aa29-ff725b3467b1" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Caiqelle</DisplayName>
-    <PublisherDisplayName>winim</PublisherDisplayName>
+    <PublisherDisplayName>WaterfallG1024</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

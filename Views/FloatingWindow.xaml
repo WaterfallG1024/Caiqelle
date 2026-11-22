@@ -19,7 +19,7 @@
                 <!-- Group 1: キャプチャ (4 Cards) -->
                 <Border Style="{StaticResource FluentGroupContainerStyle}" Padding="10,8,10,10">
                     <StackPanel Spacing="6">
-                        <TextBlock Text="キャプチャ" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
+                        <TextBlock Text="キャプチャ" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
 
                         <Grid ColumnSpacing="4">
                             <Grid.ColumnDefinitions>
@@ -78,7 +78,7 @@
                     <!-- Group 2: ピン・リワインド (3 Cards) -->
                     <Border Grid.Column="0" Style="{StaticResource FluentGroupContainerStyle}" Padding="10,8,10,10">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="ピン・リワインド" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
+                            <TextBlock Text="ピン・リワインド" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
 
                             <Grid ColumnSpacing="4">
                                 <Grid.ColumnDefinitions>
@@ -92,7 +92,7 @@
                                         <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE718;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="ピン留め (P)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="ピン留め (P)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 
@@ -101,7 +101,7 @@
                                         <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8A3;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="ライブピン (L)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="ライブピン (L)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 
@@ -110,7 +110,7 @@
                                         <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE768;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="リワインド (R)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="リワインド (R)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </Grid>
@@ -120,7 +120,7 @@
                     <!-- Group 3: Sticky Text (2 Cards) -->
                     <Border Grid.Column="1" Style="{StaticResource FluentGroupContainerStyle}" Padding="10,8,10,10">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Sticky Text" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
+                            <TextBlock Text="Sticky Text" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
 
                             <Grid ColumnSpacing="4">
                                 <Grid.ColumnDefinitions>
@@ -133,7 +133,7 @@
                                         <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE70B;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="Sticky Text (S)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Sticky Text (S)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 
@@ -142,7 +142,7 @@
                                         <Border Width="40" Height="40" CornerRadius="8" Background="{StaticResource M3PrimaryContainerGlassBrush}" HorizontalAlignment="Center">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8FD;" FontSize="17" Foreground="{StaticResource M3PrimaryBrush}" />
                                         </Border>
-                                        <TextBlock Text="Sticky View (V)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Sticky View (V)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </Grid>

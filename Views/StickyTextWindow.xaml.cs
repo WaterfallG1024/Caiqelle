@@ -490,7 +490,41 @@ namespace Caiqelle.Views
             NotifyStateChanged();
         }
 
-        private void InputRichEditBox_TextChanged(object sender, RoutedEventArgs e) => NotifyStateChanged();
+        private bool _isClampingText = false;
+
+        private void InputRichEditBox_TextChanged(object sender, RoutedEventArgs e)
+        {
+            if (!_isClampingText)
+            {
+                InputRichEditBox.Document.GetText(TextGetOptions.UseCrlf, out string raw);
+                string trimmed = raw.TrimEnd('\r', '\n');
+                if (trimmed.Length > Services.SettingsManager.MaxStickyTextBodyLength)
+                {
+                    _isClampingText = true;
+                    try
+                    {
+                        string clamped = trimmed[..Services.SettingsManager.MaxStickyTextBodyLength];
+                        InputRichEditBox.Document.SetText(TextSetOptions.None, clamped);
+                        InputRichEditBox.Document.Selection.SetRange(clamped.Length, clamped.Length);
+                        trimmed = clamped;
+                    }
+                    finally
+                    {
+                        _isClampingText = false;
+                    }
+                }
+                UpdateCharCountDisplay(trimmed.Length);
+            }
+            NotifyStateChanged();
+        }
+
+        private void UpdateCharCountDisplay(int length)
+        {
+            if (CharCountText == null) return;
+            CharCountText.Text = length >= Services.SettingsManager.MaxStickyTextBodyLength
+                ? $"{length}文字 (上限)"
+                : $"{length}文字";
+        }
 
         private void InputRichEditBox_SelectionChanged(object sender, RoutedEventArgs e)
         {

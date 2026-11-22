@@ -59,10 +59,25 @@
                     HorizontalAlignment="Left"
                     Background="{StaticResource M3SurfaceContainerHighestBrush}"
                     CornerRadius="6"
-                    Padding="6,2"
+                    Padding="8,3"
                     Visibility="Collapsed"
                     IsHitTestVisible="False">
-                <TextBlock Text="プライベート" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" />
+                <TextBlock Text="プライベート" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" />
+            </Border>
+
+            <!-- Real-time character count badge -->
+            <Border x:Name="CharCountBadge"
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Right"
+                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    CornerRadius="6"
+                    Padding="8,3"
+                    IsHitTestVisible="False">
+                <TextBlock x:Name="CharCountText"
+                           Text="0文字"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
             </Border>
         </Grid>
 

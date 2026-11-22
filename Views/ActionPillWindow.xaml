@@ -84,7 +84,7 @@
                             CornerRadius="13"
                             Height="26"
                             Padding="9,0"
-                            FontSize="11"
+                            FontSize="12"
                             Margin="0,0,4,0"
                             VerticalAlignment="Center"
                             Click="ApplyButton_Click" />

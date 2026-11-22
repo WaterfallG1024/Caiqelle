@@ -36,7 +36,7 @@
                 <TextBlock x:Name="SubtitleText"
                            Text="保存済み: 0 件"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           FontSize="11" />
+                           FontSize="13" />
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -48,7 +48,7 @@
                         ToolTipService.ToolTip="新しい Sticky Text を作成">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE710;" FontSize="12" />
-                        <TextBlock Text="新規" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock Text="新規" FontSize="13" FontWeight="SemiBold" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="CloseBtn"
@@ -80,27 +80,29 @@
                                     <StackPanel Grid.Column="0" Spacing="5" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <Border Background="{x:Bind StatusBackground}"
-                                                    CornerRadius="4"
-                                                    Padding="7,2">
+                                                    CornerRadius="5"
+                                                    Padding="8,3">
                                                 <TextBlock Text="{x:Bind StatusLabel}"
                                                            Foreground="{x:Bind StatusForeground}"
-                                                           FontSize="10"
+                                                           FontSize="12"
                                                            FontWeight="SemiBold" />
                                             </Border>
-                                            <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                                    CornerRadius="4"
-                                                    Padding="7,2"
+                                            <Border Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                                    BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="5"
+                                                    Padding="8,3"
                                                     Visibility="{x:Bind StealthBadgeVisibility}">
                                                 <TextBlock Text="プライベート"
-                                                           Foreground="{StaticResource M3PrimaryBrush}"
-                                                           FontSize="10"
+                                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                           FontSize="12"
                                                            FontWeight="SemiBold" />
                                             </Border>
                                         </StackPanel>
 
                                         <TextBlock Text="{x:Bind PreviewText}"
                                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                                   FontSize="13"
+                                                   FontSize="14"
                                                    TextWrapping="Wrap"
                                                    MaxLines="2"
                                                    TextTrimming="CharacterEllipsis" />
@@ -110,8 +112,8 @@
                                         <Button Tag="{x:Bind Id}"
                                                 Click="ToggleShowBtn_Click"
                                                 Style="{StaticResource M3PillTonalButtonStyle}"
-                                                Padding="10,5"
-                                                FontSize="12"
+                                                Padding="12,6"
+                                                FontSize="13"
                                                 Content="{x:Bind ToggleButtonLabel}"
                                                 ToolTipService.ToolTip="{x:Bind ToggleButtonToolTip}" />
 
@@ -168,7 +170,7 @@
                            x:Name="FooterHintText"
                            Text="Esc で閉じる"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           FontSize="11"
+                           FontSize="12"
                            VerticalAlignment="Center" />
 
                 <Button Grid.Column="1"

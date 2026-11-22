@@ -159,7 +159,7 @@ namespace Caiqelle
 
         private void ActionInput_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            if (e.Key == VirtualKey.Enter)
+            if (e.Key == VirtualKey.Enter && ViewModel.CanAddActionMapping)
             {
                 ViewModel.AddActionMappingCommand.Execute(null);
                 e.Handled = true;
@@ -341,14 +341,16 @@ namespace Caiqelle
                 {
                     var keywordsBox = new TextBox
                     {
-                        Header = "ラベルキーワード（, または ， で複数指定）",
+                        Header = $"ラベルキーワード（, または ， で複数指定 / 最大{SettingsManager.MaxActionKeywordsLength}文字）",
                         Text = mapping.Keywords,
+                        MaxLength = SettingsManager.MaxActionKeywordsLength,
                         PlaceholderText = "例: 名前,氏名,お名前"
                     };
                     var valueBox = new TextBox
                     {
-                        Header = "入力値",
+                        Header = $"入力値（最大{SettingsManager.MaxActionValueLength}文字）",
                         Text = mapping.PlainValue,
+                        MaxLength = SettingsManager.MaxActionValueLength,
                         PlaceholderText = "入力値"
                     };
                     var errorText = new TextBlock

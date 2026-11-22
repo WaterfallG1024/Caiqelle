@@ -146,7 +146,7 @@
                     </Button>
                 </StackPanel>
             </Border>
-            <TextBlock Text="キーで選択 / Escでキャンセル" Foreground="{ThemeResource TextFillColorTertiaryBrush}" FontSize="11" HorizontalAlignment="Center" />
+            <TextBlock Text="キーで選択 / Escでキャンセル" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" HorizontalAlignment="Center" />
         </StackPanel>
     </Grid>
 </Window>

@@ -29,7 +29,11 @@ namespace Caiqelle.Tests
         public void DefaultSettings_HaveExpectedValues()
         {
             Assert.True(_settings.IsIgnoreOutsideSelectionClick);
-            Assert.True(_settings.IsRewindTileCompressionEnabled);
+            Assert.False(_settings.IsRewindTileCompressionEnabled);
+            Assert.False(_settings.IsAutoCopyToClipboard);
+            Assert.True(_settings.IsStickyTextStealthMode);
+            Assert.True(_settings.IsStickyTextSaveEnabled);
+            Assert.Equal(AccentTheme.System, _settings.AccentTheme);
         }
 
         [Fact]

@@ -389,6 +389,12 @@ namespace Caiqelle.ViewModels
                 OnPropertyChanged(nameof(CanAddFolderMapping));
                 OnPropertyChanged(nameof(IsFolderLimitReached));
             };
+            ActionMappings.CollectionChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(ActionMappingCountText));
+                OnPropertyChanged(nameof(CanAddActionMapping));
+                OnPropertyChanged(nameof(IsActionLimitReached));
+            };
             if (_updateService != null)
             {
                 _updateService.UpdateDownloaded += UpdateService_UpdateDownloaded;
@@ -546,6 +552,10 @@ namespace Caiqelle.ViewModels
 
         public ObservableCollection<ActionFieldMapping> ActionMappings { get; } = new();
 
+        public string ActionMappingCountText => $"{ActionMappings.Count}/{SettingsManager.MaxActionMappingCount}";
+        public bool CanAddActionMapping => ActionMappings.Count < SettingsManager.MaxActionMappingCount;
+        public bool IsActionLimitReached => !CanAddActionMapping;
+
         [ObservableProperty]
         public partial bool IsActionAutoDetectEnabled { get; set; }
 
@@ -607,11 +617,30 @@ namespace Caiqelle.ViewModels
         private void AddActionMapping()
         {
             IsActionValidationErrorOpen = false;
+            if (!CanAddActionMapping)
+            {
+                ActionValidationErrorMessage = $"登録上限（{SettingsManager.MaxActionMappingCount}件）に達しています。";
+                IsActionValidationErrorOpen = true;
+                return;
+            }
+
             string keywords = NewActionKeywords?.Trim() ?? string.Empty;
             string value = NewActionValue?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(keywords) || string.IsNullOrEmpty(value))
             {
                 ActionValidationErrorMessage = "ラベルキーワードと入力値を両方入力してください。";
+                IsActionValidationErrorOpen = true;
+                return;
+            }
+            if (keywords.Length > SettingsManager.MaxActionKeywordsLength)
+            {
+                ActionValidationErrorMessage = $"ラベルキーワードは{SettingsManager.MaxActionKeywordsLength}文字以内で入力してください。";
+                IsActionValidationErrorOpen = true;
+                return;
+            }
+            if (value.Length > SettingsManager.MaxActionValueLength)
+            {
+                ActionValidationErrorMessage = $"入力値は{SettingsManager.MaxActionValueLength}文字以内で入力してください。";
                 IsActionValidationErrorOpen = true;
                 return;
             }
@@ -659,6 +688,16 @@ namespace Caiqelle.ViewModels
             if (string.IsNullOrEmpty(keywords) || string.IsNullOrEmpty(value))
             {
                 errorMessage = "ラベルキーワードと入力値を両方入力してください。";
+                return false;
+            }
+            if (keywords.Length > SettingsManager.MaxActionKeywordsLength)
+            {
+                errorMessage = $"ラベルキーワードは{SettingsManager.MaxActionKeywordsLength}文字以内で入力してください。";
+                return false;
+            }
+            if (value.Length > SettingsManager.MaxActionValueLength)
+            {
+                errorMessage = $"入力値は{SettingsManager.MaxActionValueLength}文字以内で入力してください。";
                 return false;
             }
 
