@@ -28,7 +28,7 @@ namespace Caiqelle.Services
     {
         private static readonly HttpClient _httpClient = CreateHttpClient();
         private const string RepoOwner = "WaterfallG1024";
-        private const string RepoName = "Caiqelle-Release";
+        private const string RepoName = "Caiqelle";
 
         private static HttpClient CreateHttpClient()
         {

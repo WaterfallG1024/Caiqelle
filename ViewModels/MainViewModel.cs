@@ -810,7 +810,7 @@ namespace Caiqelle.ViewModels
         [RelayCommand]
         private async Task OpenReleaseNotesAsync()
         {
-            string targetUrl = "https://github.com/WaterfallG1024/Caiqelle-Release/releases";
+            string targetUrl = "https://github.com/WaterfallG1024/Caiqelle/releases";
             if (_latestRelease == null)
             {
                 try

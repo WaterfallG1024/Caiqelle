@@ -10,7 +10,7 @@ namespace Caiqelle.Services
     {
         private readonly SettingsManager _settings;
         private readonly NotificationService _notificationService;
-        private const string RepoUrl = "https://github.com/WaterfallG1024/Caiqelle-Release";
+        private const string RepoUrl = "https://github.com/WaterfallG1024/Caiqelle";
         private Timer? _periodicTimer;
         private bool _isChecking;
 
