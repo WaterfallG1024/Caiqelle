@@ -41,7 +41,7 @@ namespace Caiqelle.Views
             _appWindow = AppWindow.GetFromWindowId(windowId);
 
             // TODO: Caiqelle用アイコンを用意したら設定する
-            // _appWindow.SetIcon("Assets\\favicon.ico");
+            _appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico"));
 
             ConfigureWindowChrome(hwnd);
             CenterOnCursorDisplay(hwnd);

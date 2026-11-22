@@ -39,7 +39,7 @@ namespace Caiqelle.Views
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
             var appWindow = AppWindow.GetFromWindowId(windowId);
             // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindow.SetIcon("Assets\\favicon.ico");
+            appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico"));
 
             if (appWindow.Presenter is OverlappedPresenter presenter)
             {

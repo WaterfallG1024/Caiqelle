@@ -70,6 +70,7 @@ namespace Caiqelle
     {
         private Window? _window;
         public Window? MainWindow => _window;
+        public Window? ClipboardOwnerWindow => _hiddenTrayWindow ?? _window;
         
         private Views.FloatingWindow? _floatingWindow;
         private Views.ActionPillWindow? _actionPillWindow;

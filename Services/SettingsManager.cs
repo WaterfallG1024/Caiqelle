@@ -67,12 +67,12 @@ namespace Caiqelle.Services
         public bool IsHijackWinShiftS { get; set; } = true;
         public bool IsAutoCopyToClipboard { get; set; } = false;
         public bool IsIgnoreOutsideSelectionClick { get; set; } = true;
-        public bool IsStickyTextStealthMode { get; set; } = false;
-        public bool IsStickyTextSaveEnabled { get; set; } = false;
+        public bool IsStickyTextStealthMode { get; set; } = true;
+        public bool IsStickyTextSaveEnabled { get; set; } = true;
         public bool IsStickyTextRestoreOnOpen { get; set; } = true;
         public List<StickyTextItemData> SavedStickyTexts { get; set; } = new();
         public bool IsShiftCapsLockRewindEnabled { get; set; } = false;
-        public bool IsRewindTileCompressionEnabled { get; set; } = true;
+        public bool IsRewindTileCompressionEnabled { get; set; } = false;
         public bool IsAutoUpdateEnabled { get; set; } = true;
         public string LastDismissedReleaseTag { get; set; } = string.Empty;
         public AccentTheme AccentTheme { get; set; } = AccentTheme.Emerald;

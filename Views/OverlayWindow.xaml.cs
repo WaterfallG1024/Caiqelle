@@ -656,6 +656,7 @@ namespace Caiqelle.Views
             SelectedRegion = new System.Drawing.Rectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height);
             CapturedBytes = await GetCompositedImageBytesAsync();
 
+            bool copied = false;
             try
             {
                 var ocrService = new Caiqelle.Services.OcrService();
@@ -665,6 +666,8 @@ namespace Caiqelle.Views
                     var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
                     dataPackage.SetText(text);
                     Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
+                    Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+                    copied = true;
                 }
             }
             catch { }
@@ -675,6 +678,13 @@ namespace Caiqelle.Views
             ActionTaken = CaptureAction.None; 
             
             HideAndComplete();
+
+            if (copied)
+            {
+                var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                    .GetService<Services.NotificationService>(((App)Application.Current).Services);
+                notificationService?.ShowNotification("クリップボードにコピーしました", "\uE8C8");
+            }
         }
 
         private void CopyButton_Click(object? sender, RoutedEventArgs? e) { ActionTaken = CaptureAction.Copy; CompleteCapture(); }

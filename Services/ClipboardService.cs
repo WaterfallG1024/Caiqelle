@@ -90,10 +90,11 @@ namespace Caiqelle.Services
         {
             try
             {
-                var mainWindow = ((App)Microsoft.UI.Xaml.Application.Current).MainWindow;
-                if (mainWindow != null)
+                var app = (App)Microsoft.UI.Xaml.Application.Current;
+                var ownerWindow = app.ClipboardOwnerWindow ?? app.MainWindow;
+                if (ownerWindow != null)
                 {
-                    return WinRT.Interop.WindowNative.GetWindowHandle(mainWindow);
+                    return WinRT.Interop.WindowNative.GetWindowHandle(ownerWindow);
                 }
             }
             catch { }

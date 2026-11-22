@@ -31,7 +31,7 @@ namespace Caiqelle.Views
             var windowIdForIcon = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWndForIcon);
             var appWindowForIcon = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowIdForIcon);
             // TODO: Caiqelle用アイコンを用意したら設定する
-            // appWindowForIcon.SetIcon("Assets\\favicon.ico");
+            appWindowForIcon.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Caiqelle.ico"));
             _imageBytes = imageBytes;
 
             var hWnd = WindowNative.GetWindowHandle(this);

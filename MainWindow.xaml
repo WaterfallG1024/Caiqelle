@@ -561,7 +561,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
-                                                <TextBlock Text="ブラウザ表示中のみ監視（省負荷）" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="14" TextWrapping="Wrap"/>
+                                                <TextBlock Text="ブラウザ表示中のみ認識" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="14" TextWrapping="Wrap"/>
                                                 <TextBlock Text="Chrome / Edge / Firefox 等がアクティブな時だけ OCR スキャンします" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.IsActionOnlyOnBrowsers, Mode=TwoWay}" HorizontalAlignment="Right" Margin="0" VerticalAlignment="Center" OnContent="" OffContent="" MinWidth="0"/>

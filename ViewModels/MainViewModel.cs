@@ -194,7 +194,7 @@ namespace Caiqelle.ViewModels
         public partial bool IsShiftCapsLockRewindEnabled { get; set; }
 
         [ObservableProperty]
-        public partial bool IsRewindTileCompressionEnabled { get; set; } = true;
+        public partial bool IsRewindTileCompressionEnabled { get; set; } = false;
 
         [ObservableProperty]
         public partial string RewindMemoryInfoTitle { get; set; } = "メモリ搭載量に応じた制限について";

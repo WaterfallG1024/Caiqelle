@@ -24,7 +24,7 @@ namespace Caiqelle.Services
         IReadOnlyList<DetectedActionField> Fields);
 
     /// <summary>
-    /// 画面のアクティブコンテキストを軽量監視し、Google フォーム等の入力欄を OCR 検出して
+    /// 画面のアクティブコンテキストを軽量監視し、フォーム等の入力欄を OCR 検出して
     /// 確認用ピル UI 経由で安全に自動入力を実行するサービス
     /// </summary>
     public class ActionService : IDisposable
