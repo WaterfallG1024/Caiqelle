@@ -823,7 +823,8 @@ namespace Caiqelle.ViewModels
 
             if (_latestRelease != null &&
                 Uri.TryCreate(_latestRelease.HtmlUrl, UriKind.Absolute, out var releaseUri) &&
-                releaseUri.Scheme == Uri.UriSchemeHttps)
+                releaseUri.Scheme == Uri.UriSchemeHttps &&
+                string.Equals(releaseUri.Host, "github.com", StringComparison.OrdinalIgnoreCase))
             {
                 targetUrl = _latestRelease.HtmlUrl;
             }

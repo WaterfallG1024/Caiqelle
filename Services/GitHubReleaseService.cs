@@ -26,20 +26,19 @@ namespace Caiqelle.Services
 
     public class GitHubReleaseService
     {
-        private static readonly HttpClient _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(10),
-            MaxResponseContentBufferSize = 1024 * 1024 // 1MB 上限
-        };
+        private static readonly HttpClient _httpClient = CreateHttpClient();
         private const string RepoOwner = "WaterfallG1024";
         private const string RepoName = "Caiqelle-Release";
 
-        public GitHubReleaseService()
+        private static HttpClient CreateHttpClient()
         {
-            if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
+            var client = new HttpClient
             {
-                _httpClient.DefaultRequestHeaders.Add("User-Agent", "Caiqelle-App");
-            }
+                Timeout = TimeSpan.FromSeconds(10),
+                MaxResponseContentBufferSize = 1024 * 1024 // 1MB 上限
+            };
+            client.DefaultRequestHeaders.Add("User-Agent", "Caiqelle-App");
+            return client;
         }
 
         public async Task<ReleaseInfo?> GetLatestReleaseAsync()
@@ -47,7 +46,7 @@ namespace Caiqelle.Services
             try
             {
                 string url = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
-                var response = await _httpClient.GetAsync(url);
+                using var response = await _httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                 {
                     return null;
