@@ -21,7 +21,8 @@ namespace Caiqelle.Services
         Gold = 6,
         Lime = 7,
         Blue = 8,
-        White = 9
+        White = 9,
+        System = 10
     }
 
     public enum AppThemeMode
@@ -38,8 +39,21 @@ namespace Caiqelle.Services
         private readonly List<(Window Window, FrameworkElement Root)> _trackedWindows = new();
         private readonly UISettings _uiSettings = new();
 
+        public static Color GetSystemAccentColor()
+        {
+            try
+            {
+                return new UISettings().GetColorValue(UIColorType.Accent);
+            }
+            catch
+            {
+                return Color.FromArgb(255, 0, 120, 212);
+            }
+        }
+
         public static IReadOnlyList<AccentThemeInfo> AvailableThemes { get; } = new List<AccentThemeInfo>
         {
+            new(AccentTheme.System,  "システム既定",       "",        GetSystemAccentColor()),
             new(AccentTheme.Emerald, "エメラルドグリーン", "#00FF7F", Color.FromArgb(255, 0, 255, 127)),
             new(AccentTheme.Cyan,    "シアンブルー",       "#00BFFF", Color.FromArgb(255, 0, 191, 255)),
             new(AccentTheme.Purple,  "バイオレットパープル", "#A855F7", Color.FromArgb(255, 168, 85, 247)),
@@ -54,6 +68,7 @@ namespace Caiqelle.Services
 
         public static Color GetAccentColor(AccentTheme theme) => theme switch
         {
+            AccentTheme.System => GetSystemAccentColor(),
             AccentTheme.Cyan   => Color.FromArgb(255, 0, 191, 255),
             AccentTheme.Purple => Color.FromArgb(255, 168, 85, 247),
             AccentTheme.Orange => Color.FromArgb(255, 255, 140, 0),
@@ -69,7 +84,7 @@ namespace Caiqelle.Services
         public event Action<AccentTheme>? ThemeChanged;
         public event Action<ElementTheme>? AppThemeChanged;
 
-        public AccentTheme CurrentTheme { get; private set; } = AccentTheme.Emerald;
+        public AccentTheme CurrentTheme { get; private set; } = AccentTheme.System;
         public AppThemeMode CurrentAppTheme { get; private set; } = AppThemeMode.System;
 
         public ElementTheme EffectiveElementTheme => CurrentAppTheme switch
@@ -94,7 +109,7 @@ namespace Caiqelle.Services
         {
             _uiSettings.ColorValuesChanged += (s, e) =>
             {
-                if (CurrentAppTheme == AppThemeMode.System && _trackedWindows.Count > 0)
+                if ((CurrentAppTheme == AppThemeMode.System || CurrentTheme == AccentTheme.System) && _trackedWindows.Count > 0)
                 {
                     _trackedWindows[0].Window.DispatcherQueue?.TryEnqueue(() =>
                     {

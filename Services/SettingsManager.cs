@@ -75,7 +75,7 @@ namespace Caiqelle.Services
         public bool IsRewindTileCompressionEnabled { get; set; } = false;
         public bool IsAutoUpdateEnabled { get; set; } = true;
         public string LastDismissedReleaseTag { get; set; } = string.Empty;
-        public AccentTheme AccentTheme { get; set; } = AccentTheme.Emerald;
+        public AccentTheme AccentTheme { get; set; } = AccentTheme.System;
         public AppThemeMode AppThemeMode { get; set; } = AppThemeMode.System;
         public bool IsActionAutoDetectEnabled { get; set; } = false;
         public bool IsActionOnlyOnBrowsers { get; set; } = true;

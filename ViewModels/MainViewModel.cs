@@ -307,11 +307,18 @@ namespace Caiqelle.ViewModels
         public ObservableCollection<AccentThemeOption> AccentThemeOptions { get; } = new();
 
         [ObservableProperty]
-        public partial AccentTheme SelectedAccentTheme { get; set; } = AccentTheme.Emerald;
+        public partial AccentTheme SelectedAccentTheme { get; set; } = AccentTheme.System;
 
         public int SelectedAccentThemeIndex
         {
-            get => (int)SelectedAccentTheme;
+            get
+            {
+                for (int i = 0; i < AccentThemeOptions.Count; i++)
+                {
+                    if (AccentThemeOptions[i].Value == SelectedAccentTheme) return i;
+                }
+                return 0;
+            }
             set
             {
                 if (value >= 0 && value < AccentThemeOptions.Count)
@@ -323,7 +330,7 @@ namespace Caiqelle.ViewModels
 
         public ObservableCollection<AppThemeOption> AppThemeOptions { get; } = new()
         {
-            new AppThemeOption(AppThemeMode.System, "システム設定に従う"),
+            new AppThemeOption(AppThemeMode.System, "システム既定"),
             new AppThemeOption(AppThemeMode.Light, "ライト"),
             new AppThemeOption(AppThemeMode.Dark, "ダーク")
         };
