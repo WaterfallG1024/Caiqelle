@@ -8,7 +8,7 @@
     Title="ウィンドウを選択">
 
     <Grid Background="Black">
-        <Image x:Name="BackgroundImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <Image x:Name="BackgroundImage" Stretch="Fill" HorizontalAlignment="Left" VerticalAlignment="Top" />
         
         <Canvas x:Name="DrawCanvas" Background="Transparent" 
                 PointerMoved="Window_PointerMoved" 

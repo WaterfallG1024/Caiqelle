@@ -10,7 +10,7 @@
 
     <Grid x:Name="RootGrid" KeyDown="Window_KeyDown" Background="Transparent">
         <!-- Captured Background -->
-        <Image x:Name="BackgroundImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <Image x:Name="BackgroundImage" Stretch="Fill" HorizontalAlignment="Left" VerticalAlignment="Top" />
         
         <!-- Darken Overlay with Cutout -->
         <Path x:Name="OverlayDimmer" Fill="#A0000000" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">

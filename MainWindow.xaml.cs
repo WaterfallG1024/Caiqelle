@@ -59,7 +59,16 @@ namespace Caiqelle
                 presenter.SetBorderAndTitleBar(false, false);
             }
             double dpiScale = Views.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
-            appWindow.Resize(new Windows.Graphics.SizeInt32((int)(560 * dpiScale), (int)(580 * dpiScale)));
+            var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
+                windowId, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
+            int targetW = (int)Math.Round(560 * dpiScale);
+            int targetH = (int)Math.Round(580 * dpiScale);
+            if (displayArea != null)
+            {
+                targetW = Math.Min(targetW, (int)(displayArea.WorkArea.Width * 0.90));
+                targetH = Math.Min(targetH, (int)(displayArea.WorkArea.Height * 0.85));
+            }
+            appWindow.Resize(new Windows.Graphics.SizeInt32(targetW, targetH));
 
             // Windows 11 標準の角丸を適用
             int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
