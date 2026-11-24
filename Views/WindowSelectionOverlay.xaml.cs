@@ -69,6 +69,8 @@ namespace Caiqelle.Views
         private readonly IntPtr _hwnd;
         private readonly AppWindow _appWindow;
         private Rectangle _lastBounds = Rectangle.Empty;
+        private double _dpiScale = 1.0;
+        private bool _isXamlRootSubscribed = false;
 
         public WindowSelectionOverlay()
         {
@@ -99,6 +101,34 @@ namespace Caiqelle.Views
             NativeMethods.RemoveWindowBorder(_hwnd);
 
             _currentProcessId = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+            DrawCanvas.Loaded += (_, _) =>
+            {
+                if (!_isXamlRootSubscribed && DrawCanvas.XamlRoot != null)
+                {
+                    _isXamlRootSubscribed = true;
+                    DrawCanvas.XamlRoot.Changed += (_, _) =>
+                    {
+                        if (_virtualBounds.Width > 0 && _virtualBounds.Height > 0)
+                        {
+                            ApplyCurrentDpiLayout();
+                        }
+                    };
+                }
+            };
+        }
+
+        private void ApplyCurrentDpiLayout()
+        {
+            if (_virtualBounds.Width <= 0 || _virtualBounds.Height <= 0) return;
+
+            double dpi = NativeMethods.GetDpiForWindow(_hwnd);
+            double scale = DrawCanvas.XamlRoot?.RasterizationScale is double rs && rs > 0
+                ? rs
+                : (dpi > 0 ? dpi / 96.0 : 1.0);
+
+            _dpiScale = scale;
+            BackgroundImage.Width = _virtualBounds.Width / _dpiScale;
+            BackgroundImage.Height = _virtualBounds.Height / _dpiScale;
         }
 
         public void UpdateAndShow(SoftwareBitmapSource frozenImage, Rectangle bounds)
@@ -109,8 +139,10 @@ namespace Caiqelle.Views
             if (_lastBounds != bounds)
             {
                 _lastBounds = bounds;
-                _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
             }
+            // 解像度が同じで倍率のみ変更された場合も確実にウィンドウ座標・DPIを再同期する
+            _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            ApplyCurrentDpiLayout();
 
             HighlightBox.Visibility = Visibility.Collapsed;
             IsSelected = false;
@@ -119,6 +151,8 @@ namespace Caiqelle.Views
 
             _appWindow.Show();
             this.Activate();
+            ApplyCurrentDpiLayout();
+            DispatcherQueue?.TryEnqueue(ApplyCurrentDpiLayout);
 
             NativeMethods.SetForegroundWindow(_hwnd);
             DrawCanvas.Focus(FocusState.Programmatic);
@@ -167,8 +201,9 @@ namespace Caiqelle.Views
         private void Window_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
             var currentPoint = e.GetCurrentPoint(DrawCanvas).Position;
-            int screenX = (int)currentPoint.X + _virtualBounds.X;
-            int screenY = (int)currentPoint.Y + _virtualBounds.Y;
+            // XAMLの論理DIP座標を物理ピクセルのスクリーン座標へ変換してウィンドウ判定を行う
+            int screenX = (int)Math.Round(currentPoint.X * _dpiScale) + _virtualBounds.X;
+            int screenY = (int)Math.Round(currentPoint.Y * _dpiScale) + _virtualBounds.Y;
 
             IntPtr targetHwnd = IntPtr.Zero;
             foreach (var hWnd in _windowsList)
@@ -198,10 +233,11 @@ namespace Caiqelle.Views
             int w = rect.Right - rect.Left;
             int h = rect.Bottom - rect.Top;
 
-            Canvas.SetLeft(HighlightBox, relX);
-            Canvas.SetTop(HighlightBox, relY);
-            HighlightBox.Width = w;
-            HighlightBox.Height = h;
+            // HighlightBox は論理DIP座標で配置し、SelectedRegion は物理ピクセルを保持する
+            Canvas.SetLeft(HighlightBox, relX / _dpiScale);
+            Canvas.SetTop(HighlightBox, relY / _dpiScale);
+            HighlightBox.Width = w / _dpiScale;
+            HighlightBox.Height = h / _dpiScale;
             HighlightBox.Visibility = Visibility.Visible;
 
             SelectedRegion = new Rectangle(relX, relY, w, h);

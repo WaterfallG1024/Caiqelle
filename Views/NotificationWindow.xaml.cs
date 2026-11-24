@@ -73,15 +73,18 @@ namespace Caiqelle.Views
             exStyle |= 0x00000080L; // WS_EX_TOOLWINDOW
             NotificationNativeMethods.SetWindowLongPtr(_hwnd, NotificationNativeMethods.GWL_EXSTYLE, (IntPtr)exStyle);
 
-            // 通知ウィンドウのサイズと位置を設定（画面中央）
-            _appWindow.Resize(new Windows.Graphics.SizeInt32(380, 72));
+            // 通知ウィンドウのサイズと位置を設定（画面中央・DPIスケーリング対応）
+            double dpiScale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
+            int wPx = (int)Math.Round(380 * dpiScale);
+            int hPx = (int)Math.Round(72 * dpiScale);
+            _appWindow.Resize(new Windows.Graphics.SizeInt32(wPx, hPx));
             var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
             if (displayArea != null)
             {
                 var workArea = displayArea.WorkArea;
                 _appWindow.Move(new Windows.Graphics.PointInt32(
-                    workArea.X + (workArea.Width - 380) / 2,
-                    workArea.Y + (workArea.Height - 72) / 2));
+                    workArea.X + (workArea.Width - wPx) / 2,
+                    workArea.Y + (workArea.Height - hPx) / 2));
             }
 
             // Composition アニメーションを事前構築してキャッシュ

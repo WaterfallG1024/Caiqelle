@@ -79,6 +79,9 @@ namespace Caiqelle.Views
         private readonly IntPtr _hwnd;
         private readonly AppWindow _appWindow;
         private System.Drawing.Rectangle _lastBounds = System.Drawing.Rectangle.Empty;
+        private System.Drawing.Rectangle _currentPhysicalBounds = System.Drawing.Rectangle.Empty;
+        private double _dpiScale = 1.0;
+        private bool _isXamlRootSubscribed = false;
 
         // 場所・操作に応じたシステムカーソル
         private readonly InputSystemCursor _cursorCross = InputSystemCursor.Create(InputSystemCursorShape.Cross);
@@ -140,6 +143,38 @@ namespace Caiqelle.Views
             };
 
             this.Activated += OverlayWindow_Activated;
+            RootGrid.Loaded += (_, _) =>
+            {
+                if (!_isXamlRootSubscribed && RootGrid.XamlRoot != null)
+                {
+                    _isXamlRootSubscribed = true;
+                    RootGrid.XamlRoot.Changed += (_, _) =>
+                    {
+                        if (_currentPhysicalBounds.Width > 0 && _currentPhysicalBounds.Height > 0)
+                        {
+                            ApplyCurrentDpiLayout();
+                        }
+                    };
+                }
+            };
+        }
+
+        private void ApplyCurrentDpiLayout()
+        {
+            if (_currentPhysicalBounds.Width <= 0 || _currentPhysicalBounds.Height <= 0) return;
+
+            double dpi = NativeMethods.GetDpiForWindow(_hwnd);
+            double scale = RootGrid.XamlRoot?.RasterizationScale is double rs && rs > 0
+                ? rs
+                : (dpi > 0 ? dpi / 96.0 : 1.0);
+
+            _dpiScale = scale;
+            double logicalW = _currentPhysicalBounds.Width / _dpiScale;
+            double logicalH = _currentPhysicalBounds.Height / _dpiScale;
+            BackgroundImage.Width = logicalW;
+            BackgroundImage.Height = logicalH;
+            Bounds = new Windows.Foundation.Rect(0, 0, logicalW, logicalH);
+            OuterDimmerRect.Rect = Bounds;
         }
 
         public void UpdateAndShow(Microsoft.UI.Xaml.Media.ImageSource frozenImage, System.Drawing.Rectangle bounds, bool isOcrMode = false, bool isPinMode = false, bool isLivePinMode = false)
@@ -166,13 +201,14 @@ namespace Caiqelle.Views
             FrozenImage = frozenImage;
             BackgroundImage.Source = frozenImage;
 
+            _currentPhysicalBounds = bounds;
             if (_lastBounds != bounds)
             {
                 _lastBounds = bounds;
-                Bounds = new Windows.Foundation.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-                _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
-                OuterDimmerRect.Rect = Bounds;
             }
+            // 解像度が同じで倍率のみ変更された場合も確実にウィンドウ座標・DPIを再同期する
+            _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            ApplyCurrentDpiLayout();
 
             CutoutRect.Rect = new Windows.Foundation.Rect(0, 0, 0, 0);
 
@@ -209,6 +245,9 @@ namespace Caiqelle.Views
             DeleteSubBar.Visibility = Visibility.Collapsed;
 
             _appWindow.Show();
+            // Show() 後に WinUI 3 の RasterizationScale が最新DPIへ同期されるため即座に再適用
+            ApplyCurrentDpiLayout();
+            DispatcherQueue?.TryEnqueue(ApplyCurrentDpiLayout);
         }
 
         private void HideAndComplete()
@@ -653,7 +692,11 @@ namespace Caiqelle.Views
             await Task.Delay(200);
 
             ActionTaken = CaptureAction.Copy;
-            SelectedRegion = new System.Drawing.Rectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height);
+            SelectedRegion = new System.Drawing.Rectangle(
+                (int)Math.Round(rect.X * _dpiScale),
+                (int)Math.Round(rect.Y * _dpiScale),
+                (int)Math.Round(rect.Width * _dpiScale),
+                (int)Math.Round(rect.Height * _dpiScale));
             CapturedBytes = await GetCompositedImageBytesAsync();
 
             bool copied = false;
@@ -753,7 +796,12 @@ namespace Caiqelle.Views
         private async void CompleteCapture()
         {
             var r = CutoutRect.Rect;
-            SelectedRegion = new System.Drawing.Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), (int)Math.Round(r.Width), (int)Math.Round(r.Height));
+            // XAMLの論理DIP座標を物理ピクセルへ変換して CaptureManager へ渡す
+            SelectedRegion = new System.Drawing.Rectangle(
+                (int)Math.Round(r.X * _dpiScale),
+                (int)Math.Round(r.Y * _dpiScale),
+                (int)Math.Round(r.Width * _dpiScale),
+                (int)Math.Round(r.Height * _dpiScale));
             IsSelected = true;
 
             // Hide UI (but keep dimmer to prevent flash effect)
@@ -779,10 +827,6 @@ namespace Caiqelle.Views
         private async Task<byte[]> GetCompositedImageBytesAsync()
         {
             var r = CutoutRect.Rect;
-            int cx = (int)Math.Round(r.X);
-            int cy = (int)Math.Round(r.Y);
-            int cw = (int)Math.Round(r.Width);
-            int ch = (int)Math.Round(r.Height);
 
             var rtb = new RenderTargetBitmap();
             await rtb.RenderAsync(RootGrid);
@@ -791,6 +835,14 @@ namespace Caiqelle.Views
 
             int width = rtb.PixelWidth;
             int height = rtb.PixelHeight;
+
+            // RenderTargetBitmap の実ピクセル解像度と論理DIPサイズの比率で切り抜き座標を算出
+            double scaleX = RootGrid.ActualWidth > 0 ? width / RootGrid.ActualWidth : _dpiScale;
+            double scaleY = RootGrid.ActualHeight > 0 ? height / RootGrid.ActualHeight : _dpiScale;
+            int cx = (int)Math.Round(r.X * scaleX);
+            int cy = (int)Math.Round(r.Y * scaleY);
+            int cw = (int)Math.Round(r.Width * scaleX);
+            int ch = (int)Math.Round(r.Height * scaleY);
 
             cx = Math.Max(0, cx);
             cy = Math.Max(0, cy);

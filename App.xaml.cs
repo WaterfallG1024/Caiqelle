@@ -557,9 +557,9 @@ namespace Caiqelle
 
             var workArea = displayArea.WorkArea;
             double dpiScale = Views.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
-            int width = Math.Max(appWindow.Size.Width, (int)(500 * dpiScale));
-            int height = Math.Max(appWindow.Size.Height, (int)(580 * dpiScale));
-            int margin = (int)(12 * dpiScale);
+            int width = Math.Min((int)Math.Round(560 * dpiScale), (int)(workArea.Width * 0.90));
+            int height = Math.Min((int)Math.Round(580 * dpiScale), (int)(workArea.Height * 0.85));
+            int margin = (int)Math.Round(12 * dpiScale);
 
             int x = Math.Max(workArea.X, workArea.X + workArea.Width - width - margin);
             int y = Math.Max(workArea.Y, workArea.Y + workArea.Height - height - margin);
