@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -11,7 +12,7 @@ namespace Caiqelle.Services
 {
     public record OcrLineBox(string Text, System.Drawing.Rectangle Bounds);
 
-    public class OcrService
+    public class OcrService : IDisposable
     {
         public async Task<string> ExtractTextAsync(byte[] imageBytes)
         {
@@ -33,9 +34,21 @@ namespace Caiqelle.Services
         }
 
         private OcrEngine? _cachedOcrEngine;
+        private readonly object _engineLock = new();
         private SoftwareBitmap? _scaledOcrBitmap;
         private readonly object _scaleLock = new();
+        private readonly SemaphoreSlim _ocrScaleSemaphore = new(1, 1);
+        private volatile bool _disposed = false;
         private static readonly byte[] ThinTextGammaLut = BuildThinTextGammaLut();
+
+        private OcrEngine? GetOrCreateOcrEngine()
+        {
+            if (_cachedOcrEngine != null) return _cachedOcrEngine;
+            lock (_engineLock)
+            {
+                return _cachedOcrEngine ??= GetOptimalOcrEngine();
+            }
+        }
 
         private static byte[] BuildThinTextGammaLut()
         {
@@ -60,16 +73,25 @@ namespace Caiqelle.Services
         /// </summary>
         public async Task<IReadOnlyList<OcrLineBox>> ExtractLinesWithBoundsAsync(SoftwareBitmap softwareBitmap)
         {
-            if (softwareBitmap == null)
+            if (softwareBitmap == null || _disposed)
                 return Array.Empty<OcrLineBox>();
 
-            var ocrEngine = _cachedOcrEngine ??= GetOptimalOcrEngine();
+            var ocrEngine = GetOrCreateOcrEngine();
             if (ocrEngine == null)
                 return Array.Empty<OcrLineBox>();
 
-            SoftwareBitmap targetBitmap = PrepareScaledSoftwareBitmap(softwareBitmap, 1.25f, out float actualScale);
-            var ocrResult = await ocrEngine.RecognizeAsync(targetBitmap);
-            return ConvertOcrResultToLines(ocrResult, actualScale);
+            await _ocrScaleSemaphore.WaitAsync();
+            try
+            {
+                if (_disposed) return Array.Empty<OcrLineBox>();
+                SoftwareBitmap targetBitmap = PrepareScaledSoftwareBitmap(softwareBitmap, 1.25f, out float actualScale);
+                var ocrResult = await ocrEngine.RecognizeAsync(targetBitmap);
+                return ConvertOcrResultToLines(ocrResult, actualScale);
+            }
+            finally
+            {
+                _ocrScaleSemaphore.Release();
+            }
         }
 
         private unsafe SoftwareBitmap PrepareScaledSoftwareBitmap(SoftwareBitmap srcBitmap, float targetScale, out float actualScale)
@@ -77,6 +99,11 @@ namespace Caiqelle.Services
             actualScale = 1.0f;
             try
             {
+                if (srcBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8)
+                {
+                    return srcBitmap;
+                }
+
                 int srcW = srcBitmap.PixelWidth;
                 int srcH = srcBitmap.PixelHeight;
                 if (srcW <= 0 || srcH <= 0) return srcBitmap;
@@ -329,7 +356,7 @@ namespace Caiqelle.Services
                    (c >= 0xFF00 && c <= 0xFFEF);   // Fullwidth roman characters
         }
 
-        private OcrEngine GetOptimalOcrEngine()
+        private OcrEngine? GetOptimalOcrEngine()
         {
             var jpLanguage = new Windows.Globalization.Language("ja-JP");
             if (OcrEngine.IsLanguageSupported(jpLanguage))
@@ -342,7 +369,7 @@ namespace Caiqelle.Services
         public async Task<string> ExtractTableAsTsvAsync(byte[] imageBytes)
         {
             var processedBytes = PreprocessImageForOcr(imageBytes);
-            var softwareBitmap = await ConvertBytesToSoftwareBitmapAsync(processedBytes);
+            using var softwareBitmap = await ConvertBytesToSoftwareBitmapAsync(processedBytes);
             if (softwareBitmap == null) return string.Empty;
 
             var ocrEngine = GetOptimalOcrEngine();
@@ -455,6 +482,25 @@ namespace Caiqelle.Services
             {
                 return null;
             }
+        }
+
+        public void Dispose()
+        {
+            _disposed = true;
+            _ocrScaleSemaphore.Wait();
+            try
+            {
+                lock (_scaleLock)
+                {
+                    _scaledOcrBitmap?.Dispose();
+                    _scaledOcrBitmap = null;
+                }
+            }
+            finally
+            {
+                _ocrScaleSemaphore.Release();
+            }
+            _ocrScaleSemaphore.Dispose();
         }
     }
 }

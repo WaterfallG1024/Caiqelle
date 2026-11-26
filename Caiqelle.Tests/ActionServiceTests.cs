@@ -433,6 +433,28 @@ namespace Caiqelle.Tests
         }
 
         [Fact]
+        public void IsUrlAllowedByWhitelist_BlocksBypassAttempts()
+        {
+            var httpsOnlyWhitelist = new List<string> { "https://docs.google.com/forms", "https://example.org/app" };
+
+            // Userinfo 偽装
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("https://docs.google.com:pass@evil.com/forms", httpsOnlyWhitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("https://docs.google.com@evil.com/forms", httpsOnlyWhitelist));
+            // バックスラッシュやコロンによるローカルパス誤判定バイパス
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("https://evil.com/\\docs.google.com/forms", httpsOnlyWhitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("http://a:b@evil.com/docs.google.com/forms", httpsOnlyWhitelist));
+            // スキームダウングレード・危険スキーム
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("http://docs.google.com/forms/d/1", httpsOnlyWhitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("javascript:alert('docs.google.com')", httpsOnlyWhitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("data:text/html,docs.google.com", httpsOnlyWhitelist));
+            // パス境界バイパス
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("https://example.org/app-evil", httpsOnlyWhitelist));
+            Assert.True(ActionService.IsUrlAllowedByWhitelist("https://example.org/app/sub", httpsOnlyWhitelist));
+            // file:// でドメイン名を含むローカル偽装パスを拒否
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("file:///C:/evil/docs.google.com/fake.html", httpsOnlyWhitelist));
+        }
+
+        [Fact]
         public void ShortcutBinding_MatchesAndFormatsCorrectly()
         {
             var binding = new ShortcutBinding { Ctrl = true, Shift = true, VirtualKey = 0x43 };

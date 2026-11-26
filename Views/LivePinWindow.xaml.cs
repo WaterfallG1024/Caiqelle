@@ -27,6 +27,7 @@ namespace Caiqelle.Views
         private readonly PinToolbarWindow _toolbarWindow;
         private readonly SoftwareBitmapSource _bitmapSource;
         private readonly CancellationTokenSource _cts = new();
+        private readonly SemaphoreSlim _frameLock = new(1, 1);
 
         private SoftwareBitmap? _reuseBitmapA;
         private SoftwareBitmap? _reuseBitmapB;
@@ -162,12 +163,24 @@ namespace Caiqelle.Views
         {
             if (ct.IsCancellationRequested || _isClosed) return;
 
+            if (!await _frameLock.WaitAsync(0, ct)) return;
             try
             {
+                if (ct.IsCancellationRequested || _isClosed) return;
+
                 // 同一インスタンスの再利用では SoftwareBitmapSource が更新を検知しない場合があるためダブルバッファで交互に描画
                 var targetBuffer = _useBufferA ? _reuseBitmapA : _reuseBitmapB;
                 var captured = await Task.Run(() => _screenshotService.CaptureRegionToSoftwareBitmap(_targetBounds, targetBuffer), ct);
-                if (captured == null || ct.IsCancellationRequested || _isClosed) return;
+                if (captured == null) return;
+
+                if (ct.IsCancellationRequested || _isClosed)
+                {
+                    if (!ReferenceEquals(captured, _reuseBitmapA) && !ReferenceEquals(captured, _reuseBitmapB))
+                    {
+                        captured.Dispose();
+                    }
+                    return;
+                }
 
                 if (_useBufferA)
                     _reuseBitmapA = captured;
@@ -178,14 +191,20 @@ namespace Caiqelle.Views
                 await _bitmapSource.SetBitmapAsync(captured);
             }
             catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[LivePinWindow] Frame update error: {ex.Message}");
+            }
+            finally
+            {
+                try { _frameLock.Release(); } catch (ObjectDisposedException) { }
             }
         }
 
         private void TogglePause()
         {
+            if (_isClosed) return;
             _isPaused = !_isPaused;
             _toolbarWindow?.SyncPauseState(_isPaused);
             if (_isPaused)
@@ -200,7 +219,7 @@ namespace Caiqelle.Views
                 {
                     StatusDot.Fill = primaryBrush;
                 }
-                _ = CaptureAndRenderFrameAsync(_cts.Token);
+                try { _ = CaptureAndRenderFrameAsync(_cts.Token); } catch (ObjectDisposedException) { }
             }
         }
 
@@ -209,12 +228,21 @@ namespace Caiqelle.Views
             _isClosed = true;
             _toolbarWindow?.SafeClose();
             _cts.Cancel();
-            _cts.Dispose();
-            _reuseBitmapA?.Dispose();
-            _reuseBitmapA = null;
-            _reuseBitmapB?.Dispose();
-            _reuseBitmapB = null;
-            _bitmapSource.Dispose();
+            _frameLock.Wait();
+            try
+            {
+                _reuseBitmapA?.Dispose();
+                _reuseBitmapA = null;
+                _reuseBitmapB?.Dispose();
+                _reuseBitmapB = null;
+                _bitmapSource.Dispose();
+            }
+            finally
+            {
+                _frameLock.Release();
+                _frameLock.Dispose();
+                _cts.Dispose();
+            }
         }
 
         private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)

@@ -194,23 +194,37 @@ namespace Caiqelle
 
         private async void EditRewindShortcutBtn_Click(object sender, RoutedEventArgs e)
         {
-            var captured = await ShowShortcutCaptureDialogAsync(
-                "リワインド停止 / 再開のショートカット変更",
-                ViewModel.GetAutoCopyToggleShortcut());
-            if (captured != null)
+            try
             {
-                ViewModel.SetRewindToggleShortcut(captured);
+                var captured = await ShowShortcutCaptureDialogAsync(
+                    "リワインド停止 / 再開のショートカット変更",
+                    ViewModel.GetAutoCopyToggleShortcut());
+                if (captured != null)
+                {
+                    ViewModel.SetRewindToggleShortcut(captured);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] EditRewindShortcut error: {ex.Message}");
             }
         }
 
         private async void EditAutoCopyShortcutBtn_Click(object sender, RoutedEventArgs e)
         {
-            var captured = await ShowShortcutCaptureDialogAsync(
-                "自動クリップボードコピー切替のショートカット変更",
-                ViewModel.GetRewindToggleShortcut());
-            if (captured != null)
+            try
             {
-                ViewModel.SetAutoCopyToggleShortcut(captured);
+                var captured = await ShowShortcutCaptureDialogAsync(
+                    "自動クリップボードコピー切替のショートカット変更",
+                    ViewModel.GetRewindToggleShortcut());
+                if (captured != null)
+                {
+                    ViewModel.SetAutoCopyToggleShortcut(captured);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] EditAutoCopyShortcut error: {ex.Message}");
             }
         }
 
@@ -282,9 +296,14 @@ namespace Caiqelle
                         VirtualKey = vk
                     };
 
+                    bool isModifierKey = vk is 0x10 or 0xA0 or 0xA1 // Shift
+                                            or 0x11 or 0xA2 or 0xA3 // Ctrl
+                                            or 0x12 or 0xA4 or 0xA5 // Alt
+                                            or 0x5B or 0x5C;        // Win
                     bool hasModifier = isCtrl || isShift || isAlt || isWin;
                     bool isTypingOrNavSingleKey =
-                        (vk >= 0x30 && vk <= 0x39) // 0-9
+                        isModifierKey
+                        || (vk >= 0x30 && vk <= 0x39) // 0-9
                         || (vk >= 0x41 && vk <= 0x5A) // A-Z
                         || (vk >= 0x60 && vk <= 0x6F) // Numpad
                         || (vk >= 0xBA && vk <= 0xE2) // OEM 記号
@@ -510,6 +529,10 @@ namespace Caiqelle
 
                     await dialog.ShowAsync();
                 }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainWindow] EditFolderMapping error: {ex.Message}");
+                }
                 finally
                 {
                     _isModalDialogOpen = false;
@@ -575,6 +598,10 @@ namespace Caiqelle
 
                     await dialog.ShowAsync();
                 }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainWindow] EditFolderMapping error: {ex.Message}");
+                }
                 finally
                 {
                     _isModalDialogOpen = false;
@@ -584,29 +611,43 @@ namespace Caiqelle
 
         private async void RemoveFolderMappingBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is FrameworkElement fe && fe.Tag is FolderMapping mapping)
+            try
             {
-                bool confirmed = await ShowConfirmDialogAsync(
-                    "フォルダの登録を解除しますか？",
-                    "この操作では Caiqelle からのリンク（登録）のみが解除され、PC 上のフォルダや画像ファイル自体は削除されません。");
-                if (confirmed)
+                if (sender is FrameworkElement fe && fe.Tag is FolderMapping mapping)
                 {
-                    ViewModel.RemoveMappingCommand.Execute(mapping);
+                    bool confirmed = await ShowConfirmDialogAsync(
+                        "フォルダの登録を解除しますか？",
+                        "この操作では Caiqelle からのリンク（登録）のみが解除され、PC 上のフォルダや画像ファイル自体は削除されません。");
+                    if (confirmed)
+                    {
+                        ViewModel.RemoveMappingCommand.Execute(mapping);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] RemoveFolderMapping error: {ex.Message}");
             }
         }
 
         private async void DeleteActionMappingBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is FrameworkElement fe && fe.Tag is ActionFieldMapping mapping)
+            try
             {
-                bool confirmed = await ShowConfirmDialogAsync(
-                    "登録項目を削除しますか？",
-                    "このキーワードと登録された入力値を削除します。この操作は元に戻せません。");
-                if (confirmed)
+                if (sender is FrameworkElement fe && fe.Tag is ActionFieldMapping mapping)
                 {
-                    ViewModel.DeleteActionMappingCommand.Execute(mapping);
+                    bool confirmed = await ShowConfirmDialogAsync(
+                        "登録項目を削除しますか？",
+                        "このキーワードと登録された入力値を削除します。この操作は元に戻せません。");
+                    if (confirmed)
+                    {
+                        ViewModel.DeleteActionMappingCommand.Execute(mapping);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] DeleteActionMapping error: {ex.Message}");
             }
         }
 

@@ -126,19 +126,33 @@ namespace Caiqelle.Views
 
         private async void SaveBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_imageBytes != null && _imageBytes.Length > 0)
+            try
             {
-                var folderWindow = new FolderSelectionWindow((App)Application.Current);
-                await folderWindow.ShowAsync(_imageBytes);
+                if (_imageBytes != null && _imageBytes.Length > 0)
+                {
+                    var folderWindow = new FolderSelectionWindow((App)Application.Current);
+                    await folderWindow.ShowAsync(_imageBytes);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PinWindow] SaveBtn_Click error: {ex.Message}");
             }
         }
 
         private async void CopyBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_imageBytes != null && _imageBytes.Length > 0)
+            try
             {
-                var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.ClipboardService>(((App)Application.Current).Services);
-                await clipboardService.CopyImageAsync(_imageBytes, showNotification: true, DispatcherQueue);
+                if (_imageBytes != null && _imageBytes.Length > 0)
+                {
+                    var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.ClipboardService>(((App)Application.Current).Services);
+                    await clipboardService.CopyImageAsync(_imageBytes, showNotification: true, DispatcherQueue);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PinWindow] CopyBtn_Click error: {ex.Message}");
             }
         }
 

@@ -219,7 +219,7 @@ namespace Caiqelle.ViewModels
 
             try
             {
-                bool saved = await Task.Run(() =>
+                int saved = await Task.Run(() =>
                 {
                     string finalFolderPath = SettingsManager.ResolveFolderPath(folderPath);
 
@@ -260,21 +260,23 @@ namespace Caiqelle.ViewModels
                     string fullPath = Path.Combine(finalFolderPath, fileName);
                     if (!SettingsManager.IsPathWithinDirectory(finalFolderPath, fullPath))
                     {
-                        return false;
+                        return -1;
                     }
                     if (File.Exists(fullPath))
                     {
-                        return false;
+                        return -2;
                     }
 
                     File.WriteAllBytes(fullPath, imageBytes);
-                    return true;
+                    return 0;
                 });
 
-                if (!saved)
+                if (saved != 0)
                 {
                     IsErrorState = true;
-                    PageIndicatorText = "同名のファイルが既に存在します";
+                    PageIndicatorText = saved == -1
+                        ? "無効なファイル名または保存先パスです"
+                        : "同名のファイルが既に存在します";
                     return;
                 }
 
@@ -283,8 +285,9 @@ namespace Caiqelle.ViewModels
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[FolderSelectionViewModel] Save failed: {ex.Message}");
                 IsErrorState = true;
-                PageIndicatorText = $"エラー: {ex.Message}";
+                PageIndicatorText = "画像の保存中にエラーが発生しました";
             }
             finally
             {

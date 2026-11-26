@@ -10,6 +10,12 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
+            <!-- アプリ標準フォント（英数字: Segoe UI Variable / 日本語: Yu Gothic UI） -->
+            <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI Variable Text, Yu Gothic UI</FontFamily>
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text, Yu Gothic UI" />
+            </Style>
+
             <!-- Pure Black / Neutral Dark Surface Hierarchy (ブラーが透ける半透明設計) -->
             <SolidColorBrush x:Key="FluentSurfaceBrush" Color="#9E0A0A0A" />
             <SolidColorBrush x:Key="FluentSurfaceContainerLowestBrush" Color="#88050505" />
@@ -60,7 +66,7 @@
             <SolidColorBrush x:Key="FluentCardStrokeBrush" Color="#18FFFFFF" />
             <SolidColorBrush x:Key="FluentSurfaceStrokeBrush" Color="#28FFFFFF" />
 
-            <!-- Material You 3 Expressive Functional Colors (Vibrant & Legible) -->
+            <!-- Fluent 2 Functional Colors (Vibrant & Legible) -->
             <SolidColorBrush x:Key="FuncBlueBrush" Color="#5EA2FF" />
             <SolidColorBrush x:Key="FuncBlueBgBrush" Color="#3D5EA2FF" />
             
@@ -85,7 +91,7 @@
                 <Setter Property="Foreground" Value="{StaticResource AfterGlowTextPrimaryBrush}" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="CornerRadius" Value="12" />
-                <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+                <Setter Property="FontFamily" Value="Segoe UI Variable Display, Yu Gothic UI" />
             </Style>
 
             <!-- Fluent 2 Card Button Style -->
@@ -135,7 +141,7 @@
                 <Setter Property="CornerRadius" Value="4" />
                 <Setter Property="Padding" Value="14,6" />
                 <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="FontFamily" Value="Segoe UI Variable Text" />
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text, Yu Gothic UI" />
             </Style>
 
             <!-- Fluent 2 Accent Primary Button Style -->
@@ -146,7 +152,7 @@
                 <Setter Property="CornerRadius" Value="4" />
                 <Setter Property="Padding" Value="14,6" />
                 <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="FontFamily" Value="Segoe UI Variable Text" />
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text, Yu Gothic UI" />
             </Style>
 
         </ResourceDictionary>

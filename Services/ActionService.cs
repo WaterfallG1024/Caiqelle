@@ -36,6 +36,8 @@ namespace Caiqelle.Services
 
         private Timer? _monitorTimer;
         private Windows.Graphics.Imaging.SoftwareBitmap? _reuseOcrBitmap;
+        private readonly SemaphoreSlim _ocrBitmapSemaphore = new(1, 1);
+        private volatile bool _disposed = false;
         private int _isScanning = 0;
         private int _isExecuting = 0;
         private string _lastActiveContextKey = string.Empty;
@@ -253,25 +255,35 @@ namespace Caiqelle.Services
             if (width < 200 || height < 200) return null;
 
             var bounds = new Rectangle(rect.Left, rect.Top, width, height);
-            var capturedBitmap = _screenshotService.CaptureRegionToSoftwareBitmap(bounds, _reuseOcrBitmap);
-            if (capturedBitmap == null) return null;
-            _reuseOcrBitmap = capturedBitmap;
-
-            ulong screenHash = ComputeSoftwareBitmapQuickHash(capturedBitmap);
-            if (!force)
+            IReadOnlyList<OcrLineBox> lines;
+            await _ocrBitmapSemaphore.WaitAsync();
+            try
             {
-                lock (_stateLock)
-                {
-                    if (_lastScannedScreenHash == screenHash && _lastActiveContextKey == contextKey)
-                    {
-                        // 画面に変化がなければ OCR をスキップ
-                        return null;
-                    }
-                    _lastScannedScreenHash = screenHash;
-                }
-            }
+                if (_disposed) return null;
+                var capturedBitmap = _screenshotService.CaptureRegionToSoftwareBitmap(bounds, _reuseOcrBitmap);
+                if (capturedBitmap == null) return null;
+                _reuseOcrBitmap = capturedBitmap;
 
-            var lines = await _ocrService.ExtractLinesWithBoundsAsync(capturedBitmap);
+                ulong screenHash = ComputeSoftwareBitmapQuickHash(capturedBitmap);
+                if (!force)
+                {
+                    lock (_stateLock)
+                    {
+                        if (_lastScannedScreenHash == screenHash && _lastActiveContextKey == contextKey)
+                        {
+                            // 画面に変化がなければ OCR をスキップ
+                            return null;
+                        }
+                        _lastScannedScreenHash = screenHash;
+                    }
+                }
+
+                lines = await _ocrService.ExtractLinesWithBoundsAsync(capturedBitmap);
+            }
+            finally
+            {
+                _ocrBitmapSemaphore.Release();
+            }
             if (lines.Count == 0) return null;
 
             // OCR 解析中に自動入力が開始／完了していた場合は古い結果を破棄（2重検知・2重入力防止）
@@ -657,71 +669,170 @@ namespace Caiqelle.Services
                 return false;
             }
 
-            static string StripScheme(string s)
+            if (!TryParseTargetUrl(url.Trim(), out bool urlHasExplicitScheme, out Uri? targetUri, out string? targetLocalPath))
             {
-                string t = s.Trim();
-                if (t.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return t[8..];
-                if (t.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) return t[7..];
-                if (t.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)) return t[8..];
-                if (t.StartsWith("file://", StringComparison.OrdinalIgnoreCase)) return t[7..];
-                return t;
+                return false;
             }
-
-            static (string Host, string Path) SplitHostAndPath(string normalized)
-            {
-                int queryIdx = normalized.IndexOfAny(new[] { '?', '#' });
-                string withoutQuery = queryIdx >= 0 ? normalized[..queryIdx] : normalized;
-                int slashIdx = withoutQuery.IndexOf('/');
-                string hostWithPort = slashIdx >= 0 ? withoutQuery[..slashIdx] : withoutQuery;
-                string path = slashIdx >= 0 ? withoutQuery[slashIdx..] : string.Empty;
-                int colonIdx = hostWithPort.IndexOf(':');
-                string host = colonIdx >= 0 ? hostWithPort[..colonIdx] : hostWithPort;
-                return (host, path);
-            }
-
-            string normalizedUrl = StripScheme(url);
-            bool isLocalPathUrl = url.StartsWith("file://", StringComparison.OrdinalIgnoreCase) ||
-                                  normalizedUrl.Contains('\\') ||
-                                  (normalizedUrl.Length >= 2 && normalizedUrl[1] == ':');
-            var (urlHost, urlPath) = SplitHostAndPath(normalizedUrl);
 
             foreach (string entry in whitelist)
             {
                 string rawEntry = entry?.Trim() ?? string.Empty;
                 if (string.IsNullOrEmpty(rawEntry)) continue;
 
-                string pattern = StripScheme(rawEntry);
-                if (string.IsNullOrEmpty(pattern)) continue;
-
-                if (isLocalPathUrl)
+                if (!TryParseTargetUrl(rawEntry, out bool patHasExplicitScheme, out Uri? patUri, out string? patLocalPath))
                 {
-                    if (normalizedUrl.Contains(pattern.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase) ||
-                        normalizedUrl.Replace('/', '\\').Contains(pattern.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase))
+                    continue;
+                }
+
+                // ローカルパス / file:// 同士の比較
+                if (targetLocalPath != null || patLocalPath != null)
+                {
+                    if (targetLocalPath == null || patLocalPath == null) continue;
+                    if (IsLocalPathAllowed(targetLocalPath, patLocalPath))
                     {
                         return true;
                     }
                     continue;
                 }
 
-                var (patHost, patPath) = SplitHostAndPath(pattern);
-                if (string.IsNullOrEmpty(patHost)) continue;
+                if (targetUri == null || patUri == null) continue;
 
-                // ホスト部の厳格一致（完全一致またはサブドメイン一致のみ許可し、クエリ偽装や偽サブドメインを防止）
-                bool hostMatched = string.Equals(urlHost, patHost, StringComparison.OrdinalIgnoreCase) ||
-                                   urlHost.EndsWith("." + patHost, StringComparison.OrdinalIgnoreCase);
+                // ホワイトリスト側でスキームが明示されている場合（例: https://example.com）はスキーム一致を強制し、http ダウングレードを防止
+                if (patHasExplicitScheme && urlHasExplicitScheme &&
+                    !string.Equals(targetUri.Scheme, patUri.Scheme, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // ホスト部の厳格一致（完全一致またはドット区切りのサブドメイン一致のみ許可）
+                bool hostMatched = string.Equals(targetUri.Host, patUri.Host, StringComparison.OrdinalIgnoreCase) ||
+                                   targetUri.Host.EndsWith("." + patUri.Host, StringComparison.OrdinalIgnoreCase);
                 if (!hostMatched) continue;
 
+                // パターン側にポートが明示されている場合はポートも一致させる
+                if (!patUri.IsDefaultPort && targetUri.Port != patUri.Port)
+                {
+                    continue;
+                }
+
+                string patPath = patUri.AbsolutePath;
                 if (string.IsNullOrEmpty(patPath) || patPath == "/")
                 {
                     return true;
                 }
 
-                if (urlPath.StartsWith(patPath, StringComparison.OrdinalIgnoreCase))
+                string urlPath = targetUri.AbsolutePath;
+                if (urlPath.StartsWith(patPath, StringComparison.OrdinalIgnoreCase) &&
+                    (urlPath.Length == patPath.Length || patPath.EndsWith('/') || urlPath[patPath.Length] == '/'))
                 {
                     return true;
                 }
             }
             return false;
+        }
+
+        private static bool TryParseTargetUrl(
+            string input,
+            out bool hasExplicitScheme,
+            out Uri? parsedUri,
+            out string? localPath)
+        {
+            hasExplicitScheme = false;
+            parsedUri = null;
+            localPath = null;
+
+            if (string.IsNullOrWhiteSpace(input) || input.Any(char.IsControl))
+            {
+                return false;
+            }
+
+            if (input.Contains("://", StringComparison.Ordinal))
+            {
+                hasExplicitScheme = true;
+                if (!Uri.TryCreate(input, UriKind.Absolute, out var uri))
+                {
+                    return false;
+                }
+
+                if (string.Equals(uri.Scheme, Uri.UriSchemeFile, StringComparison.OrdinalIgnoreCase))
+                {
+                    localPath = NormalizeLocalPath(uri.LocalPath);
+                    return localPath != null;
+                }
+
+                if (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrEmpty(uri.Host)) return false;
+                    parsedUri = uri;
+                    return true;
+                }
+
+                // javascript:, data:, vbscript: 等のスキームは拒否
+                return false;
+            }
+
+            // ドライブレター付きローカルパスまたは UNC パス
+            if ((input.Length >= 2 && char.IsLetter(input[0]) && input[1] == ':') ||
+                input.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                localPath = NormalizeLocalPath(input);
+                return localPath != null;
+            }
+
+            // スキーム省略形式（例: docs.google.com/forms, localhost:8080/app）
+            // 先頭パス区切りより前に ':' がある場合、ポート番号以外（javascript: 等）を拒否
+            int slashIdx = input.IndexOfAny(new[] { '/', '?', '#' });
+            string authorityPart = slashIdx >= 0 ? input[..slashIdx] : input;
+            int atIdx = authorityPart.LastIndexOf('@');
+            string hostPortPart = atIdx >= 0 ? authorityPart[(atIdx + 1)..] : authorityPart;
+            int colonIdx = hostPortPart.IndexOf(':');
+            if (colonIdx >= 0)
+            {
+                string portPart = hostPortPart[(colonIdx + 1)..];
+                if (portPart.Length == 0 || !portPart.All(char.IsAsciiDigit))
+                {
+                    return false;
+                }
+            }
+
+            if (input.Contains('\\'))
+            {
+                return false;
+            }
+
+            if (Uri.TryCreate("https://" + input, UriKind.Absolute, out var fallbackUri) &&
+                !string.IsNullOrEmpty(fallbackUri.Host))
+            {
+                parsedUri = fallbackUri;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string? NormalizeLocalPath(string path)
+        {
+            try
+            {
+                return System.IO.Path.GetFullPath(path);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool IsLocalPathAllowed(string targetPath, string allowedPath)
+        {
+            if (string.Equals(targetPath, allowedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            string baseDir = allowedPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+                             + System.IO.Path.DirectorySeparatorChar;
+            return targetPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase);
         }
 
         private static void ReleaseComSafely(object? comObj)
@@ -1108,6 +1219,7 @@ namespace Caiqelle.Services
 
             string? previousClipboardText = null;
             bool hadPreviousText = false;
+            bool copiedSensitiveValue = false;
             var fillLog = new StringBuilder();
             fillLog.AppendLine($"Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
             fillLog.AppendLine($"TargetHwnd: 0x{context.WindowHwnd.ToInt64():X} Title: {context.WindowTitle} Fields: {context.Fields.Count}");
@@ -1153,10 +1265,9 @@ namespace Caiqelle.Services
                 for (int i = 0; i < context.Fields.Count; i++)
                 {
                     var field = context.Fields[i];
-                    IntPtr loopFg = GetForegroundWindow();
-                    if (loopFg != context.WindowHwnd)
+                    if (!IsTargetContextStillValid(context.WindowHwnd))
                     {
-                        fillLog.AppendLine($"[{i}] Abort: Foreground changed to 0x{loopFg.ToInt64():X}");
+                        fillLog.AppendLine($"[{i}] Abort: Foreground or URL changed before field");
                         return false;
                     }
 
@@ -1171,6 +1282,12 @@ namespace Caiqelle.Services
                             fillLog.AppendLine($"[{i}] Refreshed [{field.Label}] point: ({targetPoint.X},{targetPoint.Y}) -> ({refreshed.Value.X},{refreshed.Value.Y})");
                             targetPoint = refreshed.Value;
                         }
+
+                        if (!IsTargetContextStillValid(context.WindowHwnd))
+                        {
+                            fillLog.AppendLine($"[{i}] Abort: Foreground or URL changed after refresh");
+                            return false;
+                        }
                     }
 
                     if (!SetClipboardTextProtected(ownHwnd, field.PlainValue, excludeFromHistory: true))
@@ -1178,13 +1295,24 @@ namespace Caiqelle.Services
                         fillLog.AppendLine($"[{i}] Abort: SetClipboardTextProtected failed for [{field.Label}]");
                         return false;
                     }
+                    copiedSensitiveValue = true;
 
                     SetCursorPos(targetPoint.X, targetPoint.Y);
                     SendMouseMoveNudge();
                     await Task.Delay(15);
+                    if (!IsTargetContextStillValid(context.WindowHwnd))
+                    {
+                        fillLog.AppendLine($"[{i}] Abort: Foreground or URL changed before click");
+                        return false;
+                    }
                     await SendMouseLeftClickAsync();
                     await Task.Delay(70);
 
+                    if (!IsTargetContextStillValid(context.WindowHwnd))
+                    {
+                        fillLog.AppendLine($"[{i}] Abort: Foreground or URL changed before paste");
+                        return false;
+                    }
                     await SendCtrlVAsync();
                     bool hasNextField = i + 1 < context.Fields.Count;
                     await Task.Delay(hasNextField ? 160 : 90);
@@ -1225,20 +1353,40 @@ namespace Caiqelle.Services
 #if DEBUG
                 WriteFillDiagnosticLog(fillLog.ToString());
 #endif
+                IntPtr ownHwnd = GetOwnOwnerHwnd();
                 if (_settingsManager.ActionRestoreClipboardAfterFill)
                 {
-                    IntPtr ownHwnd = GetOwnOwnerHwnd();
-                    if (hadPreviousText && previousClipboardText != null)
-                    {
-                        SetClipboardTextProtected(ownHwnd, previousClipboardText, excludeFromHistory: false);
-                    }
-                    else
+                    bool restored = hadPreviousText && previousClipboardText != null &&
+                                    SetClipboardTextProtected(ownHwnd, previousClipboardText, excludeFromHistory: false);
+                    if (!restored)
                     {
                         ClearClipboard(ownHwnd);
                     }
                 }
+                else if (copiedSensitiveValue)
+                {
+                    // 復元無効時でも自動入力に使用した機密値がクリップボードに残留しないよう必ずクリア
+                    ClearClipboard(ownHwnd);
+                }
                 Interlocked.Exchange(ref _isExecuting, 0);
             }
+        }
+
+        private bool IsTargetContextStillValid(IntPtr expectedHwnd)
+        {
+            if (GetForegroundWindow() != expectedHwnd)
+            {
+                return false;
+            }
+            if (_settingsManager.IsActionUrlWhitelistEnabled)
+            {
+                string? activeUrl = TryGetActiveBrowserUrl(expectedHwnd);
+                if (!IsUrlAllowedByWhitelist(activeUrl, _settingsManager.ActionUrlWhitelist))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private async Task<Point?> TryRefreshFieldScreenPointAsync(IntPtr hwnd, string windowTitle, string fieldId)
@@ -1251,11 +1399,21 @@ namespace Caiqelle.Services
                 if (width < 200 || height < 200) return null;
 
                 var bounds = new Rectangle(rect.Left, rect.Top, width, height);
-                var captured = _screenshotService.CaptureRegionToSoftwareBitmap(bounds, _reuseOcrBitmap);
-                if (captured == null) return null;
-                _reuseOcrBitmap = captured;
+                IReadOnlyList<OcrLineBox> lines;
+                await _ocrBitmapSemaphore.WaitAsync();
+                try
+                {
+                    if (_disposed) return null;
+                    var captured = _screenshotService.CaptureRegionToSoftwareBitmap(bounds, _reuseOcrBitmap);
+                    if (captured == null) return null;
+                    _reuseOcrBitmap = captured;
 
-                var lines = await _ocrService.ExtractLinesWithBoundsAsync(captured);
+                    lines = await _ocrService.ExtractLinesWithBoundsAsync(captured);
+                }
+                finally
+                {
+                    _ocrBitmapSemaphore.Release();
+                }
                 if (lines.Count == 0) return null;
 
                 var detected = DetectFormFields(lines, windowTitle, bounds.Location, _settingsManager.ActionMappings);
@@ -1425,10 +1583,17 @@ namespace Caiqelle.Services
         {
             try
             {
-                if (OpenClipboard(ownerHwnd))
+                for (int attempt = 0; attempt < 10; attempt++)
                 {
-                    try { EmptyClipboard(); }
-                    finally { CloseClipboard(); }
+                    if (OpenClipboard(ownerHwnd))
+                    {
+                        try
+                        {
+                            if (EmptyClipboard()) return;
+                        }
+                        finally { CloseClipboard(); }
+                    }
+                    Thread.Sleep(15);
                 }
             }
             catch { }
@@ -1489,22 +1654,27 @@ namespace Caiqelle.Services
             ctrlDown[0].type = INPUT_KEYBOARD;
             ctrlDown[0].U.ki.wVk = VK_CONTROL;
             SendInput(1, ctrlDown, Marshal.SizeOf<INPUT>());
-            await Task.Delay(10);
+            try
+            {
+                await Task.Delay(10);
 
-            var vPress = new INPUT[2];
-            vPress[0].type = INPUT_KEYBOARD;
-            vPress[0].U.ki.wVk = VK_V;
-            vPress[1].type = INPUT_KEYBOARD;
-            vPress[1].U.ki.wVk = VK_V;
-            vPress[1].U.ki.dwFlags = KEYEVENTF_KEYUP;
-            SendInput(2, vPress, Marshal.SizeOf<INPUT>());
-            await Task.Delay(10);
-
-            var ctrlUp = new INPUT[1];
-            ctrlUp[0].type = INPUT_KEYBOARD;
-            ctrlUp[0].U.ki.wVk = VK_CONTROL;
-            ctrlUp[0].U.ki.dwFlags = KEYEVENTF_KEYUP;
-            SendInput(1, ctrlUp, Marshal.SizeOf<INPUT>());
+                var vPress = new INPUT[2];
+                vPress[0].type = INPUT_KEYBOARD;
+                vPress[0].U.ki.wVk = VK_V;
+                vPress[1].type = INPUT_KEYBOARD;
+                vPress[1].U.ki.wVk = VK_V;
+                vPress[1].U.ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(2, vPress, Marshal.SizeOf<INPUT>());
+                await Task.Delay(10);
+            }
+            finally
+            {
+                var ctrlUp = new INPUT[1];
+                ctrlUp[0].type = INPUT_KEYBOARD;
+                ctrlUp[0].U.ki.wVk = VK_CONTROL;
+                ctrlUp[0].U.ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(1, ctrlUp, Marshal.SizeOf<INPUT>());
+            }
         }
 
         private const uint INPUT_MOUSE = 0;
@@ -1607,9 +1777,19 @@ namespace Caiqelle.Services
 
         public void Dispose()
         {
+            _disposed = true;
             StopMonitoring();
-            _reuseOcrBitmap?.Dispose();
-            _reuseOcrBitmap = null;
+            _ocrBitmapSemaphore.Wait();
+            try
+            {
+                _reuseOcrBitmap?.Dispose();
+                _reuseOcrBitmap = null;
+            }
+            finally
+            {
+                _ocrBitmapSemaphore.Release();
+            }
+            _ocrBitmapSemaphore.Dispose();
         }
     }
 }

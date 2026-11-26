@@ -199,29 +199,36 @@ namespace Caiqelle.Views
 
         private async void DeleteItemBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is string id && RootGrid.XamlRoot != null)
+            try
             {
-                var dialog = new ContentDialog
+                if (sender is Button btn && btn.Tag is string id && RootGrid.XamlRoot != null)
                 {
-                    Title = "Sticky Text を削除しますか？",
-                    Content = new TextBlock
+                    var dialog = new ContentDialog
                     {
-                        Text = "この付箋を削除します。この操作は元に戻せません。",
-                        TextWrapping = TextWrapping.Wrap,
-                        FontSize = 13
-                    },
-                    PrimaryButtonText = "はい",
-                    CloseButtonText = "いいえ",
-                    DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = RootGrid.XamlRoot,
-                    RequestedTheme = RootGrid.ActualTheme
-                };
+                        Title = "Sticky Text を削除しますか？",
+                        Content = new TextBlock
+                        {
+                            Text = "この付箋を削除します。この操作は元に戻せません。",
+                            TextWrapping = TextWrapping.Wrap,
+                            FontSize = 13
+                        },
+                        PrimaryButtonText = "はい",
+                        CloseButtonText = "いいえ",
+                        DefaultButton = ContentDialogButton.Close,
+                        XamlRoot = RootGrid.XamlRoot,
+                        RequestedTheme = RootGrid.ActualTheme
+                    };
 
-                var result = await dialog.ShowAsync();
-                if (result == ContentDialogResult.Primary)
-                {
-                    _service.DeleteById(id);
+                    var result = await dialog.ShowAsync();
+                    if (result == ContentDialogResult.Primary)
+                    {
+                        _service.DeleteById(id);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[StickyTextListWindow] DeleteItemBtn_Click error: {ex.Message}");
             }
         }
 

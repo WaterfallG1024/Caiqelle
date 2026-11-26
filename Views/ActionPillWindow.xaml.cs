@@ -24,6 +24,7 @@ namespace Caiqelle.Views
         private ActionDetectionContext? _currentContext;
         private bool _isClosingAnim = false;
         private bool _isPointerInside = false;
+        private bool _isClosed = false;
 
         private const int WindowWidthDip = 192;
         private const int WindowHeightDip = 62;
@@ -76,8 +77,17 @@ namespace Caiqelle.Views
             UpdateThemeBrushes();
             if (_themeService != null)
             {
-                _themeService.ThemeChanged += (_) => DispatcherQueue.TryEnqueue(UpdateThemeBrushes);
+                _themeService.ThemeChanged += OnThemeChanged;
             }
+            this.Closed += (_, _) =>
+            {
+                _isClosed = true;
+                _autoHideTimer?.Stop();
+                if (_themeService != null)
+                {
+                    _themeService.ThemeChanged -= OnThemeChanged;
+                }
+            };
 
             CapsuleBorder.SizeChanged += (_, _) => UpdateCapsuleRegion();
             HideCapsuleStoryboard.Completed += (_, _) =>
@@ -151,8 +161,18 @@ namespace Caiqelle.Views
 
         public void TriggerDismissFromShortcut() => DismissButton_Click(this, new RoutedEventArgs());
 
+        private void OnThemeChanged(AccentTheme _)
+        {
+            if (_isClosed) return;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!_isClosed) UpdateThemeBrushes();
+            });
+        }
+
         public void HideWithAnimation()
         {
+            if (_isClosed) return;
             if (_hookService != null) _hookService.IsActionPillActive = false;
             if (!_appWindow.IsVisible || _isClosingAnim) return;
             _autoHideTimer.Stop();
@@ -163,6 +183,7 @@ namespace Caiqelle.Views
 
         public void HideImmediately()
         {
+            if (_isClosed) return;
             if (_hookService != null) _hookService.IsActionPillActive = false;
             _autoHideTimer.Stop();
             _isClosingAnim = false;

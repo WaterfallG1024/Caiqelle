@@ -18,7 +18,7 @@
 
         <!-- Top Header & Guide (Fluent 2) -->
         <Grid Grid.Row="0" Margin="28,24,28,8">
-            <TextBlock Text="リワインド" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontFamily="Segoe UI Variable Display" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+            <TextBlock Text="リワインド" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" FontFamily="Segoe UI Variable Display, Yu Gothic UI" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left"/>
             <TextBlock x:Name="TimestampLabel" Text="{x:Bind ViewModel.TimestampText, Mode=OneWay}" Foreground="{StaticResource AfterGlowTextSecondaryBrush}" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
         </Grid>
 

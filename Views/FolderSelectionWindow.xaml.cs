@@ -45,6 +45,7 @@ namespace Caiqelle.Views
 
             ConfigureWindowChrome(hwnd);
             CenterOnCursorDisplay(hwnd);
+            this.Closed += (_, _) => _tcs?.TrySetResult(false);
         }
 
         private void ConfigureWindowChrome(IntPtr hwnd)

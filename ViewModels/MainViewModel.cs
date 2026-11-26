@@ -76,7 +76,7 @@ namespace Caiqelle.ViewModels
     /// <summary>
     /// MainWindow の状態・コマンドを管理する ViewModel
     /// </summary>
-    public partial class MainViewModel : ObservableObject
+    public partial class MainViewModel : ObservableObject, IDisposable
     {
         private readonly SettingsManager _settings;
         private readonly RewindService _rewindService;
@@ -641,6 +641,27 @@ namespace Caiqelle.ViewModels
         {
             string pattern = NewActionUrlPattern?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(pattern)) return;
+
+            if (pattern.Length > 2048 || System.Linq.Enumerable.Any(pattern, char.IsControl))
+            {
+                ActionValidationErrorMessage = "URLパターンが長すぎるか、無効な制御文字が含まれています。";
+                IsActionValidationErrorOpen = true;
+                return;
+            }
+
+            if (pattern.Contains("://", StringComparison.Ordinal))
+            {
+                if (!Uri.TryCreate(pattern, UriKind.Absolute, out var uri) ||
+                    (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(uri.Scheme, Uri.UriSchemeFile, StringComparison.OrdinalIgnoreCase)))
+                {
+                    ActionValidationErrorMessage = "許可するURLは http://、https://、または file:// 形式で指定してください。";
+                    IsActionValidationErrorOpen = true;
+                    return;
+                }
+            }
+
             foreach (var existing in ActionUrlWhitelist)
             {
                 if (string.Equals(existing, pattern, StringComparison.OrdinalIgnoreCase))
@@ -829,6 +850,16 @@ namespace Caiqelle.ViewModels
             {
                 errorMessage = $"入力値は{SettingsManager.MaxActionValueLength}文字以内で入力してください。";
                 return false;
+            }
+
+            foreach (var existing in ActionMappings)
+            {
+                if (ReferenceEquals(existing, target)) continue;
+                if (string.Equals(existing.Keywords?.Trim(), keywords, StringComparison.OrdinalIgnoreCase))
+                {
+                    errorMessage = "同じラベルキーワードがすでに登録されています。";
+                    return false;
+                }
             }
 
             target.Keywords = keywords;
@@ -1370,5 +1401,15 @@ namespace Caiqelle.ViewModels
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool GlobalMemoryStatusEx([In, Out] MEMORYSTATUSEX lpBuffer);
+
+        public void Dispose()
+        {
+            _rewindService.StateChanged -= RewindService_StateChanged;
+            _settings.MappingsChanged -= Settings_MappingsChanged;
+            if (_updateService != null)
+            {
+                _updateService.UpdateDownloaded -= UpdateService_UpdateDownloaded;
+            }
+        }
     }
 }

@@ -11,7 +11,7 @@ namespace Caiqelle.Services
     /// <summary>
     /// 複数表示可能な Sticky Text ウィンドウの生成・一覧管理・保存復元・個別削除を担うサービス
     /// </summary>
-    public class StickyTextService
+    public class StickyTextService : IDisposable
     {
         private readonly SettingsManager _settings;
         private readonly List<StickyTextWindow> _windows = new();
@@ -46,6 +46,7 @@ namespace Caiqelle.Services
 
                 foreach (var item in targets)
                 {
+                    if (_windows.Any(w => w.ItemId == item.Id)) continue;
                     item.IsOpen = true;
                     var restored = CreateWindowInternal(item);
                     restored.Activate();
@@ -97,8 +98,10 @@ namespace Caiqelle.Services
         {
             if (!CanCreateNewStickyText())
             {
-                var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                    .GetService<NotificationService>(((App)Microsoft.UI.Xaml.Application.Current).Services);
+                var services = (Microsoft.UI.Xaml.Application.Current as App)?.Services;
+                var notificationService = services != null
+                    ? Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NotificationService>(services)
+                    : null;
                 notificationService?.ShowNotification(
                     $"Sticky Text の作成上限（{SettingsManager.MaxStickyTextCount}件）に達しています",
                     "\uE7BA");
@@ -129,7 +132,11 @@ namespace Caiqelle.Services
         public List<StickyTextListEntry> GetListEntries(out bool isSaveEnabled)
         {
             isSaveEnabled = _settings.IsStickyTextSaveEnabled;
-            var openById = _windows.ToDictionary(w => w.ItemId, w => w);
+            var openById = new Dictionary<string, StickyTextWindow>(StringComparer.Ordinal);
+            foreach (var w in _windows)
+            {
+                openById[w.ItemId] = w;
+            }
 
             if (!isSaveEnabled)
             {
@@ -230,6 +237,12 @@ namespace Caiqelle.Services
             closedWindow.StateChanged -= ScheduleSave;
             _windows.Remove(closedWindow);
 
+            if (_windows.Count == 0)
+            {
+                _saveTimer?.Stop();
+                _saveTimer = null;
+            }
+
             if (_deletingIds.Remove(closedWindow.ItemId))
             {
                 ItemsChanged?.Invoke();
@@ -293,12 +306,22 @@ namespace Caiqelle.Services
 
         private void UpsertSavedItem(StickyTextItemData data)
         {
+            if (data.Text.Length > SettingsManager.MaxStickyTextBodyLength)
+            {
+                data.Text = data.Text[..SettingsManager.MaxStickyTextBodyLength];
+            }
+            const int maxRtfLength = SettingsManager.MaxStickyTextBodyLength * 16;
+            if (data.RtfText != null && data.RtfText.Length > maxRtfLength)
+            {
+                data.RtfText = null;
+            }
+
             int index = _settings.SavedStickyTexts.FindIndex(x => x.Id == data.Id);
             if (index >= 0)
             {
                 _settings.SavedStickyTexts[index] = data;
             }
-            else
+            else if (_settings.SavedStickyTexts.Count < SettingsManager.MaxStickyTextCount)
             {
                 _settings.SavedStickyTexts.Add(data);
             }
@@ -344,6 +367,12 @@ namespace Caiqelle.Services
             {
                 window.SetStealthMode(isStealth);
             }
+        }
+
+        public void Dispose()
+        {
+            _saveTimer?.Stop();
+            _saveTimer = null;
         }
     }
 }

@@ -142,7 +142,9 @@ namespace Caiqelle
             
             dispatcher.TryEnqueue(async () =>
             {
-                if (key == CapturedKey.OpenDashboard)
+                try
+                {
+                    if (key == CapturedKey.OpenDashboard)
                 {
                     PositionAndShowWindow();
                     return;
@@ -281,6 +283,11 @@ namespace Caiqelle
                         }
                     }
                 }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[App] HookService_OnKeyPressed error: {ex.Message}");
+                }
             });
         }
 
@@ -306,6 +313,10 @@ namespace Caiqelle
             return services.BuildServiceProvider();
         }
 
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
         private static System.Drawing.Icon LoadTrayIcon()
         {
             try
@@ -321,7 +332,16 @@ namespace Caiqelle
                 if (System.IO.File.Exists(pngPath))
                 {
                     using var bmp = new System.Drawing.Bitmap(pngPath);
-                    return System.Drawing.Icon.FromHandle(bmp.GetHicon());
+                    IntPtr hIcon = bmp.GetHicon();
+                    try
+                    {
+                        using var tempIcon = System.Drawing.Icon.FromHandle(hIcon);
+                        return (System.Drawing.Icon)tempIcon.Clone();
+                    }
+                    finally
+                    {
+                        DestroyIcon(hIcon);
+                    }
                 }
             }
             catch { }
