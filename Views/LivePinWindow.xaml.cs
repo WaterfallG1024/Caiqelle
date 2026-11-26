@@ -198,7 +198,15 @@ namespace Caiqelle.Views
             }
             finally
             {
-                try { _frameLock.Release(); } catch (ObjectDisposedException) { }
+                if (_isClosed)
+                {
+                    _reuseBitmapA?.Dispose();
+                    _reuseBitmapA = null;
+                    _reuseBitmapB?.Dispose();
+                    _reuseBitmapB = null;
+                    _bitmapSource.Dispose();
+                }
+                _frameLock.Release();
             }
         }
 
@@ -228,21 +236,22 @@ namespace Caiqelle.Views
             _isClosed = true;
             _toolbarWindow?.SafeClose();
             _cts.Cancel();
-            _frameLock.Wait();
-            try
+            if (_frameLock.Wait(0))
             {
-                _reuseBitmapA?.Dispose();
-                _reuseBitmapA = null;
-                _reuseBitmapB?.Dispose();
-                _reuseBitmapB = null;
-                _bitmapSource.Dispose();
+                try
+                {
+                    _reuseBitmapA?.Dispose();
+                    _reuseBitmapA = null;
+                    _reuseBitmapB?.Dispose();
+                    _reuseBitmapB = null;
+                    _bitmapSource.Dispose();
+                }
+                finally
+                {
+                    _frameLock.Release();
+                }
             }
-            finally
-            {
-                _frameLock.Release();
-                _frameLock.Dispose();
-                _cts.Dispose();
-            }
+            _cts.Dispose();
         }
 
         private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)

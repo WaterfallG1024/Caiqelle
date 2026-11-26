@@ -37,7 +37,8 @@ namespace Caiqelle.Services
         private Timer? _monitorTimer;
         private Windows.Graphics.Imaging.SoftwareBitmap? _reuseOcrBitmap;
         private readonly SemaphoreSlim _ocrBitmapSemaphore = new(1, 1);
-        private volatile bool _disposed = false;
+        private int _disposedState = 0;
+        private bool _disposed => Volatile.Read(ref _disposedState) != 0;
         private int _isScanning = 0;
         private int _isExecuting = 0;
         private string _lastActiveContextKey = string.Empty;
@@ -282,6 +283,11 @@ namespace Caiqelle.Services
             }
             finally
             {
+                if (_disposed)
+                {
+                    _reuseOcrBitmap?.Dispose();
+                    _reuseOcrBitmap = null;
+                }
                 _ocrBitmapSemaphore.Release();
             }
             if (lines.Count == 0) return null;
@@ -1412,6 +1418,11 @@ namespace Caiqelle.Services
                 }
                 finally
                 {
+                    if (_disposed)
+                    {
+                        _reuseOcrBitmap?.Dispose();
+                        _reuseOcrBitmap = null;
+                    }
                     _ocrBitmapSemaphore.Release();
                 }
                 if (lines.Count == 0) return null;
@@ -1777,19 +1788,20 @@ namespace Caiqelle.Services
 
         public void Dispose()
         {
-            _disposed = true;
+            if (Interlocked.Exchange(ref _disposedState, 1) != 0) return;
             StopMonitoring();
-            _ocrBitmapSemaphore.Wait();
-            try
+            if (_ocrBitmapSemaphore.Wait(0))
             {
-                _reuseOcrBitmap?.Dispose();
-                _reuseOcrBitmap = null;
+                try
+                {
+                    _reuseOcrBitmap?.Dispose();
+                    _reuseOcrBitmap = null;
+                }
+                finally
+                {
+                    _ocrBitmapSemaphore.Release();
+                }
             }
-            finally
-            {
-                _ocrBitmapSemaphore.Release();
-            }
-            _ocrBitmapSemaphore.Dispose();
         }
     }
 }

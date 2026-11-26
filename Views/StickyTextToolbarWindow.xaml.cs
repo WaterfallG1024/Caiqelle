@@ -123,6 +123,7 @@ namespace Caiqelle.Views
 
         public void SyncFormatting(bool isBold, bool isItalic, bool isUnderline, double fontSize, Windows.UI.Color textColor)
         {
+            if (_isClosed) return;
             _isUpdatingUi = true;
             try
             {
@@ -141,6 +142,7 @@ namespace Caiqelle.Views
 
         public void SyncStealth(bool isStealth)
         {
+            if (_isClosed) return;
             SetWindowDisplayAffinity(_hwnd, isStealth ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE);
             _isUpdatingUi = true;
             try
@@ -170,12 +172,14 @@ namespace Caiqelle.Views
 
         public void SyncBackgroundLabel(string label, string tooltip)
         {
+            if (_isClosed) return;
             BgModeText.Text = label;
             ToolTipService.SetToolTip(BgModeBtn, tooltip);
         }
 
         public void SyncSaveModeVisibility(bool isSaveEnabled)
         {
+            if (_isClosed) return;
             var vis = isSaveEnabled ? Visibility.Visible : Visibility.Collapsed;
             DeleteSeparator.Visibility = vis;
             DeleteBtn.Visibility = vis;

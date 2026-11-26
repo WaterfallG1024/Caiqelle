@@ -40,7 +40,7 @@ namespace Caiqelle.Services
                 return false;
 
             var dispatcher = dispatcherQueue
-                ?? ((App)Microsoft.UI.Xaml.Application.Current).MainWindow?.DispatcherQueue
+                ?? (Microsoft.UI.Xaml.Application.Current as App)?.MainWindow?.DispatcherQueue
                 ?? DispatcherQueue.GetForCurrentThread();
 
             bool ok = false;
@@ -176,7 +176,14 @@ namespace Caiqelle.Services
                 var tcs = new TaskCompletionSource<bool>();
                 if (dispatcher.TryEnqueue(() =>
                 {
-                    tcs.SetResult(IsClipboardFormatAvailable(CF_DIB) || (CF_PNG != 0 && IsClipboardFormatAvailable(CF_PNG)));
+                    try
+                    {
+                        tcs.TrySetResult(IsClipboardFormatAvailable(CF_DIB) || (CF_PNG != 0 && IsClipboardFormatAvailable(CF_PNG)));
+                    }
+                    catch
+                    {
+                        tcs.TrySetResult(false);
+                    }
                 }))
                 {
                     return await tcs.Task;
@@ -286,14 +293,18 @@ namespace Caiqelle.Services
                 return false;
             }
 
+            bool copied = false;
             try
             {
                 Marshal.Copy(data, 0, ptr, data.Length);
+                copied = true;
             }
             finally
             {
                 GlobalUnlock(hGlobal);
+                if (!copied) GlobalFree(hGlobal);
             }
+            if (!copied) return false;
 
             if (SetClipboardData(format, hGlobal) == IntPtr.Zero)
             {

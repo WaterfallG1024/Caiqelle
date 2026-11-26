@@ -23,10 +23,11 @@ namespace Caiqelle.Services
 
         public void ShowNotification(string message, string glyph = "\uE73E", int durationMs = 4000)
         {
-            var app = (App)Application.Current;
-            var dispatcher = _uiDispatcher ?? _notificationWindow?.DispatcherQueue ?? app.MainWindow?.DispatcherQueue ?? DispatcherQueue.GetForCurrentThread();
+            var app = Application.Current as App;
+            var dispatcher = _uiDispatcher ?? _notificationWindow?.DispatcherQueue ?? app?.MainWindow?.DispatcherQueue ?? DispatcherQueue.GetForCurrentThread();
+            if (dispatcher == null) return;
 
-            if (dispatcher != null && !dispatcher.HasThreadAccess)
+            if (!dispatcher.HasThreadAccess)
             {
                 dispatcher.TryEnqueue(() =>
                 {

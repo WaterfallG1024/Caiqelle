@@ -25,11 +25,12 @@ namespace Caiqelle.Views
         private bool _isClosingAnim = false;
         private bool _isPointerInside = false;
         private bool _isClosed = false;
+        private volatile bool _isPillVisible = false;
 
         private const int WindowWidthDip = 192;
         private const int WindowHeightDip = 62;
 
-        public bool IsPillVisible => _appWindow.IsVisible;
+        public bool IsPillVisible => _isPillVisible && !_isClosed;
 
         public ActionPillWindow(ActionService actionService, HookService? hookService = null, ThemeService? themeService = null)
         {
@@ -82,6 +83,7 @@ namespace Caiqelle.Views
             this.Closed += (_, _) =>
             {
                 _isClosed = true;
+                _isPillVisible = false;
                 _autoHideTimer?.Stop();
                 if (_themeService != null)
                 {
@@ -95,6 +97,7 @@ namespace Caiqelle.Views
                 if (_isClosingAnim)
                 {
                     _isClosingAnim = false;
+                    _isPillVisible = false;
                     _appWindow.Hide();
                 }
             };
@@ -145,6 +148,7 @@ namespace Caiqelle.Views
             UpdateThemeBrushes();
             PositionNearCursor();
 
+            _isPillVisible = true;
             _appWindow.Show(false);
             if (_hookService != null) _hookService.IsActionPillActive = true;
 
@@ -187,6 +191,7 @@ namespace Caiqelle.Views
             if (_hookService != null) _hookService.IsActionPillActive = false;
             _autoHideTimer.Stop();
             _isClosingAnim = false;
+            _isPillVisible = false;
             ShowCapsuleStoryboard.Stop();
             HideCapsuleStoryboard.Stop();
             _appWindow.Hide();

@@ -80,6 +80,7 @@ namespace Caiqelle.Services
 
         private SoftwareBitmap? _fullScreenReusableBitmap;
         private readonly object _fullScreenLock = new();
+        private readonly System.Threading.SemaphoreSlim _fullScreenSemaphore = new(1, 1);
 
         public Rectangle GetVirtualScreenBounds()
         {
@@ -96,26 +97,34 @@ namespace Caiqelle.Services
             var bounds = GetVirtualScreenBounds();
             if (bounds.Width <= 0 || bounds.Height <= 0) return null;
 
-            // BitBlt と SoftwareBitmap への直接転送をバックグラウンドスレッドで実行し、同解像度ならバッファを再利用
-            var softwareBitmap = await Task.Run(() =>
+            await _fullScreenSemaphore.WaitAsync();
+            try
             {
-                lock (_fullScreenLock)
+                // BitBlt と SoftwareBitmap への直接転送をバックグラウンドスレッドで実行し、同解像度ならバッファを再利用
+                var softwareBitmap = await Task.Run(() =>
                 {
-                    if (_fullScreenReusableBitmap != null &&
-                        (_fullScreenReusableBitmap.PixelWidth != bounds.Width || _fullScreenReusableBitmap.PixelHeight != bounds.Height))
+                    lock (_fullScreenLock)
                     {
-                        _fullScreenReusableBitmap.Dispose();
-                        _fullScreenReusableBitmap = null;
+                        if (_fullScreenReusableBitmap != null &&
+                            (_fullScreenReusableBitmap.PixelWidth != bounds.Width || _fullScreenReusableBitmap.PixelHeight != bounds.Height))
+                        {
+                            _fullScreenReusableBitmap.Dispose();
+                            _fullScreenReusableBitmap = null;
+                        }
+                        _fullScreenReusableBitmap = CaptureBoundsToSoftwareBitmap(bounds, _fullScreenReusableBitmap);
+                        return _fullScreenReusableBitmap;
                     }
-                    _fullScreenReusableBitmap = CaptureBoundsToSoftwareBitmap(bounds, _fullScreenReusableBitmap);
-                    return _fullScreenReusableBitmap;
-                }
-            });
-            if (softwareBitmap == null) return null;
+                });
+                if (softwareBitmap == null) return null;
 
-            var source = new SoftwareBitmapSource();
-            await source.SetBitmapAsync(softwareBitmap);
-            return source;
+                var source = new SoftwareBitmapSource();
+                await source.SetBitmapAsync(softwareBitmap);
+                return source;
+            }
+            finally
+            {
+                _fullScreenSemaphore.Release();
+            }
         }
 
         /// <summary>
@@ -221,11 +230,22 @@ namespace Caiqelle.Services
                 using Bitmap bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
                 using Graphics graphics = Graphics.FromImage(bitmap);
 
-                IntPtr hdcDest = graphics.GetHdc();
-                IntPtr hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
-                BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY | CAPTUREBLT);
-                DeleteDC(hdcSrc);
-                graphics.ReleaseHdc(hdcDest);
+                IntPtr hdcDest = IntPtr.Zero;
+                IntPtr hdcSrc = IntPtr.Zero;
+                try
+                {
+                    hdcDest = graphics.GetHdc();
+                    hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
+                    if (hdcSrc != IntPtr.Zero)
+                    {
+                        BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY | CAPTUREBLT);
+                    }
+                }
+                finally
+                {
+                    if (hdcSrc != IntPtr.Zero) DeleteDC(hdcSrc);
+                    if (hdcDest != IntPtr.Zero) graphics.ReleaseHdc(hdcDest);
+                }
 
                 if (format == "JPEG")
                 {
@@ -245,18 +265,29 @@ namespace Caiqelle.Services
             using Bitmap bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
             using Graphics graphics = Graphics.FromImage(bitmap);
             
-            IntPtr hdcDest = graphics.GetHdc();
-            IntPtr hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
-            BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY);
-            DeleteDC(hdcSrc);
-            graphics.ReleaseHdc(hdcDest);
+            IntPtr hdcDest = IntPtr.Zero;
+            IntPtr hdcSrc = IntPtr.Zero;
+            try
+            {
+                hdcDest = graphics.GetHdc();
+                hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
+                if (hdcSrc != IntPtr.Zero)
+                {
+                    BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY);
+                }
+            }
+            finally
+            {
+                if (hdcSrc != IntPtr.Zero) DeleteDC(hdcSrc);
+                if (hdcDest != IntPtr.Zero) graphics.ReleaseHdc(hdcDest);
+            }
 
             int currentHeight = bounds.Height;
             long qualityParam = Math.Clamp(quality, 1L, 100L);
 
             if (targetHeight > 0 && targetHeight < currentHeight)
             {
-                int targetWidth = (int)((double)bounds.Width / bounds.Height * targetHeight);
+                int targetWidth = Math.Max(1, (int)((double)bounds.Width / bounds.Height * targetHeight));
                 using Bitmap resized = new Bitmap(targetWidth, targetHeight);
                 using Graphics g = Graphics.FromImage(resized);
                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
@@ -315,11 +346,22 @@ namespace Caiqelle.Services
             using Bitmap bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
             using (Graphics graphics = Graphics.FromImage(bitmap))
             {
-                IntPtr hdcDest = graphics.GetHdc();
-                IntPtr hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
-                BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY);
-                DeleteDC(hdcSrc);
-                graphics.ReleaseHdc(hdcDest);
+                IntPtr hdcDest = IntPtr.Zero;
+                IntPtr hdcSrc = IntPtr.Zero;
+                try
+                {
+                    hdcDest = graphics.GetHdc();
+                    hdcSrc = CreateDC("DISPLAY", null!, null!, IntPtr.Zero);
+                    if (hdcSrc != IntPtr.Zero)
+                    {
+                        BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY);
+                    }
+                }
+                finally
+                {
+                    if (hdcSrc != IntPtr.Zero) DeleteDC(hdcSrc);
+                    if (hdcDest != IntPtr.Zero) graphics.ReleaseHdc(hdcDest);
+                }
             }
 
             long qualityParam = Math.Clamp(quality, 1L, 100L);
@@ -330,7 +372,7 @@ namespace Caiqelle.Services
             {
                 if (targetHeight > 0 && targetHeight < bounds.Height)
                 {
-                    int targetWidth = (int)((double)bounds.Width / bounds.Height * targetHeight);
+                    int targetWidth = Math.Max(1, (int)((double)bounds.Width / bounds.Height * targetHeight));
                     resizedBmp = new Bitmap(targetWidth, targetHeight, PixelFormat.Format32bppArgb);
                     using Graphics g = Graphics.FromImage(resizedBmp);
                     g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;

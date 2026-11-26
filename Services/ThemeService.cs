@@ -37,6 +37,7 @@ namespace Caiqelle.Services
     public class ThemeService
     {
         private readonly List<(Window Window, FrameworkElement Root)> _trackedWindows = new();
+        private readonly object _windowsLock = new();
         private readonly UISettings _uiSettings = new();
 
         public static Color GetSystemAccentColor()
@@ -100,8 +101,15 @@ namespace Caiqelle.Services
             {
                 if (CurrentAppTheme == AppThemeMode.Dark) return true;
                 if (CurrentAppTheme == AppThemeMode.Light) return false;
-                var bg = _uiSettings.GetColorValue(UIColorType.Background);
-                return (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) < 128.0;
+                try
+                {
+                    var bg = _uiSettings.GetColorValue(UIColorType.Background);
+                    return (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) < 128.0;
+                }
+                catch
+                {
+                    return true;
+                }
             }
         }
 
@@ -109,12 +117,17 @@ namespace Caiqelle.Services
         {
             _uiSettings.ColorValuesChanged += (s, e) =>
             {
-                if ((CurrentAppTheme == AppThemeMode.System || CurrentTheme == AccentTheme.System) && _trackedWindows.Count > 0)
+                if (CurrentAppTheme == AppThemeMode.System || CurrentTheme == AccentTheme.System)
                 {
-                    _trackedWindows[0].Window.DispatcherQueue?.TryEnqueue(() =>
+                    Microsoft.UI.Dispatching.DispatcherQueue? dq = null;
+                    lock (_windowsLock)
                     {
-                        ApplyTheme(CurrentTheme, CurrentAppTheme);
-                    });
+                        if (_trackedWindows.Count > 0)
+                        {
+                            dq = _trackedWindows[0].Window.DispatcherQueue;
+                        }
+                    }
+                    dq?.TryEnqueue(() => ApplyTheme(CurrentTheme, CurrentAppTheme));
                 }
             };
         }
@@ -124,9 +137,18 @@ namespace Caiqelle.Services
         /// </summary>
         public void RegisterWindow(Window window, FrameworkElement rootElement)
         {
-            _trackedWindows.RemoveAll(x => x.Window == window);
-            _trackedWindows.Add((window, rootElement));
-            window.Closed += (s, e) => _trackedWindows.RemoveAll(x => x.Window == window);
+            lock (_windowsLock)
+            {
+                _trackedWindows.RemoveAll(x => x.Window == window);
+                _trackedWindows.Add((window, rootElement));
+            }
+            window.Closed += (s, e) =>
+            {
+                lock (_windowsLock)
+                {
+                    _trackedWindows.RemoveAll(x => x.Window == window);
+                }
+            };
             ApplyElementThemeToWindow(window, rootElement);
         }
 

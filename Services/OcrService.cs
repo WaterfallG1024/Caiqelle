@@ -38,7 +38,8 @@ namespace Caiqelle.Services
         private SoftwareBitmap? _scaledOcrBitmap;
         private readonly object _scaleLock = new();
         private readonly SemaphoreSlim _ocrScaleSemaphore = new(1, 1);
-        private volatile bool _disposed = false;
+        private int _disposedState = 0;
+        private bool _disposed => Volatile.Read(ref _disposedState) != 0;
         private static readonly byte[] ThinTextGammaLut = BuildThinTextGammaLut();
 
         private OcrEngine? GetOrCreateOcrEngine()
@@ -90,6 +91,14 @@ namespace Caiqelle.Services
             }
             finally
             {
+                if (_disposed)
+                {
+                    lock (_scaleLock)
+                    {
+                        _scaledOcrBitmap?.Dispose();
+                        _scaledOcrBitmap = null;
+                    }
+                }
                 _ocrScaleSemaphore.Release();
             }
         }
@@ -231,7 +240,7 @@ namespace Caiqelle.Services
             if (softwareBitmap == null)
                 return Array.Empty<OcrLineBox>();
 
-            var ocrEngine = _cachedOcrEngine ??= GetOptimalOcrEngine();
+            var ocrEngine = GetOrCreateOcrEngine();
             if (ocrEngine == null)
                 return Array.Empty<OcrLineBox>();
 
@@ -486,21 +495,22 @@ namespace Caiqelle.Services
 
         public void Dispose()
         {
-            _disposed = true;
-            _ocrScaleSemaphore.Wait();
-            try
+            if (Interlocked.Exchange(ref _disposedState, 1) != 0) return;
+            if (_ocrScaleSemaphore.Wait(0))
             {
-                lock (_scaleLock)
+                try
                 {
-                    _scaledOcrBitmap?.Dispose();
-                    _scaledOcrBitmap = null;
+                    lock (_scaleLock)
+                    {
+                        _scaledOcrBitmap?.Dispose();
+                        _scaledOcrBitmap = null;
+                    }
+                }
+                finally
+                {
+                    _ocrScaleSemaphore.Release();
                 }
             }
-            finally
-            {
-                _ocrScaleSemaphore.Release();
-            }
-            _ocrScaleSemaphore.Dispose();
         }
     }
 }
