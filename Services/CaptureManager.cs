@@ -199,6 +199,8 @@ namespace Caiqelle.Services
                         if (overlayAction == OverlayWindow.CaptureAction.Copy ||
                             (key == CapturedKey.W && settings.IsAutoCopyToClipboard))
                         {
+                            // オーバーレイ閉鎖・フォーカス復帰直後の OS クリップボード監視競合を避けるためわずかに待機
+                            await Task.Delay(40);
                             await CopyToClipboardAsync(finalBytes, true);
                         }
                         else if (overlayAction == OverlayWindow.CaptureAction.Save)

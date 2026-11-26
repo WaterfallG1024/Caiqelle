@@ -62,11 +62,6 @@ namespace Caiqelle.Services
                     string version = updateInfo.TargetFullRelease.Version.ToString();
                     PendingUpdate = updateInfo;
                     UpdateDownloaded?.Invoke(version);
-
-                    _notificationService.ShowNotification(
-                        "Caiqelle",
-                        $"新バージョン ({version}) の準備が完了しました。設定またはホームから再起動できます。"
-                    );
                 }
             }
             catch (Exception ex)

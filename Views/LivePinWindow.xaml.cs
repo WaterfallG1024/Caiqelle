@@ -24,8 +24,10 @@ namespace Caiqelle.Views
         private readonly ScreenshotService _screenshotService;
         private readonly AppWindow _appWindow;
         private readonly IntPtr _hwnd;
+        private readonly PinToolbarWindow _toolbarWindow;
         private readonly SoftwareBitmapSource _bitmapSource;
         private readonly CancellationTokenSource _cts = new();
+        private readonly SemaphoreSlim _frameLock = new(1, 1);
 
         private SoftwareBitmap? _reuseBitmapA;
         private SoftwareBitmap? _reuseBitmapB;
@@ -111,7 +113,30 @@ namespace Caiqelle.Views
             _bitmapSource = new SoftwareBitmapSource();
             LiveImage.Source = _bitmapSource;
 
-            MoveBtn.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(MoveBtn_PointerPressed), true);
+            _toolbarWindow = new PinToolbarWindow(isLivePin: true);
+            _toolbarWindow.PauseResumeRequested += TogglePause;
+            _toolbarWindow.ZoomInRequested += () => StepScaleIndex(1);
+            _toolbarWindow.ZoomOutRequested += () => StepScaleIndex(-1);
+            _toolbarWindow.ScaleResetRequested += () => ApplyScaleIndex((_scaleIndex + 1) % AllowedScales.Length);
+            _toolbarWindow.CopyRequested += () => CopyBtn_Click(this, new RoutedEventArgs());
+            _toolbarWindow.SaveRequested += () => SaveBtn_Click(this, new RoutedEventArgs());
+            _toolbarWindow.CloseRequested += () => CloseBtn_Click(this, new RoutedEventArgs());
+            _toolbarWindow.MoveDragRequested += () =>
+            {
+                ReleaseCapture();
+                SendMessage(_hwnd, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
+            };
+            _toolbarWindow.SyncScaleText(AllowedScales[_scaleIndex]);
+
+            _appWindow.Changed += (_, args) =>
+            {
+                if ((args.DidPositionChange || args.DidSizeChange) && !_isClosed)
+                {
+                    _toolbarWindow.UpdatePosition(new Windows.Graphics.RectInt32(
+                        _appWindow.Position.X, _appWindow.Position.Y,
+                        _appWindow.Size.Width, _appWindow.Size.Height));
+                }
+            };
 
             this.Closed += LivePinWindow_Closed;
             _ = RunLiveLoopAsync(_cts.Token);
@@ -138,12 +163,24 @@ namespace Caiqelle.Views
         {
             if (ct.IsCancellationRequested || _isClosed) return;
 
+            if (!await _frameLock.WaitAsync(0, ct)) return;
             try
             {
+                if (ct.IsCancellationRequested || _isClosed) return;
+
                 // 同一インスタンスの再利用では SoftwareBitmapSource が更新を検知しない場合があるためダブルバッファで交互に描画
                 var targetBuffer = _useBufferA ? _reuseBitmapA : _reuseBitmapB;
                 var captured = await Task.Run(() => _screenshotService.CaptureRegionToSoftwareBitmap(_targetBounds, targetBuffer), ct);
-                if (captured == null || ct.IsCancellationRequested || _isClosed) return;
+                if (captured == null) return;
+
+                if (ct.IsCancellationRequested || _isClosed)
+                {
+                    if (!ReferenceEquals(captured, _reuseBitmapA) && !ReferenceEquals(captured, _reuseBitmapB))
+                    {
+                        captured.Dispose();
+                    }
+                    return;
+                }
 
                 if (_useBufferA)
                     _reuseBitmapA = captured;
@@ -154,53 +191,79 @@ namespace Caiqelle.Views
                 await _bitmapSource.SetBitmapAsync(captured);
             }
             catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[LivePinWindow] Frame update error: {ex.Message}");
+            }
+            finally
+            {
+                if (_isClosed)
+                {
+                    _reuseBitmapA?.Dispose();
+                    _reuseBitmapA = null;
+                    _reuseBitmapB?.Dispose();
+                    _reuseBitmapB = null;
+                    _bitmapSource.Dispose();
+                }
+                _frameLock.Release();
             }
         }
 
         private void TogglePause()
         {
+            if (_isClosed) return;
             _isPaused = !_isPaused;
+            _toolbarWindow?.SyncPauseState(_isPaused);
             if (_isPaused)
             {
-                PauseResumeIcon.Glyph = "\uE768"; // Play
                 StatusText.Text = "PAUSE";
                 StatusDot.Fill = new SolidColorBrush(Colors.Gray);
             }
             else
             {
-                PauseResumeIcon.Glyph = "\uE769"; // Pause
                 StatusText.Text = "LIVE";
-                if (Application.Current.Resources.TryGetValue("M3PrimaryBrush", out var brush) && brush is Microsoft.UI.Xaml.Media.Brush primaryBrush)
+                if (Application.Current.Resources.TryGetValue("FluentPrimaryBrush", out var brush) && brush is Microsoft.UI.Xaml.Media.Brush primaryBrush)
                 {
                     StatusDot.Fill = primaryBrush;
                 }
-                _ = CaptureAndRenderFrameAsync(_cts.Token);
+                try { _ = CaptureAndRenderFrameAsync(_cts.Token); } catch (ObjectDisposedException) { }
             }
         }
 
         private void LivePinWindow_Closed(object sender, WindowEventArgs args)
         {
             _isClosed = true;
+            _toolbarWindow?.SafeClose();
             _cts.Cancel();
+            if (_frameLock.Wait(0))
+            {
+                try
+                {
+                    _reuseBitmapA?.Dispose();
+                    _reuseBitmapA = null;
+                    _reuseBitmapB?.Dispose();
+                    _reuseBitmapB = null;
+                    _bitmapSource.Dispose();
+                }
+                finally
+                {
+                    _frameLock.Release();
+                }
+            }
             _cts.Dispose();
-            _reuseBitmapA?.Dispose();
-            _reuseBitmapA = null;
-            _reuseBitmapB?.Dispose();
-            _reuseBitmapB = null;
-            _bitmapSource.Dispose();
         }
 
         private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
-            OverlayPanel.Opacity = 1.0;
+            _toolbarWindow?.NotifyParentPointerEntered(new Windows.Graphics.RectInt32(
+                _appWindow.Position.X, _appWindow.Position.Y,
+                _appWindow.Size.Width, _appWindow.Size.Height));
         }
 
         private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            OverlayPanel.Opacity = 0.0;
+            _toolbarWindow?.NotifyParentPointerExited();
         }
 
         private void ViewportGrid_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -282,7 +345,7 @@ namespace Caiqelle.Views
         private void UpdateScaleText()
         {
             double scale = AllowedScales[_scaleIndex];
-            ScaleText.Text = $"{scale:0.#}x";
+            _toolbarWindow?.SyncScaleText(scale);
         }
 
         private void ZoomOutBtn_Click(object sender, RoutedEventArgs e) => StepScaleIndex(-1);
@@ -405,16 +468,6 @@ namespace Caiqelle.Views
 
         private const int WM_NCLBUTTONDOWN = 0xA1;
         private const int HT_CAPTION = 0x2;
-
-        private void MoveBtn_PointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            var point = e.GetCurrentPoint(MoveBtn);
-            if (!point.Properties.IsLeftButtonPressed) return;
-
-            ReleaseCapture();
-            SendMessage(_hwnd, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
-            e.Handled = true;
-        }
 
         private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
         {

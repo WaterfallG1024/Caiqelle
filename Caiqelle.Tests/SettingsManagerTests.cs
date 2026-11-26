@@ -34,6 +34,7 @@ namespace Caiqelle.Tests
             Assert.True(_settings.IsStickyTextStealthMode);
             Assert.True(_settings.IsStickyTextSaveEnabled);
             Assert.Equal(AccentTheme.System, _settings.AccentTheme);
+            Assert.True(_settings.IsActionUrlWhitelistEnabled);
         }
 
         [Fact]

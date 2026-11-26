@@ -28,7 +28,7 @@
             <!-- Title -->
             <TextBlock Text="Caiqelle" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="14" FontFamily="Segoe UI Variable Display" FontWeight="Bold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
             
-            <!-- Floating Toolbar (M3 Expressive Tonal Bar) -->
+            <!-- Floating Toolbar (Fluent 2 Tonal Bar) -->
             <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4,0,0">
                 <Grid.Shadow>
                     <ThemeShadow />
@@ -49,7 +49,7 @@
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF146;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
 
-                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
                         <!-- Color Picker Button (Clean Squircle No Clip) -->
                         <Button x:Name="ColorBtn" ToolTipService.ToolTip="色選択" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0">
@@ -70,7 +70,7 @@
                             </Button.Flyout>
                         </Button>
 
-                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
                         <!-- Undo / Redo -->
                         <Button x:Name="UndoBtn" ToolTipService.ToolTip="元に戻す (Ctrl+Z)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.UndoCommand}">
@@ -84,7 +84,7 @@
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
 
-                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
                         
                         <Button x:Name="CopyButton" ToolTipService.ToolTip="コピー(またはCtrl + C)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Command="{x:Bind ViewModel.CopyCommand}">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C8;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
@@ -123,7 +123,7 @@
             <Grid.Shadow>
                 <ThemeShadow />
             </Grid.Shadow>
-            <Border Background="{StaticResource M3SurfaceContainerHighestBrush}"
+            <Border Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                     BorderThickness="0"
                     CornerRadius="12"
                     Padding="12,4"
@@ -157,7 +157,7 @@
             <Grid.Shadow>
                 <ThemeShadow />
             </Grid.Shadow>
-            <Border Background="{StaticResource M3SurfaceContainerHighestBrush}"
+            <Border Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                     BorderThickness="0"
                     CornerRadius="12"
                     Padding="8,4"
@@ -179,7 +179,7 @@
                         <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE742;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                     </ToggleButton>
 
-                    <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                    <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
                     <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="図形の塗りつぶし（四角形・楕円のみ）" Height="34" Background="Transparent" Foreground="{ThemeResource TextFillColorPrimaryBrush}" BorderThickness="0" CornerRadius="8" Padding="10,0" IsChecked="{x:Bind ViewModel.IsFillEnabled, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.IsFillCapable, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -200,7 +200,7 @@
             <Grid.Shadow>
                 <ThemeShadow />
             </Grid.Shadow>
-            <Border Background="{StaticResource M3SurfaceContainerHighestBrush}"
+            <Border Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                     BorderThickness="0"
                     CornerRadius="12"
                     Padding="8,4"
@@ -213,7 +213,7 @@
                         </StackPanel>
                     </ToggleButton>
 
-                    <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                    <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
                     <Button x:Name="ClearAllBtn" ToolTipService.ToolTip="編集をすべて消去" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="10,0" Command="{x:Bind ViewModel.ClearCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">

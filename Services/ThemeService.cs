@@ -37,6 +37,7 @@ namespace Caiqelle.Services
     public class ThemeService
     {
         private readonly List<(Window Window, FrameworkElement Root)> _trackedWindows = new();
+        private readonly object _windowsLock = new();
         private readonly UISettings _uiSettings = new();
 
         public static Color GetSystemAccentColor()
@@ -100,8 +101,15 @@ namespace Caiqelle.Services
             {
                 if (CurrentAppTheme == AppThemeMode.Dark) return true;
                 if (CurrentAppTheme == AppThemeMode.Light) return false;
-                var bg = _uiSettings.GetColorValue(UIColorType.Background);
-                return (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) < 128.0;
+                try
+                {
+                    var bg = _uiSettings.GetColorValue(UIColorType.Background);
+                    return (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) < 128.0;
+                }
+                catch
+                {
+                    return true;
+                }
             }
         }
 
@@ -109,12 +117,17 @@ namespace Caiqelle.Services
         {
             _uiSettings.ColorValuesChanged += (s, e) =>
             {
-                if ((CurrentAppTheme == AppThemeMode.System || CurrentTheme == AccentTheme.System) && _trackedWindows.Count > 0)
+                if (CurrentAppTheme == AppThemeMode.System || CurrentTheme == AccentTheme.System)
                 {
-                    _trackedWindows[0].Window.DispatcherQueue?.TryEnqueue(() =>
+                    Microsoft.UI.Dispatching.DispatcherQueue? dq = null;
+                    lock (_windowsLock)
                     {
-                        ApplyTheme(CurrentTheme, CurrentAppTheme);
-                    });
+                        if (_trackedWindows.Count > 0)
+                        {
+                            dq = _trackedWindows[0].Window.DispatcherQueue;
+                        }
+                    }
+                    dq?.TryEnqueue(() => ApplyTheme(CurrentTheme, CurrentAppTheme));
                 }
             };
         }
@@ -124,9 +137,18 @@ namespace Caiqelle.Services
         /// </summary>
         public void RegisterWindow(Window window, FrameworkElement rootElement)
         {
-            _trackedWindows.RemoveAll(x => x.Window == window);
-            _trackedWindows.Add((window, rootElement));
-            window.Closed += (s, e) => _trackedWindows.RemoveAll(x => x.Window == window);
+            lock (_windowsLock)
+            {
+                _trackedWindows.RemoveAll(x => x.Window == window);
+                _trackedWindows.Add((window, rootElement));
+            }
+            window.Closed += (s, e) =>
+            {
+                lock (_windowsLock)
+                {
+                    _trackedWindows.RemoveAll(x => x.Window == window);
+                }
+            };
             ApplyElementThemeToWindow(window, rootElement);
         }
 
@@ -184,27 +206,27 @@ namespace Caiqelle.Services
             Color onPrimaryContainer = isDark ? BlendWithWhite(rawPrimary, 0.78) : ScaleColor(effectivePrimary, 0.45, 255);
             Color onSecondaryContainer = isDark ? BlendWithWhite(secondary, 0.80) : ScaleColor(secondary, 0.45, 255);
 
-            SetOrUpdateBrush(resources, "M3PrimaryBrush", effectivePrimary);
-            SetOrUpdateBrush(resources, "M3PrimaryContainerBrush", container);
-            SetOrUpdateBrush(resources, "M3PrimaryContainerGlassBrush", containerGlass);
-            SetOrUpdateBrush(resources, "M3OnPrimaryBrush", onPrimary);
-            SetOrUpdateBrush(resources, "M3OnPrimaryContainerBrush", onPrimaryContainer);
+            SetOrUpdateBrush(resources, "FluentPrimaryBrush", effectivePrimary);
+            SetOrUpdateBrush(resources, "FluentPrimaryContainerBrush", container);
+            SetOrUpdateBrush(resources, "FluentPrimaryContainerGlassBrush", containerGlass);
+            SetOrUpdateBrush(resources, "FluentOnPrimaryBrush", onPrimary);
+            SetOrUpdateBrush(resources, "FluentOnPrimaryContainerBrush", onPrimaryContainer);
 
-            SetOrUpdateBrush(resources, "M3SecondaryBrush", secondary);
-            SetOrUpdateBrush(resources, "M3SecondaryContainerBrush", secondaryContainer);
-            SetOrUpdateBrush(resources, "M3SecondaryContainerGlassBrush", secondaryContainerGlass);
-            SetOrUpdateBrush(resources, "M3OnSecondaryContainerBrush", onSecondaryContainer);
+            SetOrUpdateBrush(resources, "FluentSecondaryBrush", secondary);
+            SetOrUpdateBrush(resources, "FluentSecondaryContainerBrush", secondaryContainer);
+            SetOrUpdateBrush(resources, "FluentSecondaryContainerGlassBrush", secondaryContainerGlass);
+            SetOrUpdateBrush(resources, "FluentOnSecondaryContainerBrush", onSecondaryContainer);
             SetOrUpdateBrush(resources, "AfterGlowAccentBrush", effectivePrimary);
 
             // Fluent 2 ライト / ダーク対応 共通サーフェス＆テキストブラシ
             if (isDark)
             {
-                SetOrUpdateBrush(resources, "M3SurfaceBrush", Color.FromArgb(0x9E, 0x0A, 0x0A, 0x0A));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerLowestBrush", Color.FromArgb(0x99, 0x16, 0x16, 0x18));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerLowBrush", Color.FromArgb(0xA8, 0x20, 0x20, 0x24));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerBrush", Color.FromArgb(0xBA, 0x2B, 0x2B, 0x30));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerHighBrush", Color.FromArgb(0xCC, 0x34, 0x34, 0x3A));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerHighestBrush", Color.FromArgb(0xDD, 0x3E, 0x3E, 0x45));
+                SetOrUpdateBrush(resources, "FluentSurfaceBrush", Color.FromArgb(0x9E, 0x0A, 0x0A, 0x0A));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerLowestBrush", Color.FromArgb(0x99, 0x16, 0x16, 0x18));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerLowBrush", Color.FromArgb(0xA8, 0x20, 0x20, 0x24));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerBrush", Color.FromArgb(0xBA, 0x2B, 0x2B, 0x30));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerHighBrush", Color.FromArgb(0xCC, 0x34, 0x34, 0x3A));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerHighestBrush", Color.FromArgb(0xDD, 0x3E, 0x3E, 0x45));
 
                 SetOrUpdateBrush(resources, "AfterGlowTextPrimaryBrush", Color.FromArgb(255, 255, 255, 255));
                 SetOrUpdateBrush(resources, "AfterGlowTextSecondaryBrush", Color.FromArgb(255, 198, 198, 204));
@@ -218,12 +240,12 @@ namespace Caiqelle.Services
             }
             else
             {
-                SetOrUpdateBrush(resources, "M3SurfaceBrush", Color.FromArgb(0xE8, 0xF3, 0xF3, 0xF3));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerLowestBrush", Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerLowBrush", Color.FromArgb(0xCC, 0xF7, 0xF7, 0xF9));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerBrush", Color.FromArgb(0xEC, 0xFF, 0xFF, 0xFF));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerHighBrush", Color.FromArgb(0xF5, 0xF0, 0xF2, 0xF5));
-                SetOrUpdateBrush(resources, "M3SurfaceContainerHighestBrush", Color.FromArgb(0xFF, 0xE5, 0xE7, 0xEB));
+                SetOrUpdateBrush(resources, "FluentSurfaceBrush", Color.FromArgb(0xE8, 0xF3, 0xF3, 0xF3));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerLowestBrush", Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerLowBrush", Color.FromArgb(0xCC, 0xF7, 0xF7, 0xF9));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerBrush", Color.FromArgb(0xEC, 0xFF, 0xFF, 0xFF));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerHighBrush", Color.FromArgb(0xF5, 0xF0, 0xF2, 0xF5));
+                SetOrUpdateBrush(resources, "FluentSurfaceContainerHighestBrush", Color.FromArgb(0xFF, 0xE5, 0xE7, 0xEB));
 
                 SetOrUpdateBrush(resources, "AfterGlowTextPrimaryBrush", Color.FromArgb(255, 24, 24, 27));
                 SetOrUpdateBrush(resources, "AfterGlowTextSecondaryBrush", Color.FromArgb(255, 82, 82, 91));

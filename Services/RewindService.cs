@@ -22,8 +22,10 @@ namespace Caiqelle.Services
         
         private Timer? _timer;
         private readonly ConcurrentQueue<RewindFrame> _frames = new();
-        private bool _isRunning = false;
+        private readonly object _syncLock = new();
+        private volatile bool _isRunning = false;
         private volatile bool _isPaused = false;
+        private bool _isCapturing = false;
 
         // 16分割タイル差分記録用の直前フレーム状態
         private byte[]? _prevRawPixels;
@@ -44,59 +46,80 @@ namespace Caiqelle.Services
 
         public void Pause()
         {
-            _isPaused = true;
+            lock (_syncLock)
+            {
+                _isPaused = true;
+            }
+            NotifyStateChangedOnUi();
         }
 
         public void Resume()
         {
-            _isPaused = false;
-            // 一時停止解除後に次のキャプチャをスケジュール
-            ScheduleNextCapture(500);
+            lock (_syncLock)
+            {
+                _isPaused = false;
+                // CaptureTick 実行中でなければ次のキャプチャをスケジュール（二重タイマー防止）
+                if (_isRunning && !_isCapturing)
+                {
+                    ScheduleNextCapture(500);
+                }
+            }
+            NotifyStateChangedOnUi();
         }
 
         public void Start(bool clearBuffer = true)
         {
-            if (_isRunning) return;
-            
-            if (!_settingsManager.IsRewindEnabled) return;
-
-            if (clearBuffer)
+            lock (_syncLock)
             {
-                while (_frames.TryDequeue(out _)) { }
-                ClearDiffCache();
+                if (_isRunning) return;
+                if (!_settingsManager.IsRewindEnabled) return;
+
+                if (clearBuffer)
+                {
+                    while (_frames.TryDequeue(out _)) { }
+                    ClearDiffCache();
+                }
+
+                _isPaused = false;
+                _isRunning = true;
+
+                // ワンショットタイマーパターン: 1回だけ発火し、完了後に次をスケジュール
+                _timer = new Timer(CaptureTick, null, 500, Timeout.Infinite);
             }
 
-            _isPaused = false;
-            _isRunning = true;
-
-            // ワンショットタイマーパターン: 1回だけ発火し、完了後に次をスケジュール
-            _timer = new Timer(CaptureTick, null, 500, Timeout.Infinite);
-
             System.Diagnostics.Debug.WriteLine("[RewindService] Started.");
-
-            Microsoft.UI.Xaml.Application.Current.Resources.DispatcherQueue?.TryEnqueue(() => 
-            {
-                StateChanged?.Invoke(this, EventArgs.Empty);
-            });
+            NotifyStateChangedOnUi();
         }
 
         public void Stop()
         {
-            if (!_isRunning) return;
-            _isRunning = false;
-            _isPaused = false;
-            
-            _timer?.Change(Timeout.Infinite, Timeout.Infinite);
-            _timer?.Dispose();
-            _timer = null;
-            ClearDiffCache();
+            lock (_syncLock)
+            {
+                if (!_isRunning) return;
+                _isRunning = false;
+                _isPaused = false;
+
+                _timer?.Change(Timeout.Infinite, Timeout.Infinite);
+                _timer?.Dispose();
+                _timer = null;
+                ClearDiffCache();
+            }
 
             System.Diagnostics.Debug.WriteLine($"[RewindService] Stopped. BufferedFrames={_frames.Count}");
+            NotifyStateChangedOnUi();
+        }
 
-            Microsoft.UI.Xaml.Application.Current.Resources.DispatcherQueue?.TryEnqueue(() => 
+        private void NotifyStateChangedOnUi()
+        {
+            var dq = Microsoft.UI.Xaml.Application.Current?.Resources?.DispatcherQueue;
+            if (dq != null && !dq.HasThreadAccess)
+            {
+                dq.TryEnqueue(() => StateChanged?.Invoke(this, EventArgs.Empty));
+            }
+            else
             {
                 StateChanged?.Invoke(this, EventArgs.Empty);
-            });
+            }
         }
 
         public void Restart(bool clearBuffer = true)
@@ -140,13 +163,16 @@ namespace Caiqelle.Services
 
         private void CaptureTick(object? state)
         {
-            // 一時停止中ならスキップ（Resume時に再スケジュールされる）
-            if (!_isRunning) return;
-            if (_isPaused)
+            lock (_syncLock)
             {
-                // 一時停止中でも定期的にチェック（Resume漏れ対策）
-                ScheduleNextCapture(2000);
-                return;
+                if (!_isRunning || _isCapturing) return;
+                if (_isPaused)
+                {
+                    // 一時停止中でも定期的にチェック（Resume漏れ対策）
+                    ScheduleNextCapture(2000);
+                    return;
+                }
+                _isCapturing = true;
             }
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -156,7 +182,6 @@ namespace Caiqelle.Services
                 if (bounds.Width <= 0 || bounds.Height <= 0)
                 {
                     System.Diagnostics.Debug.WriteLine("[RewindService] Invalid screen bounds, retrying...");
-                    ScheduleNextCapture(2000);
                     return;
                 }
                 
@@ -236,10 +261,16 @@ namespace Caiqelle.Services
             {
                 System.Diagnostics.Debug.WriteLine($"[RewindService] Capture Error: {ex.GetType().Name}: {ex.Message}");
             }
-
-            // 処理時間分を差し引いて平均1000ms間隔を維持する
-            int nextDelay = Math.Max(50, 1000 - (int)sw.ElapsedMilliseconds);
-            ScheduleNextCapture(nextDelay);
+            finally
+            {
+                lock (_syncLock)
+                {
+                    _isCapturing = false;
+                    // 処理時間分を差し引いて平均1000ms間隔を維持する
+                    int nextDelay = Math.Max(50, 1000 - (int)sw.ElapsedMilliseconds);
+                    ScheduleNextCapture(nextDelay);
+                }
+            }
         }
 
         public RewindFrame[] GetBufferedFrames()

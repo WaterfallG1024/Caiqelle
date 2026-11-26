@@ -253,6 +253,8 @@ namespace Caiqelle.Views
         private void HideAndComplete()
         {
             _appWindow.Hide();
+            BackgroundImage.Source = null;
+            FrozenImage = null;
             CaptureCompleted?.Invoke();
         }
 
@@ -671,62 +673,75 @@ namespace Caiqelle.Views
 
         private async void StartOcrScanAnimation()
         {
-            var rect = CutoutRect.Rect;
-            OcrScanLine.Width = rect.Width;
-            Canvas.SetLeft(OcrScanLine, rect.X);
-            Canvas.SetTop(OcrScanLine, rect.Y);
-            OcrScanLine.Visibility = Visibility.Visible;
-
-            var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(OcrScanLine);
-            var compositor = visual.Compositor;
-            var animation = compositor.CreateScalarKeyFrameAnimation();
-            animation.InsertKeyFrame(0.0f, 0.0f);
-            animation.InsertKeyFrame(0.5f, (float)rect.Height);
-            animation.InsertKeyFrame(1.0f, 0.0f);
-            animation.Duration = TimeSpan.FromSeconds(1.5);
-            animation.IterationBehavior = Microsoft.UI.Composition.AnimationIterationBehavior.Count;
-            animation.IterationCount = 100; // loop while processing
-
-            visual.StartAnimation("Offset.Y", animation);
-
-            await Task.Delay(200);
-
-            ActionTaken = CaptureAction.Copy;
-            SelectedRegion = new System.Drawing.Rectangle(
-                (int)Math.Round(rect.X * _dpiScale),
-                (int)Math.Round(rect.Y * _dpiScale),
-                (int)Math.Round(rect.Width * _dpiScale),
-                (int)Math.Round(rect.Height * _dpiScale));
-            CapturedBytes = await GetCompositedImageBytesAsync();
-
-            bool copied = false;
+            Microsoft.UI.Composition.Visual? visual = null;
             try
             {
-                var ocrService = new Caiqelle.Services.OcrService();
-                string text = await ocrService.ExtractTextAsync(CapturedBytes);
-                if (!string.IsNullOrWhiteSpace(text))
+                var rect = CutoutRect.Rect;
+                OcrScanLine.Width = rect.Width;
+                Canvas.SetLeft(OcrScanLine, rect.X);
+                Canvas.SetTop(OcrScanLine, rect.Y);
+                OcrScanLine.Visibility = Visibility.Visible;
+
+                visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(OcrScanLine);
+                var compositor = visual.Compositor;
+                var animation = compositor.CreateScalarKeyFrameAnimation();
+                animation.InsertKeyFrame(0.0f, 0.0f);
+                animation.InsertKeyFrame(0.5f, (float)rect.Height);
+                animation.InsertKeyFrame(1.0f, 0.0f);
+                animation.Duration = TimeSpan.FromSeconds(1.5);
+                animation.IterationBehavior = Microsoft.UI.Composition.AnimationIterationBehavior.Count;
+                animation.IterationCount = 100; // loop while processing
+
+                visual.StartAnimation("Offset.Y", animation);
+
+                await Task.Delay(200);
+
+                ActionTaken = CaptureAction.Copy;
+                SelectedRegion = new System.Drawing.Rectangle(
+                    (int)Math.Round(rect.X * _dpiScale),
+                    (int)Math.Round(rect.Y * _dpiScale),
+                    (int)Math.Round(rect.Width * _dpiScale),
+                    (int)Math.Round(rect.Height * _dpiScale));
+                CapturedBytes = await GetCompositedImageBytesAsync();
+
+                bool copied = false;
+                try
                 {
-                    var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
-                    dataPackage.SetText(text);
-                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
-                    Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
-                    copied = true;
+                    using var ocrService = new Caiqelle.Services.OcrService();
+                    string text = await ocrService.ExtractTextAsync(CapturedBytes);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                        dataPackage.SetText(text);
+                        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
+                        Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+                        copied = true;
+                    }
+                }
+                catch { }
+                
+                visual.StopAnimation("Offset.Y");
+                OcrScanLine.Visibility = Visibility.Collapsed;
+
+                ActionTaken = CaptureAction.None; 
+                
+                HideAndComplete();
+
+                if (copied)
+                {
+                    var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                        .GetService<Services.NotificationService>(((App)Application.Current).Services);
+                    notificationService?.ShowNotification("クリップボードにコピーしました", "\uE8C8");
                 }
             }
-            catch { }
-            
-            visual.StopAnimation("Offset.Y");
-            OcrScanLine.Visibility = Visibility.Collapsed;
-
-            ActionTaken = CaptureAction.None; 
-            
-            HideAndComplete();
-
-            if (copied)
+            catch (Exception ex)
             {
-                var notificationService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                    .GetService<Services.NotificationService>(((App)Application.Current).Services);
-                notificationService?.ShowNotification("クリップボードにコピーしました", "\uE8C8");
+                System.Diagnostics.Debug.WriteLine($"[OverlayWindow] StartOcrScanAnimation error: {ex.Message}");
+                visual?.StopAnimation("Offset.Y");
+                OcrScanLine.Visibility = Visibility.Collapsed;
+                ActionTaken = CaptureAction.None;
+                IsSelected = false;
+                HideAndComplete();
             }
         }
 
@@ -795,33 +810,43 @@ namespace Caiqelle.Views
 
         private async void CompleteCapture()
         {
-            var r = CutoutRect.Rect;
-            // XAMLの論理DIP座標を物理ピクセルへ変換して CaptureManager へ渡す
-            SelectedRegion = new System.Drawing.Rectangle(
-                (int)Math.Round(r.X * _dpiScale),
-                (int)Math.Round(r.Y * _dpiScale),
-                (int)Math.Round(r.Width * _dpiScale),
-                (int)Math.Round(r.Height * _dpiScale));
-            IsSelected = true;
-
-            // Hide UI (but keep dimmer to prevent flash effect)
-            SelectionBox.Visibility = Visibility.Collapsed;
-            FloatingToolbar.Visibility = Visibility.Collapsed;
-            SetHandlesVisibility(Visibility.Collapsed);
-
-            // アノテーションがない場合は RenderTargetBitmap をスキップし、高速な直接キャプチャへ委ねる
-            if (_isLivePinMode || AnnotationCanvas.Children.Count == 0)
+            try
             {
+                var r = CutoutRect.Rect;
+                // XAMLの論理DIP座標を物理ピクセルへ変換して CaptureManager へ渡す
+                SelectedRegion = new System.Drawing.Rectangle(
+                    (int)Math.Round(r.X * _dpiScale),
+                    (int)Math.Round(r.Y * _dpiScale),
+                    (int)Math.Round(r.Width * _dpiScale),
+                    (int)Math.Round(r.Height * _dpiScale));
+                IsSelected = true;
+
+                // Hide UI (but keep dimmer to prevent flash effect)
+                SelectionBox.Visibility = Visibility.Collapsed;
+                FloatingToolbar.Visibility = Visibility.Collapsed;
+                SetHandlesVisibility(Visibility.Collapsed);
+
+                // アノテーションがない場合は RenderTargetBitmap をスキップし、高速な直接キャプチャへ委ねる
+                if (_isLivePinMode || AnnotationCanvas.Children.Count == 0)
+                {
+                    CapturedBytes = null;
+                    HideAndComplete();
+                    return;
+                }
+
+                await Task.Delay(16);
+
+                CapturedBytes = await GetCompositedImageBytesAsync();
+
+                HideAndComplete();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[OverlayWindow] CompleteCapture error: {ex.Message}");
+                IsSelected = false;
                 CapturedBytes = null;
                 HideAndComplete();
-                return;
             }
-
-            await Task.Delay(16);
-
-            CapturedBytes = await GetCompositedImageBytesAsync();
-
-            HideAndComplete();
         }
 
         private async Task<byte[]> GetCompositedImageBytesAsync()

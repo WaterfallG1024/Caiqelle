@@ -21,6 +21,7 @@ namespace Caiqelle.Services
         Esc,
         OpenDashboard,
         ToggleRewind,
+        ToggleAutoCopy,
         ActionApply,
         ActionDismiss
     }
@@ -29,7 +30,10 @@ namespace Caiqelle.Services
     {
         private const int WH_KEYBOARD_LL = 13;
         private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
         private const int WM_SYSKEYDOWN = 0x0104;
+        private const int WM_SYSKEYUP = 0x0105;
+        private readonly System.Collections.Generic.HashSet<int> _blockedKeyUps = new();
 
         [StructLayout(LayoutKind.Sequential)]
         private struct KBDLLHOOKSTRUCT
@@ -74,6 +78,9 @@ namespace Caiqelle.Services
         private const int VK_CONTROL = 0x11;
         private const int VK_LCONTROL = 0xA2;
         private const int VK_RCONTROL = 0xA3;
+        private const int VK_MENU = 0x12;
+        private const int VK_LMENU = 0xA4;
+        private const int VK_RMENU = 0xA5;
         private const int VK_CAPITAL = 0x14;
 
         // Scan codes for 1-key accelerators (independent of IME)
@@ -89,13 +96,20 @@ namespace Caiqelle.Services
         private const uint SC_ESC = 0x01;
 
         public event Action<CapturedKey>? OnKeyPressed;
+
+        /// <summary>
+        /// ショートカット設定ダイアログ表示中に低レベルフックから直接キーを受け取るためのコールバック
+        /// </summary>
+        public Action<bool, bool, bool, bool, int>? KeyCaptureCallback { get; set; }
         
         public bool IsFloatingUiActive { get; set; } = false;
         public bool IsCaptureOverlayActive { get; set; } = false;
         public bool IsActionPillActive { get; set; } = false;
         public bool IsHijackPrintScreen { get; set; } = true;
         public bool IsHijackWinShiftS { get; set; } = true;
-        public bool IsShiftCapsLockRewindEnabled { get; set; } = false;
+        public bool IsRewindEnabled { get; set; } = false;
+        public ShortcutBinding RewindToggleShortcut { get; set; } = ShortcutBinding.CreateDefaultRewindToggle();
+        public ShortcutBinding AutoCopyToggleShortcut { get; set; } = ShortcutBinding.CreateDefaultAutoCopyToggle();
 
         public HookService()
         {
@@ -126,10 +140,21 @@ namespace Caiqelle.Services
                 UnhookWindowsHookEx(_hookID);
                 _hookID = IntPtr.Zero;
             }
+            _blockedKeyUps.Clear();
         }
 
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
+            if (nCode >= 0 && (wParam == (IntPtr)WM_KEYUP || wParam == (IntPtr)WM_SYSKEYUP))
+            {
+                var upStruct = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
+                if (_blockedKeyUps.Remove((int)upStruct.vkCode))
+                {
+                    return (IntPtr)1;
+                }
+                return CallNextHookEx(_hookID, nCode, wParam, lParam);
+            }
+
             if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
             {
                 var hookStruct = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
@@ -145,6 +170,26 @@ namespace Caiqelle.Services
                 bool isCtrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0
                            || (GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0
                            || (GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0;
+                bool isAlt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0
+                          || (GetAsyncKeyState(VK_LMENU) & 0x8000) != 0
+                          || (GetAsyncKeyState(VK_RMENU) & 0x8000) != 0;
+
+                // ショートカット変更ダイアログが開いている間は、OS（Copilot起動等）より先にここでキーを捕捉する
+                var captureCb = KeyCaptureCallback;
+                if (captureCb != null)
+                {
+                    bool isModifierOnly = vkCode is VK_SHIFT or VK_LSHIFT or VK_RSHIFT
+                                                 or VK_CONTROL or VK_LCONTROL or VK_RCONTROL
+                                                 or VK_MENU or VK_LMENU or VK_RMENU
+                                                 or VK_LWIN or VK_RWIN;
+                    if (!isModifierOnly)
+                    {
+                        _blockedKeyUps.Add(vkCode);
+                        captureCb(isCtrl, isShift, isAlt, isWin, vkCode);
+                        return (IntPtr)1;
+                    }
+                    return CallNextHookEx(_hookID, nCode, wParam, lParam);
+                }
 
                 // 1. PrintScreen Hijack
                 if (IsHijackPrintScreen && vkCode == VK_SNAPSHOT)
@@ -163,14 +208,28 @@ namespace Caiqelle.Services
                     return (IntPtr)1;
                 }
 
-                // 3. Shift + CapsLock Rewind Toggle & Block CapsLock
-                if (IsShiftCapsLockRewindEnabled && vkCode == VK_CAPITAL)
+                // 3. カスタムショートカット: リワインド開始/一時停止（リワインド有効時のみ動作）
+                if (IsRewindEnabled)
                 {
-                    if (isShift)
+                    if (RewindToggleShortcut.Matches(isCtrl, isShift, isAlt, isWin, vkCode))
                     {
+                        _blockedKeyUps.Add(vkCode);
                         OnKeyPressed?.Invoke(CapturedKey.ToggleRewind);
+                        return (IntPtr)1;
                     }
-                    return (IntPtr)1; // Block CapsLock functionality completely when enabled
+                    if (RewindToggleShortcut.VirtualKey == VK_CAPITAL && vkCode == VK_CAPITAL)
+                    {
+                        _blockedKeyUps.Add(vkCode);
+                        return (IntPtr)1; // CapsLock 割り当て時は単体入力を無効化
+                    }
+                }
+
+                // 4. カスタムショートカット: 自動クリップボードコピー切替（常に有効）
+                if (AutoCopyToggleShortcut.Matches(isCtrl, isShift, isAlt, isWin, vkCode))
+                {
+                    _blockedKeyUps.Add(vkCode);
+                    OnKeyPressed?.Invoke(CapturedKey.ToggleAutoCopy);
+                    return (IntPtr)1;
                 }
 
                 // 3. 1-key accelerators (Only when Floating UI is active)

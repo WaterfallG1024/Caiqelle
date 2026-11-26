@@ -41,7 +41,7 @@
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <Button x:Name="NewBtn"
-                        Style="{StaticResource M3FilledPrimaryButtonStyle}"
+                        Style="{StaticResource FluentFilledPrimaryButtonStyle}"
                         Padding="12,6"
                         CornerRadius="4"
                         Click="NewBtn_Click"
@@ -111,7 +111,7 @@
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                         <Button Tag="{x:Bind Id}"
                                                 Click="ToggleShowBtn_Click"
-                                                Style="{StaticResource M3PillTonalButtonStyle}"
+                                                Style="{StaticResource FluentPillTonalButtonStyle}"
                                                 Padding="12,6"
                                                 FontSize="13"
                                                 Content="{x:Bind ToggleButtonLabel}"

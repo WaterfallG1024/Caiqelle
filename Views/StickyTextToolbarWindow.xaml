@@ -49,7 +49,7 @@
                     </Button.Flyout>
                 </Button>
 
-                <Rectangle Width="1" Height="16" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
+                <Rectangle Width="1" Height="16" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
 
                 <Button x:Name="FontDownBtn" ToolTipService.ToolTip="文字を小さく" Width="24" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="FontDownBtn_Click">
                     <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE738;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
@@ -59,7 +59,7 @@
                     <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE710;" FontSize="12" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                 </Button>
 
-                <Rectangle Width="1" Height="16" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
+                <Rectangle Width="1" Height="16" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
 
                 <Button x:Name="BgModeBtn" ToolTipService.ToolTip="背景: 半透明（クリックで不透明へ）" Height="28" Padding="8,0" Background="Transparent" BorderThickness="0" CornerRadius="6" Click="BgModeBtn_Click">
                     <TextBlock x:Name="BgModeText" Text="半透明" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" VerticalAlignment="Center" />
@@ -75,7 +75,7 @@
                 </ToggleButton>
 
                 <Button x:Name="EditToggleBtn" ToolTipService.ToolTip="保存（確定） (Ctrl + Enter)" Height="28" Padding="8,0" Background="Transparent" BorderThickness="0" CornerRadius="6" Click="EditToggleBtn_Click">
-                    <TextBlock Text="保存" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="保存" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource FluentPrimaryBrush}" VerticalAlignment="Center" />
                 </Button>
 
                 <Button x:Name="AddBtn" ToolTipService.ToolTip="新しい Sticky Text を追加" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="AddBtn_Click">
@@ -86,7 +86,7 @@
                     <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8FD;" FontSize="13" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                 </Button>
 
-                <Rectangle x:Name="DeleteSeparator" Width="1" Height="16" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
+                <Rectangle x:Name="DeleteSeparator" Width="1" Height="16" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="3,0" VerticalAlignment="Center" />
 
                 <Button x:Name="DeleteBtn" ToolTipService.ToolTip="完全に削除（保存データからも削除）" Width="28" Height="28" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="0" Click="DeleteBtn_Click">
                     <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="13" Foreground="{StaticResource FuncPinkBrush}" />

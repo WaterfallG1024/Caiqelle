@@ -75,7 +75,7 @@ namespace Caiqelle.Views
             _currentImageBytes = imageBytes;
             
             using var ms = new MemoryStream(imageBytes);
-            var randomAccessStream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+            using var randomAccessStream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
             await randomAccessStream.WriteAsync(ms.ToArray().AsBuffer());
             randomAccessStream.Seek(0);
             
@@ -517,8 +517,9 @@ namespace Caiqelle.Views
             {
                 var encoder = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders()
                     .First(c => c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
-                var encParams = new System.Drawing.Imaging.EncoderParameters(1);
-                encParams.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+                using var encParams = new System.Drawing.Imaging.EncoderParameters(1);
+                using var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+                encParams.Param[0] = qualityParam;
                 bmp.Save(ms, encoder, encParams);
             }
             else if (format.ToUpper() == "WEBP")

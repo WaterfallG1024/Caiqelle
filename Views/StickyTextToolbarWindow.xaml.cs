@@ -20,6 +20,7 @@ namespace Caiqelle.Views
         private readonly AppWindow _appWindow;
         private bool _isVisible = false;
         private bool _isUpdatingUi = false;
+        private bool _isClosed = false;
 
         private const uint WDA_NONE = 0x00000000;
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
@@ -65,10 +66,12 @@ namespace Caiqelle.Views
             NativeMethods.DwmExtendFrameIntoClientArea(_hwnd, ref margins);
             NativeMethods.RemoveWindowBorder(_hwnd);
             _appWindow.Hide();
+            this.Closed += (_, _) => _isClosed = true;
         }
 
         public void PositionRelativeTo(Windows.Graphics.RectInt32 cardRect)
         {
+            if (_isClosed) return;
             double dpiScale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
             ToolbarBorder.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
             int width = Math.Max((int)(420 * dpiScale), (int)Math.Ceiling(ToolbarBorder.DesiredSize.Width * dpiScale));
@@ -105,7 +108,7 @@ namespace Caiqelle.Views
 
         public void ShowNoActivate()
         {
-            if (_isVisible) return;
+            if (_isClosed || _isVisible) return;
             _isVisible = true;
             // WinUI 3 の XAML 描画を確実に初期化しつつフォーカスを奪わずに表示
             _appWindow.Show(false);
@@ -113,13 +116,14 @@ namespace Caiqelle.Views
 
         public void HideToolbar()
         {
-            if (!_isVisible) return;
+            if (_isClosed || !_isVisible) return;
             _isVisible = false;
             _appWindow.Hide();
         }
 
         public void SyncFormatting(bool isBold, bool isItalic, bool isUnderline, double fontSize, Windows.UI.Color textColor)
         {
+            if (_isClosed) return;
             _isUpdatingUi = true;
             try
             {
@@ -138,13 +142,14 @@ namespace Caiqelle.Views
 
         public void SyncStealth(bool isStealth)
         {
+            if (_isClosed) return;
             SetWindowDisplayAffinity(_hwnd, isStealth ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE);
             _isUpdatingUi = true;
             try
             {
                 StealthBtn.IsChecked = isStealth;
                 StealthIcon.Glyph = isStealth ? "\uED1A" : "\uE890";
-                if (Application.Current.Resources.TryGetValue(isStealth ? "M3PrimaryBrush" : "TextFillColorPrimaryBrush", out var brushObj) && brushObj is Brush iconBrush)
+                if (Application.Current.Resources.TryGetValue(isStealth ? "FluentPrimaryBrush" : "TextFillColorPrimaryBrush", out var brushObj) && brushObj is Brush iconBrush)
                 {
                     StealthIcon.Foreground = iconBrush;
                 }
@@ -167,12 +172,14 @@ namespace Caiqelle.Views
 
         public void SyncBackgroundLabel(string label, string tooltip)
         {
+            if (_isClosed) return;
             BgModeText.Text = label;
             ToolTipService.SetToolTip(BgModeBtn, tooltip);
         }
 
         public void SyncSaveModeVisibility(bool isSaveEnabled)
         {
+            if (_isClosed) return;
             var vis = isSaveEnabled ? Visibility.Visible : Visibility.Collapsed;
             DeleteSeparator.Visibility = vis;
             DeleteBtn.Visibility = vis;

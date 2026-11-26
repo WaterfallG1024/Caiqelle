@@ -168,12 +168,16 @@ namespace Caiqelle.Views
 
             this.Closed += (s, e) =>
             {
+                _isClosing = true;
                 _toolbarWindow.Close();
             };
         }
 
+        private bool _isClosing = false;
+
         private void SyncToolbarPosition()
         {
+            if (_isClosing) return;
             var rect = new Windows.Graphics.RectInt32(
                 _appWindow.Position.X,
                 _appWindow.Position.Y,

@@ -163,6 +163,7 @@ namespace Caiqelle.Views
             IsSelected = false;
             ActionTaken = OverlayWindow.CaptureAction.None;
             this.Hide();
+            BackgroundImage.Source = null;
             CaptureCompleted?.Invoke();
         }
 

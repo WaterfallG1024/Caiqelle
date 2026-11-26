@@ -132,13 +132,17 @@ namespace Caiqelle.ViewModels
 
             if (imageBytes.Length > 0 && !ct.IsCancellationRequested)
             {
-                if (_decodedFrameCache.Count >= MaxCachedFrames && _cacheOrder.Count > 0)
+                bool alreadyCached = _decodedFrameCache.ContainsKey(index);
+                if (!alreadyCached && _decodedFrameCache.Count >= MaxCachedFrames && _cacheOrder.Count > 0)
                 {
                     int oldest = _cacheOrder.Dequeue();
                     _decodedFrameCache.Remove(oldest);
                 }
                 _decodedFrameCache[index] = imageBytes;
-                _cacheOrder.Enqueue(index);
+                if (!alreadyCached)
+                {
+                    _cacheOrder.Enqueue(index);
+                }
             }
 
             return imageBytes.Length > 0 ? imageBytes : null;

@@ -19,6 +19,7 @@ namespace Caiqelle.Views
     {
         private AppWindow _appWindow;
         private byte[] _imageBytes;
+        private readonly PinToolbarWindow _toolbarWindow;
 
         public PinWindow(byte[] imageBytes)
         {
@@ -69,6 +70,21 @@ namespace Caiqelle.Views
             _appWindow.Resize(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
 
             LoadImage();
+            _toolbarWindow = new PinToolbarWindow(isLivePin: false);
+            _toolbarWindow.CopyRequested += () => CopyBtn_Click(this, new RoutedEventArgs());
+            _toolbarWindow.SaveRequested += () => SaveBtn_Click(this, new RoutedEventArgs());
+            _toolbarWindow.CloseRequested += () => CloseBtn_Click(this, new RoutedEventArgs());
+
+            _appWindow.Changed += (_, args) =>
+            {
+                if (args.DidPositionChange || args.DidSizeChange)
+                {
+                    _toolbarWindow.UpdatePosition(new Windows.Graphics.RectInt32(
+                        _appWindow.Position.X, _appWindow.Position.Y,
+                        _appWindow.Size.Width, _appWindow.Size.Height));
+                }
+            };
+            this.Closed += (_, _) => _toolbarWindow.SafeClose();
             this.Activated += (s, e) => RootGrid.Focus(FocusState.Programmatic);
         }
 
@@ -93,12 +109,14 @@ namespace Caiqelle.Views
 
         private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
-            OverlayPanel.Opacity = 1.0;
+            _toolbarWindow.NotifyParentPointerEntered(new Windows.Graphics.RectInt32(
+                _appWindow.Position.X, _appWindow.Position.Y,
+                _appWindow.Size.Width, _appWindow.Size.Height));
         }
 
         private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            OverlayPanel.Opacity = 0.0;
+            _toolbarWindow.NotifyParentPointerExited();
         }
 
         private void CloseBtn_Click(object sender, RoutedEventArgs e)
@@ -108,19 +126,33 @@ namespace Caiqelle.Views
 
         private async void SaveBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_imageBytes != null && _imageBytes.Length > 0)
+            try
             {
-                var folderWindow = new FolderSelectionWindow((App)Application.Current);
-                await folderWindow.ShowAsync(_imageBytes);
+                if (_imageBytes != null && _imageBytes.Length > 0)
+                {
+                    var folderWindow = new FolderSelectionWindow((App)Application.Current);
+                    await folderWindow.ShowAsync(_imageBytes);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PinWindow] SaveBtn_Click error: {ex.Message}");
             }
         }
 
         private async void CopyBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_imageBytes != null && _imageBytes.Length > 0)
+            try
             {
-                var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.ClipboardService>(((App)Application.Current).Services);
-                await clipboardService.CopyImageAsync(_imageBytes, showNotification: true, DispatcherQueue);
+                if (_imageBytes != null && _imageBytes.Length > 0)
+                {
+                    var clipboardService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Services.ClipboardService>(((App)Application.Current).Services);
+                    await clipboardService.CopyImageAsync(_imageBytes, showNotification: true, DispatcherQueue);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PinWindow] CopyBtn_Click error: {ex.Message}");
             }
         }
 

@@ -120,6 +120,9 @@ namespace Caiqelle
             var settings = Services.GetRequiredService<SettingsManager>();
             hookService.IsHijackPrintScreen = settings.IsHijackPrintScreen;
             hookService.IsHijackWinShiftS = settings.IsHijackWinShiftS;
+            hookService.IsRewindEnabled = settings.IsRewindEnabled;
+            hookService.RewindToggleShortcut = settings.RewindToggleShortcut;
+            hookService.AutoCopyToggleShortcut = settings.AutoCopyToggleShortcut;
             hookService.OnKeyPressed += HookService_OnKeyPressed;
             hookService.Start();
         }
@@ -139,7 +142,9 @@ namespace Caiqelle
             
             dispatcher.TryEnqueue(async () =>
             {
-                if (key == CapturedKey.OpenDashboard)
+                try
+                {
+                    if (key == CapturedKey.OpenDashboard)
                 {
                     PositionAndShowWindow();
                     return;
@@ -148,19 +153,49 @@ namespace Caiqelle
                 if (key == CapturedKey.ToggleRewind)
                 {
                     var rewindService = Services.GetRequiredService<RewindService>();
+                    var settings = Services.GetRequiredService<SettingsManager>();
                     var notificationService = Services.GetRequiredService<NotificationService>();
 
-                    if (rewindService.IsRunning)
+                    if (!settings.IsRewindEnabled)
                     {
-                        rewindService.Stop();
+                        notificationService.ShowNotification("リワインド機能が無効です", "\uE7BA");
+                        return;
+                    }
+
+                    if (rewindService.IsRunning && !rewindService.IsPaused)
+                    {
+                        rewindService.Pause();
                         notificationService.ShowNotification("リワインドを一時停止しました", "\uE71A");
                     }
                     else
                     {
                         // バッファを保持したまま再開
-                        rewindService.Start(clearBuffer: false);
-                        notificationService.ShowNotification("リワインドを再開しました", "\uE7C8");
+                        if (rewindService.IsRunning)
+                        {
+                            rewindService.Resume();
+                        }
+                        else
+                        {
+                            rewindService.Start(clearBuffer: false);
+                        }
+                        if (rewindService.IsRunning && !rewindService.IsPaused)
+                        {
+                            notificationService.ShowNotification("リワインドを再開しました", "\uE7C8");
+                        }
                     }
+                    return;
+                }
+
+                if (key == CapturedKey.ToggleAutoCopy)
+                {
+                    var settings = Services.GetRequiredService<SettingsManager>();
+                    var notificationService = Services.GetRequiredService<NotificationService>();
+                    settings.IsAutoCopyToClipboard = !settings.IsAutoCopyToClipboard;
+                    settings.SaveSettings();
+                    Services.GetService<ViewModels.MainViewModel>()?.SyncAutoCopyFromSettings();
+                    notificationService.ShowNotification(
+                        settings.IsAutoCopyToClipboard ? "自動クリップボードコピーを ON にしました" : "自動クリップボードコピーを OFF にしました",
+                        "\uE8C8");
                     return;
                 }
 
@@ -172,7 +207,7 @@ namespace Caiqelle
 
                     if (!settings.IsRewindEnabled)
                     {
-                        notificationService.ShowNotification("リワインド機能が無効です (設定タブで有効化してください)", "\uE7BA");
+                        notificationService.ShowNotification("リワインド機能が無効です", "\uE7BA");
                         return;
                     }
 
@@ -248,6 +283,11 @@ namespace Caiqelle
                         }
                     }
                 }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[App] HookService_OnKeyPressed error: {ex.Message}");
+                }
             });
         }
 
@@ -273,6 +313,10 @@ namespace Caiqelle
             return services.BuildServiceProvider();
         }
 
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
         private static System.Drawing.Icon LoadTrayIcon()
         {
             try
@@ -288,7 +332,16 @@ namespace Caiqelle
                 if (System.IO.File.Exists(pngPath))
                 {
                     using var bmp = new System.Drawing.Bitmap(pngPath);
-                    return System.Drawing.Icon.FromHandle(bmp.GetHicon());
+                    IntPtr hIcon = bmp.GetHicon();
+                    try
+                    {
+                        using var tempIcon = System.Drawing.Icon.FromHandle(hIcon);
+                        return (System.Drawing.Icon)tempIcon.Clone();
+                    }
+                    finally
+                    {
+                        DestroyIcon(hIcon);
+                    }
                 }
             }
             catch { }

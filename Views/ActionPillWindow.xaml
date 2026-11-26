@@ -79,7 +79,7 @@
                     <!-- 入力ボタン -->
                     <Button x:Name="ApplyButton"
                             Grid.Column="1"
-                            Style="{StaticResource M3FilledPrimaryButtonStyle}"
+                            Style="{StaticResource FluentFilledPrimaryButtonStyle}"
                             Content="入力"
                             CornerRadius="13"
                             Height="26"

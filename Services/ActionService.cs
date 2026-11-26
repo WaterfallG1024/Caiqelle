@@ -36,6 +36,9 @@ namespace Caiqelle.Services
 
         private Timer? _monitorTimer;
         private Windows.Graphics.Imaging.SoftwareBitmap? _reuseOcrBitmap;
+        private readonly SemaphoreSlim _ocrBitmapSemaphore = new(1, 1);
+        private int _disposedState = 0;
+        private bool _disposed => Volatile.Read(ref _disposedState) != 0;
         private int _isScanning = 0;
         private int _isExecuting = 0;
         private string _lastActiveContextKey = string.Empty;
@@ -209,6 +212,16 @@ namespace Caiqelle.Services
                 return null;
             }
 
+            if (_settingsManager.IsActionUrlWhitelistEnabled)
+            {
+                string? activeUrl = TryGetActiveBrowserUrl(hwnd);
+                if (!IsUrlAllowedByWhitelist(activeUrl, _settingsManager.ActionUrlWhitelist))
+                {
+                    NotifyContextChangedIfNeeded(string.Empty);
+                    return null;
+                }
+            }
+
             string title = GetWindowTitle(hwnd);
             if (string.IsNullOrWhiteSpace(title)) return null;
 
@@ -243,25 +256,40 @@ namespace Caiqelle.Services
             if (width < 200 || height < 200) return null;
 
             var bounds = new Rectangle(rect.Left, rect.Top, width, height);
-            var capturedBitmap = _screenshotService.CaptureRegionToSoftwareBitmap(bounds, _reuseOcrBitmap);
-            if (capturedBitmap == null) return null;
-            _reuseOcrBitmap = capturedBitmap;
-
-            ulong screenHash = ComputeSoftwareBitmapQuickHash(capturedBitmap);
-            if (!force)
+            IReadOnlyList<OcrLineBox> lines;
+            await _ocrBitmapSemaphore.WaitAsync();
+            try
             {
-                lock (_stateLock)
-                {
-                    if (_lastScannedScreenHash == screenHash && _lastActiveContextKey == contextKey)
-                    {
-                        // 画面に変化がなければ OCR をスキップ
-                        return null;
-                    }
-                    _lastScannedScreenHash = screenHash;
-                }
-            }
+                if (_disposed) return null;
+                var capturedBitmap = _screenshotService.CaptureRegionToSoftwareBitmap(bounds, _reuseOcrBitmap);
+                if (capturedBitmap == null) return null;
+                _reuseOcrBitmap = capturedBitmap;
 
-            var lines = await _ocrService.ExtractLinesWithBoundsAsync(capturedBitmap);
+                ulong screenHash = ComputeSoftwareBitmapQuickHash(capturedBitmap);
+                if (!force)
+                {
+                    lock (_stateLock)
+                    {
+                        if (_lastScannedScreenHash == screenHash && _lastActiveContextKey == contextKey)
+                        {
+                            // 画面に変化がなければ OCR をスキップ
+                            return null;
+                        }
+                        _lastScannedScreenHash = screenHash;
+                    }
+                }
+
+                lines = await _ocrService.ExtractLinesWithBoundsAsync(capturedBitmap);
+            }
+            finally
+            {
+                if (_disposed)
+                {
+                    _reuseOcrBitmap?.Dispose();
+                    _reuseOcrBitmap = null;
+                }
+                _ocrBitmapSemaphore.Release();
+            }
             if (lines.Count == 0) return null;
 
             // OCR 解析中に自動入力が開始／完了していた場合は古い結果を破棄（2重検知・2重入力防止）
@@ -521,6 +549,7 @@ namespace Caiqelle.Services
                 string rawText = line.Text.Trim();
                 if (string.IsNullOrEmpty(rawText) || IsPlaceholderLine(rawText)) continue;
                 if (FormContextHints.Any(h => rawText.Equals(h, StringComparison.OrdinalIgnoreCase))) continue;
+                if (IsLikelyNonQuestionTitleOrSentence(rawText)) continue;
 
                 string cleanLabel = NormalizeLabel(rawText);
                 if (string.IsNullOrEmpty(cleanLabel) || cleanLabel.Length > 40) continue;
@@ -626,14 +655,354 @@ namespace Caiqelle.Services
             return FormPlaceholderHints.Any(p => text.Contains(p, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static bool IsLikelyNonQuestionTitleOrSentence(string cleanLabel)
+        public static bool IsLikelyNonQuestionTitleOrSentence(string cleanLabel)
         {
             string[] nonQuestionHints =
             {
                 "フォーム", "form", "アンケート", "記録され", "関連付け",
-                "パスワード", "送信しない", "アカウント", "必須の質問"
+                "パスワード", "送信しない", "アカウント", "必須の質問",
+                "入力しないで", "記入しないで", "記載しないで", "含めないで",
+                "書かないで", "入力は不要", "入力不要", "入力禁止", "入力不可",
+                "do not enter", "don't enter"
             };
             return nonQuestionHints.Any(h => cleanLabel.Contains(h, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static bool IsUrlAllowedByWhitelist(string? url, IReadOnlyList<string> whitelist)
+        {
+            if (string.IsNullOrWhiteSpace(url) || whitelist == null || whitelist.Count == 0)
+            {
+                return false;
+            }
+
+            if (!TryParseTargetUrl(url.Trim(), out bool urlHasExplicitScheme, out Uri? targetUri, out string? targetLocalPath))
+            {
+                return false;
+            }
+
+            foreach (string entry in whitelist)
+            {
+                string rawEntry = entry?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(rawEntry)) continue;
+
+                if (!TryParseTargetUrl(rawEntry, out bool patHasExplicitScheme, out Uri? patUri, out string? patLocalPath))
+                {
+                    continue;
+                }
+
+                // ローカルパス / file:// 同士の比較
+                if (targetLocalPath != null || patLocalPath != null)
+                {
+                    if (targetLocalPath == null || patLocalPath == null) continue;
+                    if (IsLocalPathAllowed(targetLocalPath, patLocalPath))
+                    {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if (targetUri == null || patUri == null) continue;
+
+                // ホワイトリスト側でスキームが明示されている場合（例: https://example.com）はスキーム一致を強制し、http ダウングレードを防止
+                if (patHasExplicitScheme && urlHasExplicitScheme &&
+                    !string.Equals(targetUri.Scheme, patUri.Scheme, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // ホスト部の厳格一致（完全一致またはドット区切りのサブドメイン一致のみ許可）
+                bool hostMatched = string.Equals(targetUri.Host, patUri.Host, StringComparison.OrdinalIgnoreCase) ||
+                                   targetUri.Host.EndsWith("." + patUri.Host, StringComparison.OrdinalIgnoreCase);
+                if (!hostMatched) continue;
+
+                // パターン側にポートが明示されている場合はポートも一致させる
+                if (!patUri.IsDefaultPort && targetUri.Port != patUri.Port)
+                {
+                    continue;
+                }
+
+                string patPath = patUri.AbsolutePath;
+                if (string.IsNullOrEmpty(patPath) || patPath == "/")
+                {
+                    return true;
+                }
+
+                string urlPath = targetUri.AbsolutePath;
+                if (urlPath.StartsWith(patPath, StringComparison.OrdinalIgnoreCase) &&
+                    (urlPath.Length == patPath.Length || patPath.EndsWith('/') || urlPath[patPath.Length] == '/'))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool TryParseTargetUrl(
+            string input,
+            out bool hasExplicitScheme,
+            out Uri? parsedUri,
+            out string? localPath)
+        {
+            hasExplicitScheme = false;
+            parsedUri = null;
+            localPath = null;
+
+            if (string.IsNullOrWhiteSpace(input) || input.Any(char.IsControl))
+            {
+                return false;
+            }
+
+            if (input.Contains("://", StringComparison.Ordinal))
+            {
+                hasExplicitScheme = true;
+                if (!Uri.TryCreate(input, UriKind.Absolute, out var uri))
+                {
+                    return false;
+                }
+
+                if (string.Equals(uri.Scheme, Uri.UriSchemeFile, StringComparison.OrdinalIgnoreCase))
+                {
+                    localPath = NormalizeLocalPath(uri.LocalPath);
+                    return localPath != null;
+                }
+
+                if (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrEmpty(uri.Host)) return false;
+                    parsedUri = uri;
+                    return true;
+                }
+
+                // javascript:, data:, vbscript: 等のスキームは拒否
+                return false;
+            }
+
+            // ドライブレター付きローカルパスまたは UNC パス
+            if ((input.Length >= 2 && char.IsLetter(input[0]) && input[1] == ':') ||
+                input.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                localPath = NormalizeLocalPath(input);
+                return localPath != null;
+            }
+
+            // スキーム省略形式（例: docs.google.com/forms, localhost:8080/app）
+            // 先頭パス区切りより前に ':' がある場合、ポート番号以外（javascript: 等）を拒否
+            int slashIdx = input.IndexOfAny(new[] { '/', '?', '#' });
+            string authorityPart = slashIdx >= 0 ? input[..slashIdx] : input;
+            int atIdx = authorityPart.LastIndexOf('@');
+            string hostPortPart = atIdx >= 0 ? authorityPart[(atIdx + 1)..] : authorityPart;
+            int colonIdx = hostPortPart.IndexOf(':');
+            if (colonIdx >= 0)
+            {
+                string portPart = hostPortPart[(colonIdx + 1)..];
+                if (portPart.Length == 0 || !portPart.All(char.IsAsciiDigit))
+                {
+                    return false;
+                }
+            }
+
+            if (input.Contains('\\'))
+            {
+                return false;
+            }
+
+            if (Uri.TryCreate("https://" + input, UriKind.Absolute, out var fallbackUri) &&
+                !string.IsNullOrEmpty(fallbackUri.Host))
+            {
+                parsedUri = fallbackUri;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string? NormalizeLocalPath(string path)
+        {
+            try
+            {
+                return System.IO.Path.GetFullPath(path);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool IsLocalPathAllowed(string targetPath, string allowedPath)
+        {
+            if (string.Equals(targetPath, allowedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            string baseDir = allowedPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+                             + System.IO.Path.DirectorySeparatorChar;
+            return targetPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void ReleaseComSafely(object? comObj)
+        {
+            if (comObj != null && Marshal.IsComObject(comObj))
+            {
+                try { Marshal.ReleaseComObject(comObj); } catch { }
+            }
+        }
+
+        private static string? TryGetActiveBrowserUrl(IntPtr hwnd)
+        {
+            IUIAutomation? automation = null;
+            IUIAutomationElement? root = null;
+            IUIAutomationCondition? editCond = null;
+            IUIAutomationElementArray? edits = null;
+            try
+            {
+                var uiaType = Type.GetTypeFromCLSID(new Guid("FF48DBA4-60EF-4201-AA87-54103EEF594E"));
+                if (uiaType == null) return null;
+                automation = Activator.CreateInstance(uiaType) as IUIAutomation;
+                if (automation == null) return null;
+
+                root = automation.ElementFromHandle(hwnd);
+                if (root == null) return null;
+
+                // UIA_ControlTypePropertyId = 30003, UIA_EditControlTypeId = 50004
+                editCond = automation.CreatePropertyCondition(30003, 50004);
+                // TreeScope_Subtree = 7
+                edits = root.FindAll(7, editCond);
+                if (edits == null) return null;
+
+                int count = Math.Min(edits.Length, 32);
+                for (int i = 0; i < count; i++)
+                {
+                    IUIAutomationElement? elem = null;
+                    object? patternObj = null;
+                    try
+                    {
+                        elem = edits.GetElement(i);
+                        if (elem == null) continue;
+
+                        string? val = null;
+                        try
+                        {
+                            // UIA_ValueValuePropertyId = 30045 から直接文字列を取得
+                            elem.GetCurrentPropertyValue(30045, out object? propVal);
+                            val = propVal as string;
+                        }
+                        catch { }
+
+                        if (string.IsNullOrWhiteSpace(val))
+                        {
+                            try
+                            {
+                                patternObj = elem.GetCurrentPattern(10002);
+                                if (patternObj is IUIAutomationValuePattern valuePattern)
+                                {
+                                    val = valuePattern.CurrentValue;
+                                }
+                            }
+                            catch { }
+                        }
+
+                        if (string.IsNullOrWhiteSpace(val)) continue;
+                        string trimmed = val.Trim();
+                        if (trimmed.Contains(' ')) continue;
+
+                        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("file://", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.Contains('.') ||
+                            trimmed.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.Contains('\\') ||
+                            trimmed.Contains('/'))
+                        {
+                            return trimmed;
+                        }
+                    }
+                    finally
+                    {
+                        ReleaseComSafely(patternObj);
+                        ReleaseComSafely(elem);
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                ReleaseComSafely(edits);
+                ReleaseComSafely(editCond);
+                ReleaseComSafely(root);
+                ReleaseComSafely(automation);
+            }
+            return null;
+        }
+
+        [ComImport, Guid("30CBE57D-D9D0-452A-AB13-7AC5AC4825EE"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomation
+        {
+            void CompareElements();
+            void CompareRuntimeIds();
+            void GetRootElement();
+            [return: MarshalAs(UnmanagedType.Interface)]
+            IUIAutomationElement? ElementFromHandle(IntPtr hwnd);
+            void ElementFromPoint();
+            void GetFocusedElement();
+            void GetRootElementBuildCache();
+            void ElementFromHandleBuildCache();
+            void ElementFromPointBuildCache();
+            void GetFocusedElementBuildCache();
+            void CreateTreeWalker();
+            void GetControlViewWalker();
+            void GetContentViewWalker();
+            void GetRawViewWalker();
+            void GetRawViewCondition();
+            void GetControlViewCondition();
+            void GetContentViewCondition();
+            void CreateCacheRequest();
+            void CreateTrueCondition();
+            void CreateFalseCondition();
+            [return: MarshalAs(UnmanagedType.Interface)]
+            IUIAutomationCondition CreatePropertyCondition(int propertyId, object value);
+        }
+
+        [ComImport, Guid("352FFBA8-0973-437C-A61F-F64CAFD81DF9"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationCondition { }
+
+        [ComImport, Guid("14314595-B4BC-4055-95F2-58F2E42C9855"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationElementArray
+        {
+            int Length { get; }
+            [return: MarshalAs(UnmanagedType.Interface)]
+            IUIAutomationElement? GetElement(int index);
+        }
+
+        [ComImport, Guid("D22108AA-8AC5-49A5-837B-37BBB3D7591E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationElement
+        {
+            void SetFocus();
+            void GetRuntimeId();
+            void FindFirst();
+            [return: MarshalAs(UnmanagedType.Interface)]
+            IUIAutomationElementArray? FindAll(int scope, IUIAutomationCondition condition);
+            void FindFirstBuildCache();
+            void FindAllBuildCache();
+            void BuildUpdatedCache();
+            void GetCurrentPropertyValue(int propertyId, [MarshalAs(UnmanagedType.Struct)] out object? retVal);
+            void GetCurrentPropertyValueEx();
+            void GetCachedPropertyValue();
+            void GetCachedPropertyValueEx();
+            [return: MarshalAs(UnmanagedType.Interface)]
+            object? GetCurrentPatternAs(int patternId, ref Guid riid);
+            [return: MarshalAs(UnmanagedType.Interface)]
+            object? GetCachedPatternAs(int patternId, ref Guid riid);
+            [return: MarshalAs(UnmanagedType.IUnknown)]
+            object? GetCurrentPattern(int patternId);
+        }
+
+        [ComImport, Guid("A94CD8B1-0844-4CD6-9D2D-640537AB39E9"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationValuePattern
+        {
+            void SetValue([MarshalAs(UnmanagedType.BStr)] string val);
+            string CurrentValue { [return: MarshalAs(UnmanagedType.BStr)] get; }
         }
 
 #if DEBUG
@@ -856,6 +1225,7 @@ namespace Caiqelle.Services
 
             string? previousClipboardText = null;
             bool hadPreviousText = false;
+            bool copiedSensitiveValue = false;
             var fillLog = new StringBuilder();
             fillLog.AppendLine($"Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
             fillLog.AppendLine($"TargetHwnd: 0x{context.WindowHwnd.ToInt64():X} Title: {context.WindowTitle} Fields: {context.Fields.Count}");
@@ -901,10 +1271,9 @@ namespace Caiqelle.Services
                 for (int i = 0; i < context.Fields.Count; i++)
                 {
                     var field = context.Fields[i];
-                    IntPtr loopFg = GetForegroundWindow();
-                    if (loopFg != context.WindowHwnd)
+                    if (!IsTargetContextStillValid(context.WindowHwnd))
                     {
-                        fillLog.AppendLine($"[{i}] Abort: Foreground changed to 0x{loopFg.ToInt64():X}");
+                        fillLog.AppendLine($"[{i}] Abort: Foreground or URL changed before field");
                         return false;
                     }
 
@@ -919,6 +1288,12 @@ namespace Caiqelle.Services
                             fillLog.AppendLine($"[{i}] Refreshed [{field.Label}] point: ({targetPoint.X},{targetPoint.Y}) -> ({refreshed.Value.X},{refreshed.Value.Y})");
                             targetPoint = refreshed.Value;
                         }
+
+                        if (!IsTargetContextStillValid(context.WindowHwnd))
+                        {
+                            fillLog.AppendLine($"[{i}] Abort: Foreground or URL changed after refresh");
+                            return false;
+                        }
                     }
 
                     if (!SetClipboardTextProtected(ownHwnd, field.PlainValue, excludeFromHistory: true))
@@ -926,13 +1301,24 @@ namespace Caiqelle.Services
                         fillLog.AppendLine($"[{i}] Abort: SetClipboardTextProtected failed for [{field.Label}]");
                         return false;
                     }
+                    copiedSensitiveValue = true;
 
                     SetCursorPos(targetPoint.X, targetPoint.Y);
                     SendMouseMoveNudge();
                     await Task.Delay(15);
+                    if (!IsTargetContextStillValid(context.WindowHwnd))
+                    {
+                        fillLog.AppendLine($"[{i}] Abort: Foreground or URL changed before click");
+                        return false;
+                    }
                     await SendMouseLeftClickAsync();
                     await Task.Delay(70);
 
+                    if (!IsTargetContextStillValid(context.WindowHwnd))
+                    {
+                        fillLog.AppendLine($"[{i}] Abort: Foreground or URL changed before paste");
+                        return false;
+                    }
                     await SendCtrlVAsync();
                     bool hasNextField = i + 1 < context.Fields.Count;
                     await Task.Delay(hasNextField ? 160 : 90);
@@ -973,20 +1359,40 @@ namespace Caiqelle.Services
 #if DEBUG
                 WriteFillDiagnosticLog(fillLog.ToString());
 #endif
+                IntPtr ownHwnd = GetOwnOwnerHwnd();
                 if (_settingsManager.ActionRestoreClipboardAfterFill)
                 {
-                    IntPtr ownHwnd = GetOwnOwnerHwnd();
-                    if (hadPreviousText && previousClipboardText != null)
-                    {
-                        SetClipboardTextProtected(ownHwnd, previousClipboardText, excludeFromHistory: false);
-                    }
-                    else
+                    bool restored = hadPreviousText && previousClipboardText != null &&
+                                    SetClipboardTextProtected(ownHwnd, previousClipboardText, excludeFromHistory: false);
+                    if (!restored)
                     {
                         ClearClipboard(ownHwnd);
                     }
                 }
+                else if (copiedSensitiveValue)
+                {
+                    // 復元無効時でも自動入力に使用した機密値がクリップボードに残留しないよう必ずクリア
+                    ClearClipboard(ownHwnd);
+                }
                 Interlocked.Exchange(ref _isExecuting, 0);
             }
+        }
+
+        private bool IsTargetContextStillValid(IntPtr expectedHwnd)
+        {
+            if (GetForegroundWindow() != expectedHwnd)
+            {
+                return false;
+            }
+            if (_settingsManager.IsActionUrlWhitelistEnabled)
+            {
+                string? activeUrl = TryGetActiveBrowserUrl(expectedHwnd);
+                if (!IsUrlAllowedByWhitelist(activeUrl, _settingsManager.ActionUrlWhitelist))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private async Task<Point?> TryRefreshFieldScreenPointAsync(IntPtr hwnd, string windowTitle, string fieldId)
@@ -999,11 +1405,26 @@ namespace Caiqelle.Services
                 if (width < 200 || height < 200) return null;
 
                 var bounds = new Rectangle(rect.Left, rect.Top, width, height);
-                var captured = _screenshotService.CaptureRegionToSoftwareBitmap(bounds, _reuseOcrBitmap);
-                if (captured == null) return null;
-                _reuseOcrBitmap = captured;
+                IReadOnlyList<OcrLineBox> lines;
+                await _ocrBitmapSemaphore.WaitAsync();
+                try
+                {
+                    if (_disposed) return null;
+                    var captured = _screenshotService.CaptureRegionToSoftwareBitmap(bounds, _reuseOcrBitmap);
+                    if (captured == null) return null;
+                    _reuseOcrBitmap = captured;
 
-                var lines = await _ocrService.ExtractLinesWithBoundsAsync(captured);
+                    lines = await _ocrService.ExtractLinesWithBoundsAsync(captured);
+                }
+                finally
+                {
+                    if (_disposed)
+                    {
+                        _reuseOcrBitmap?.Dispose();
+                        _reuseOcrBitmap = null;
+                    }
+                    _ocrBitmapSemaphore.Release();
+                }
                 if (lines.Count == 0) return null;
 
                 var detected = DetectFormFields(lines, windowTitle, bounds.Location, _settingsManager.ActionMappings);
@@ -1173,10 +1594,17 @@ namespace Caiqelle.Services
         {
             try
             {
-                if (OpenClipboard(ownerHwnd))
+                for (int attempt = 0; attempt < 10; attempt++)
                 {
-                    try { EmptyClipboard(); }
-                    finally { CloseClipboard(); }
+                    if (OpenClipboard(ownerHwnd))
+                    {
+                        try
+                        {
+                            if (EmptyClipboard()) return;
+                        }
+                        finally { CloseClipboard(); }
+                    }
+                    Thread.Sleep(15);
                 }
             }
             catch { }
@@ -1237,22 +1665,27 @@ namespace Caiqelle.Services
             ctrlDown[0].type = INPUT_KEYBOARD;
             ctrlDown[0].U.ki.wVk = VK_CONTROL;
             SendInput(1, ctrlDown, Marshal.SizeOf<INPUT>());
-            await Task.Delay(10);
+            try
+            {
+                await Task.Delay(10);
 
-            var vPress = new INPUT[2];
-            vPress[0].type = INPUT_KEYBOARD;
-            vPress[0].U.ki.wVk = VK_V;
-            vPress[1].type = INPUT_KEYBOARD;
-            vPress[1].U.ki.wVk = VK_V;
-            vPress[1].U.ki.dwFlags = KEYEVENTF_KEYUP;
-            SendInput(2, vPress, Marshal.SizeOf<INPUT>());
-            await Task.Delay(10);
-
-            var ctrlUp = new INPUT[1];
-            ctrlUp[0].type = INPUT_KEYBOARD;
-            ctrlUp[0].U.ki.wVk = VK_CONTROL;
-            ctrlUp[0].U.ki.dwFlags = KEYEVENTF_KEYUP;
-            SendInput(1, ctrlUp, Marshal.SizeOf<INPUT>());
+                var vPress = new INPUT[2];
+                vPress[0].type = INPUT_KEYBOARD;
+                vPress[0].U.ki.wVk = VK_V;
+                vPress[1].type = INPUT_KEYBOARD;
+                vPress[1].U.ki.wVk = VK_V;
+                vPress[1].U.ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(2, vPress, Marshal.SizeOf<INPUT>());
+                await Task.Delay(10);
+            }
+            finally
+            {
+                var ctrlUp = new INPUT[1];
+                ctrlUp[0].type = INPUT_KEYBOARD;
+                ctrlUp[0].U.ki.wVk = VK_CONTROL;
+                ctrlUp[0].U.ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(1, ctrlUp, Marshal.SizeOf<INPUT>());
+            }
         }
 
         private const uint INPUT_MOUSE = 0;
@@ -1355,9 +1788,20 @@ namespace Caiqelle.Services
 
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposedState, 1) != 0) return;
             StopMonitoring();
-            _reuseOcrBitmap?.Dispose();
-            _reuseOcrBitmap = null;
+            if (_ocrBitmapSemaphore.Wait(0))
+            {
+                try
+                {
+                    _reuseOcrBitmap?.Dispose();
+                    _reuseOcrBitmap = null;
+                }
+                finally
+                {
+                    _ocrBitmapSemaphore.Release();
+                }
+            }
         }
     }
 }

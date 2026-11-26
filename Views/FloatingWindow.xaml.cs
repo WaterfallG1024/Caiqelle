@@ -27,6 +27,7 @@ namespace Caiqelle.Views
         private int _lastX = int.MinValue;
         private int _lastY = int.MinValue;
         private bool _isLoaded = false;
+        private int _animGeneration = 0;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
@@ -153,14 +154,25 @@ namespace Caiqelle.Views
 
         public void CloseWithAnimation()
         {
+            int gen = ++_animGeneration;
             var batch = _compositor.CreateScopedBatch(Microsoft.UI.Composition.CompositionBatchTypes.Animation);
             _contentVisual.StartAnimation("Opacity", _hideOpacityAnim);
             batch.End();
 
-            batch.Completed += (s, e) => HideWindow();
+            batch.Completed += (s, e) =>
+            {
+                if (_animGeneration == gen)
+                {
+                    HideWindow();
+                }
+            };
         }
 
-        public void HideInstantlyAndClose() => HideWindow();
+        public void HideInstantlyAndClose()
+        {
+            _animGeneration++;
+            HideWindow();
+        }
 
         public void HideWindow()
         {
@@ -175,6 +187,7 @@ namespace Caiqelle.Views
 
         public void ShowAnimated()
         {
+            _animGeneration++;
             if (_appWindow.IsVisible)
             {
                 // 既に表示中の場合は連打による再アニメーション・再表示を防ぐ

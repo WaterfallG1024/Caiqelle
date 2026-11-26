@@ -19,7 +19,7 @@
 
         <!-- Card Surface (Background toggles between dark card and transparent overlay) -->
         <Border x:Name="CardBackgroundBorder"
-                Background="{StaticResource M3SurfaceContainerBrush}"
+                Background="{StaticResource FluentSurfaceContainerBrush}"
                 BorderBrush="#33FFFFFF"
                 BorderThickness="1"
                 CornerRadius="16" />
@@ -32,7 +32,7 @@
                          TextWrapping="Wrap"
                          FontSize="24"
                          Foreground="White"
-                         Background="{StaticResource M3SurfaceContainerLowestBrush}"
+                         Background="{StaticResource FluentSurfaceContainerLowestBrush}"
                          BorderThickness="0"
                          CornerRadius="10"
                          Padding="12,10"
@@ -57,19 +57,19 @@
             <Border x:Name="StealthBadge"
                     VerticalAlignment="Bottom"
                     HorizontalAlignment="Left"
-                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                     CornerRadius="6"
                     Padding="8,3"
                     Visibility="Collapsed"
                     IsHitTestVisible="False">
-                <TextBlock Text="プライベート" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource M3PrimaryBrush}" />
+                <TextBlock Text="プライベート" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource FluentPrimaryBrush}" />
             </Border>
 
             <!-- Real-time character count badge -->
             <Border x:Name="CharCountBadge"
                     VerticalAlignment="Bottom"
                     HorizontalAlignment="Right"
-                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                     CornerRadius="6"
                     Padding="8,3"
                     IsHitTestVisible="False">
@@ -93,7 +93,7 @@
                     ToolTipService.ToolTip="編集（ツールバーを表示）"
                     Width="28"
                     Height="28"
-                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                     BorderBrush="#33FFFFFF"
                     BorderThickness="1"
                     CornerRadius="8"
@@ -106,7 +106,7 @@
                     ToolTipService.ToolTip="ドラッグして移動"
                     Width="28"
                     Height="28"
-                    Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                    Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                     BorderBrush="#33FFFFFF"
                     BorderThickness="1"
                     CornerRadius="8"

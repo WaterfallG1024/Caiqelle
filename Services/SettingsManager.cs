@@ -80,7 +80,114 @@ namespace Caiqelle.Services
         public bool IsActionAutoDetectEnabled { get; set; } = false;
         public bool IsActionOnlyOnBrowsers { get; set; } = true;
         public bool ActionRestoreClipboardAfterFill { get; set; } = true;
+        public bool IsActionUrlWhitelistEnabled { get; set; } = true;
+        public List<string> ActionUrlWhitelist { get; set; } = new();
         public List<ActionFieldMapping> ActionMappings { get; set; } = new();
+        public ShortcutBinding RewindToggleShortcut { get; set; } = ShortcutBinding.CreateDefaultRewindToggle();
+        public ShortcutBinding AutoCopyToggleShortcut { get; set; } = ShortcutBinding.CreateDefaultAutoCopyToggle();
+    }
+
+    public class ShortcutBinding
+    {
+        public bool Ctrl { get; set; }
+        public bool Shift { get; set; }
+        public bool Alt { get; set; }
+        public bool Win { get; set; }
+        public int VirtualKey { get; set; }
+
+        public int KeyCount =>
+            (Ctrl ? 1 : 0) + (Shift ? 1 : 0) + (Alt ? 1 : 0) + (Win ? 1 : 0) + (VirtualKey != 0 ? 1 : 0);
+
+        public bool IsValid => VirtualKey != 0 && KeyCount >= 1 && KeyCount <= 3;
+
+        public string DisplayText
+        {
+            get
+            {
+                if (VirtualKey == 0) return "未設定";
+                if (Win && Shift && !Ctrl && !Alt && VirtualKey == 0x86)
+                {
+                    return "Copilot";
+                }
+                var parts = new List<string>(3);
+                if (Ctrl) parts.Add("Ctrl");
+                if (Shift) parts.Add("Shift");
+                if (Alt) parts.Add("Alt");
+                if (Win) parts.Add("Win");
+                parts.Add(FormatVirtualKey(VirtualKey));
+                return string.Join(" + ", parts);
+            }
+        }
+
+        public bool Matches(bool ctrl, bool shift, bool alt, bool win, int vk)
+        {
+            return IsValid
+                && VirtualKey == vk
+                && Ctrl == ctrl
+                && Shift == shift
+                && Alt == alt
+                && Win == win;
+        }
+
+        public ShortcutBinding Clone() => new()
+        {
+            Ctrl = Ctrl,
+            Shift = Shift,
+            Alt = Alt,
+            Win = Win,
+            VirtualKey = VirtualKey
+        };
+
+        public static ShortcutBinding CreateDefaultRewindToggle() => new()
+        {
+            Shift = true,
+            VirtualKey = 0x14 // VK_CAPITAL (CapsLock)
+        };
+
+        public static ShortcutBinding CreateDefaultAutoCopyToggle() => new()
+        {
+            Ctrl = true,
+            Shift = true,
+            VirtualKey = 0x43 // VK_C
+        };
+
+        public static string FormatVirtualKey(int vk) => vk switch
+        {
+            0x08 => "Backspace",
+            0x09 => "Tab",
+            0x0D => "Enter",
+            0x13 => "Pause",
+            0x14 => "CapsLock",
+            0x1B => "Esc",
+            0x20 => "Space",
+            0x21 => "PageUp",
+            0x22 => "PageDown",
+            0x23 => "End",
+            0x24 => "Home",
+            0x25 => "Left",
+            0x26 => "Up",
+            0x27 => "Right",
+            0x28 => "Down",
+            0x2C => "PrtScn",
+            0x2D => "Insert",
+            0x2E => "Delete",
+            >= 0x30 and <= 0x39 => ((char)vk).ToString(),
+            >= 0x41 and <= 0x5A => ((char)vk).ToString(),
+            >= 0x70 and <= 0x7B => $"F{vk - 0x6F}",
+            >= 0x7C and <= 0x87 => $"F{vk - 0x6F}",
+            0xBC => ",",
+            0xBD => "-",
+            0xBE => ".",
+            0xBF => "/",
+            0xC0 => "@",
+            0xDB => "[",
+            0xDC => "\\",
+            0xDD => "]",
+            0xDE => "^",
+            0xBB => ";",
+            0xBA => ":",
+            _ => $"Key(0x{vk:X2})"
+        };
     }
 
     public class SettingsManager
@@ -232,7 +339,27 @@ namespace Caiqelle.Services
             set => _data.ActionRestoreClipboardAfterFill = value;
         }
 
+        public bool IsActionUrlWhitelistEnabled
+        {
+            get => _data.IsActionUrlWhitelistEnabled;
+            set => _data.IsActionUrlWhitelistEnabled = value;
+        }
+
+        public List<string> ActionUrlWhitelist => _data.ActionUrlWhitelist;
+
         public List<ActionFieldMapping> ActionMappings => _data.ActionMappings;
+
+        public ShortcutBinding RewindToggleShortcut
+        {
+            get => _data.RewindToggleShortcut ??= ShortcutBinding.CreateDefaultRewindToggle();
+            set => _data.RewindToggleShortcut = value ?? ShortcutBinding.CreateDefaultRewindToggle();
+        }
+
+        public ShortcutBinding AutoCopyToggleShortcut
+        {
+            get => _data.AutoCopyToggleShortcut ??= ShortcutBinding.CreateDefaultAutoCopyToggle();
+            set => _data.AutoCopyToggleShortcut = value ?? ShortcutBinding.CreateDefaultAutoCopyToggle();
+        }
 
         [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
         public SettingsManager() : this(null)
