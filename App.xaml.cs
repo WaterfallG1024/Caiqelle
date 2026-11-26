@@ -120,6 +120,9 @@ namespace Caiqelle
             var settings = Services.GetRequiredService<SettingsManager>();
             hookService.IsHijackPrintScreen = settings.IsHijackPrintScreen;
             hookService.IsHijackWinShiftS = settings.IsHijackWinShiftS;
+            hookService.IsRewindEnabled = settings.IsRewindEnabled;
+            hookService.RewindToggleShortcut = settings.RewindToggleShortcut;
+            hookService.AutoCopyToggleShortcut = settings.AutoCopyToggleShortcut;
             hookService.OnKeyPressed += HookService_OnKeyPressed;
             hookService.Start();
         }
@@ -148,19 +151,49 @@ namespace Caiqelle
                 if (key == CapturedKey.ToggleRewind)
                 {
                     var rewindService = Services.GetRequiredService<RewindService>();
+                    var settings = Services.GetRequiredService<SettingsManager>();
                     var notificationService = Services.GetRequiredService<NotificationService>();
 
-                    if (rewindService.IsRunning)
+                    if (!settings.IsRewindEnabled)
                     {
-                        rewindService.Stop();
+                        notificationService.ShowNotification("リワインド機能が無効です", "\uE7BA");
+                        return;
+                    }
+
+                    if (rewindService.IsRunning && !rewindService.IsPaused)
+                    {
+                        rewindService.Pause();
                         notificationService.ShowNotification("リワインドを一時停止しました", "\uE71A");
                     }
                     else
                     {
                         // バッファを保持したまま再開
-                        rewindService.Start(clearBuffer: false);
-                        notificationService.ShowNotification("リワインドを再開しました", "\uE7C8");
+                        if (rewindService.IsRunning)
+                        {
+                            rewindService.Resume();
+                        }
+                        else
+                        {
+                            rewindService.Start(clearBuffer: false);
+                        }
+                        if (rewindService.IsRunning && !rewindService.IsPaused)
+                        {
+                            notificationService.ShowNotification("リワインドを再開しました", "\uE7C8");
+                        }
                     }
+                    return;
+                }
+
+                if (key == CapturedKey.ToggleAutoCopy)
+                {
+                    var settings = Services.GetRequiredService<SettingsManager>();
+                    var notificationService = Services.GetRequiredService<NotificationService>();
+                    settings.IsAutoCopyToClipboard = !settings.IsAutoCopyToClipboard;
+                    settings.SaveSettings();
+                    Services.GetService<ViewModels.MainViewModel>()?.SyncAutoCopyFromSettings();
+                    notificationService.ShowNotification(
+                        settings.IsAutoCopyToClipboard ? "自動クリップボードコピーを ON にしました" : "自動クリップボードコピーを OFF にしました",
+                        "\uE8C8");
                     return;
                 }
 
@@ -172,7 +205,7 @@ namespace Caiqelle
 
                     if (!settings.IsRewindEnabled)
                     {
-                        notificationService.ShowNotification("リワインド機能が無効です (設定タブで有効化してください)", "\uE7BA");
+                        notificationService.ShowNotification("リワインド機能が無効です", "\uE7BA");
                         return;
                     }
 

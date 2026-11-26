@@ -209,6 +209,16 @@ namespace Caiqelle.Services
                 return null;
             }
 
+            if (_settingsManager.IsActionUrlWhitelistEnabled)
+            {
+                string? activeUrl = TryGetActiveBrowserUrl(hwnd);
+                if (!IsUrlAllowedByWhitelist(activeUrl, _settingsManager.ActionUrlWhitelist))
+                {
+                    NotifyContextChangedIfNeeded(string.Empty);
+                    return null;
+                }
+            }
+
             string title = GetWindowTitle(hwnd);
             if (string.IsNullOrWhiteSpace(title)) return null;
 
@@ -521,6 +531,7 @@ namespace Caiqelle.Services
                 string rawText = line.Text.Trim();
                 if (string.IsNullOrEmpty(rawText) || IsPlaceholderLine(rawText)) continue;
                 if (FormContextHints.Any(h => rawText.Equals(h, StringComparison.OrdinalIgnoreCase))) continue;
+                if (IsLikelyNonQuestionTitleOrSentence(rawText)) continue;
 
                 string cleanLabel = NormalizeLabel(rawText);
                 if (string.IsNullOrEmpty(cleanLabel) || cleanLabel.Length > 40) continue;
@@ -626,14 +637,255 @@ namespace Caiqelle.Services
             return FormPlaceholderHints.Any(p => text.Contains(p, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static bool IsLikelyNonQuestionTitleOrSentence(string cleanLabel)
+        public static bool IsLikelyNonQuestionTitleOrSentence(string cleanLabel)
         {
             string[] nonQuestionHints =
             {
                 "フォーム", "form", "アンケート", "記録され", "関連付け",
-                "パスワード", "送信しない", "アカウント", "必須の質問"
+                "パスワード", "送信しない", "アカウント", "必須の質問",
+                "入力しないで", "記入しないで", "記載しないで", "含めないで",
+                "書かないで", "入力は不要", "入力不要", "入力禁止", "入力不可",
+                "do not enter", "don't enter"
             };
             return nonQuestionHints.Any(h => cleanLabel.Contains(h, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static bool IsUrlAllowedByWhitelist(string? url, IReadOnlyList<string> whitelist)
+        {
+            if (string.IsNullOrWhiteSpace(url) || whitelist == null || whitelist.Count == 0)
+            {
+                return false;
+            }
+
+            static string StripScheme(string s)
+            {
+                string t = s.Trim();
+                if (t.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return t[8..];
+                if (t.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) return t[7..];
+                if (t.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)) return t[8..];
+                if (t.StartsWith("file://", StringComparison.OrdinalIgnoreCase)) return t[7..];
+                return t;
+            }
+
+            static (string Host, string Path) SplitHostAndPath(string normalized)
+            {
+                int queryIdx = normalized.IndexOfAny(new[] { '?', '#' });
+                string withoutQuery = queryIdx >= 0 ? normalized[..queryIdx] : normalized;
+                int slashIdx = withoutQuery.IndexOf('/');
+                string hostWithPort = slashIdx >= 0 ? withoutQuery[..slashIdx] : withoutQuery;
+                string path = slashIdx >= 0 ? withoutQuery[slashIdx..] : string.Empty;
+                int colonIdx = hostWithPort.IndexOf(':');
+                string host = colonIdx >= 0 ? hostWithPort[..colonIdx] : hostWithPort;
+                return (host, path);
+            }
+
+            string normalizedUrl = StripScheme(url);
+            bool isLocalPathUrl = url.StartsWith("file://", StringComparison.OrdinalIgnoreCase) ||
+                                  normalizedUrl.Contains('\\') ||
+                                  (normalizedUrl.Length >= 2 && normalizedUrl[1] == ':');
+            var (urlHost, urlPath) = SplitHostAndPath(normalizedUrl);
+
+            foreach (string entry in whitelist)
+            {
+                string rawEntry = entry?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(rawEntry)) continue;
+
+                string pattern = StripScheme(rawEntry);
+                if (string.IsNullOrEmpty(pattern)) continue;
+
+                if (isLocalPathUrl)
+                {
+                    if (normalizedUrl.Contains(pattern.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase) ||
+                        normalizedUrl.Replace('/', '\\').Contains(pattern.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                    continue;
+                }
+
+                var (patHost, patPath) = SplitHostAndPath(pattern);
+                if (string.IsNullOrEmpty(patHost)) continue;
+
+                // ホスト部の厳格一致（完全一致またはサブドメイン一致のみ許可し、クエリ偽装や偽サブドメインを防止）
+                bool hostMatched = string.Equals(urlHost, patHost, StringComparison.OrdinalIgnoreCase) ||
+                                   urlHost.EndsWith("." + patHost, StringComparison.OrdinalIgnoreCase);
+                if (!hostMatched) continue;
+
+                if (string.IsNullOrEmpty(patPath) || patPath == "/")
+                {
+                    return true;
+                }
+
+                if (urlPath.StartsWith(patPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static void ReleaseComSafely(object? comObj)
+        {
+            if (comObj != null && Marshal.IsComObject(comObj))
+            {
+                try { Marshal.ReleaseComObject(comObj); } catch { }
+            }
+        }
+
+        private static string? TryGetActiveBrowserUrl(IntPtr hwnd)
+        {
+            IUIAutomation? automation = null;
+            IUIAutomationElement? root = null;
+            IUIAutomationCondition? editCond = null;
+            IUIAutomationElementArray? edits = null;
+            try
+            {
+                var uiaType = Type.GetTypeFromCLSID(new Guid("FF48DBA4-60EF-4201-AA87-54103EEF594E"));
+                if (uiaType == null) return null;
+                automation = Activator.CreateInstance(uiaType) as IUIAutomation;
+                if (automation == null) return null;
+
+                root = automation.ElementFromHandle(hwnd);
+                if (root == null) return null;
+
+                // UIA_ControlTypePropertyId = 30003, UIA_EditControlTypeId = 50004
+                editCond = automation.CreatePropertyCondition(30003, 50004);
+                // TreeScope_Subtree = 7
+                edits = root.FindAll(7, editCond);
+                if (edits == null) return null;
+
+                int count = Math.Min(edits.Length, 32);
+                for (int i = 0; i < count; i++)
+                {
+                    IUIAutomationElement? elem = null;
+                    object? patternObj = null;
+                    try
+                    {
+                        elem = edits.GetElement(i);
+                        if (elem == null) continue;
+
+                        string? val = null;
+                        try
+                        {
+                            // UIA_ValueValuePropertyId = 30045 から直接文字列を取得
+                            elem.GetCurrentPropertyValue(30045, out object? propVal);
+                            val = propVal as string;
+                        }
+                        catch { }
+
+                        if (string.IsNullOrWhiteSpace(val))
+                        {
+                            try
+                            {
+                                patternObj = elem.GetCurrentPattern(10002);
+                                if (patternObj is IUIAutomationValuePattern valuePattern)
+                                {
+                                    val = valuePattern.CurrentValue;
+                                }
+                            }
+                            catch { }
+                        }
+
+                        if (string.IsNullOrWhiteSpace(val)) continue;
+                        string trimmed = val.Trim();
+                        if (trimmed.Contains(' ')) continue;
+
+                        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("file://", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.Contains('.') ||
+                            trimmed.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.Contains('\\') ||
+                            trimmed.Contains('/'))
+                        {
+                            return trimmed;
+                        }
+                    }
+                    finally
+                    {
+                        ReleaseComSafely(patternObj);
+                        ReleaseComSafely(elem);
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                ReleaseComSafely(edits);
+                ReleaseComSafely(editCond);
+                ReleaseComSafely(root);
+                ReleaseComSafely(automation);
+            }
+            return null;
+        }
+
+        [ComImport, Guid("30CBE57D-D9D0-452A-AB13-7AC5AC4825EE"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomation
+        {
+            void CompareElements();
+            void CompareRuntimeIds();
+            void GetRootElement();
+            [return: MarshalAs(UnmanagedType.Interface)]
+            IUIAutomationElement? ElementFromHandle(IntPtr hwnd);
+            void ElementFromPoint();
+            void GetFocusedElement();
+            void GetRootElementBuildCache();
+            void ElementFromHandleBuildCache();
+            void ElementFromPointBuildCache();
+            void GetFocusedElementBuildCache();
+            void CreateTreeWalker();
+            void GetControlViewWalker();
+            void GetContentViewWalker();
+            void GetRawViewWalker();
+            void GetRawViewCondition();
+            void GetControlViewCondition();
+            void GetContentViewCondition();
+            void CreateCacheRequest();
+            void CreateTrueCondition();
+            void CreateFalseCondition();
+            [return: MarshalAs(UnmanagedType.Interface)]
+            IUIAutomationCondition CreatePropertyCondition(int propertyId, object value);
+        }
+
+        [ComImport, Guid("352FFBA8-0973-437C-A61F-F64CAFD81DF9"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationCondition { }
+
+        [ComImport, Guid("14314595-B4BC-4055-95F2-58F2E42C9855"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationElementArray
+        {
+            int Length { get; }
+            [return: MarshalAs(UnmanagedType.Interface)]
+            IUIAutomationElement? GetElement(int index);
+        }
+
+        [ComImport, Guid("D22108AA-8AC5-49A5-837B-37BBB3D7591E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationElement
+        {
+            void SetFocus();
+            void GetRuntimeId();
+            void FindFirst();
+            [return: MarshalAs(UnmanagedType.Interface)]
+            IUIAutomationElementArray? FindAll(int scope, IUIAutomationCondition condition);
+            void FindFirstBuildCache();
+            void FindAllBuildCache();
+            void BuildUpdatedCache();
+            void GetCurrentPropertyValue(int propertyId, [MarshalAs(UnmanagedType.Struct)] out object? retVal);
+            void GetCurrentPropertyValueEx();
+            void GetCachedPropertyValue();
+            void GetCachedPropertyValueEx();
+            [return: MarshalAs(UnmanagedType.Interface)]
+            object? GetCurrentPatternAs(int patternId, ref Guid riid);
+            [return: MarshalAs(UnmanagedType.Interface)]
+            object? GetCachedPatternAs(int patternId, ref Guid riid);
+            [return: MarshalAs(UnmanagedType.IUnknown)]
+            object? GetCurrentPattern(int patternId);
+        }
+
+        [ComImport, Guid("A94CD8B1-0844-4CD6-9D2D-640537AB39E9"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IUIAutomationValuePattern
+        {
+            void SetValue([MarshalAs(UnmanagedType.BStr)] string val);
+            string CurrentValue { [return: MarshalAs(UnmanagedType.BStr)] get; }
         }
 
 #if DEBUG

@@ -175,6 +175,183 @@ namespace Caiqelle
             }
         }
 
+        private void ActionUrlInput_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == VirtualKey.Enter && ViewModel.IsActionUrlWhitelistEnabled)
+            {
+                ViewModel.AddActionUrlWhitelistCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+
+        private void RemoveActionUrlWhitelistBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is string pattern)
+            {
+                ViewModel.RemoveActionUrlWhitelistCommand.Execute(pattern);
+            }
+        }
+
+        private async void EditRewindShortcutBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var captured = await ShowShortcutCaptureDialogAsync(
+                "リワインド停止 / 再開のショートカット変更",
+                ViewModel.GetAutoCopyToggleShortcut());
+            if (captured != null)
+            {
+                ViewModel.SetRewindToggleShortcut(captured);
+            }
+        }
+
+        private async void EditAutoCopyShortcutBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var captured = await ShowShortcutCaptureDialogAsync(
+                "自動クリップボードコピー切替のショートカット変更",
+                ViewModel.GetRewindToggleShortcut());
+            if (captured != null)
+            {
+                ViewModel.SetAutoCopyToggleShortcut(captured);
+            }
+        }
+
+        private async System.Threading.Tasks.Task<ShortcutBinding?> ShowShortcutCaptureDialogAsync(string title, ShortcutBinding? otherShortcut = null)
+        {
+            if (_isModalDialogOpen || RootGrid.XamlRoot == null) return null;
+            _isModalDialogOpen = true;
+            try
+            {
+                ShortcutBinding? captured = null;
+
+                var previewText = new TextBlock
+                {
+                    Text = "キーを押してください (1〜3キー)",
+                    FontSize = 16,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                var errorText = new TextBlock
+                {
+                    Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap,
+                    Visibility = Visibility.Collapsed
+                };
+
+                var captureBorder = new Border
+                {
+                    Background = (Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"],
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(16, 20, 16, 20),
+                    Child = previewText
+                };
+
+                var panel = new StackPanel { Spacing = 12, MinWidth = 320 };
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "割り当てたいキー（1キー、または Ctrl/Shift/Alt/Win を含む 2〜3キー）を押してから「保存」をクリックしてください。",
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = 12,
+                    Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
+                });
+                panel.Children.Add(captureBorder);
+                panel.Children.Add(errorText);
+
+                var dialog = new ContentDialog
+                {
+                    Title = title,
+                    Content = panel,
+                    PrimaryButtonText = "保存",
+                    CloseButtonText = "キャンセル",
+                    DefaultButton = ContentDialogButton.None,
+                    IsPrimaryButtonEnabled = false,
+                    XamlRoot = RootGrid.XamlRoot,
+                    RequestedTheme = RootGrid.ActualTheme
+                };
+
+                var hookService = ((App)Application.Current).Services.GetRequiredService<HookService>();
+
+                void HandleCapturedKey(bool isCtrl, bool isShift, bool isAlt, bool isWin, int vk)
+                {
+                    var key = (VirtualKey)vk;
+                    var candidate = new ShortcutBinding
+                    {
+                        Ctrl = isCtrl,
+                        Shift = isShift,
+                        Alt = isAlt,
+                        Win = isWin,
+                        VirtualKey = vk
+                    };
+
+                    bool hasModifier = isCtrl || isShift || isAlt || isWin;
+                    bool isTypingOrNavSingleKey =
+                        (vk >= 0x30 && vk <= 0x39) // 0-9
+                        || (vk >= 0x41 && vk <= 0x5A) // A-Z
+                        || (vk >= 0x60 && vk <= 0x6F) // Numpad
+                        || (vk >= 0xBA && vk <= 0xE2) // OEM 記号
+                        || key is VirtualKey.Space or VirtualKey.Enter or VirtualKey.Tab
+                            or VirtualKey.Back or VirtualKey.Delete or VirtualKey.Escape
+                            or VirtualKey.Left or VirtualKey.Right or VirtualKey.Up or VirtualKey.Down
+                            or VirtualKey.Home or VirtualKey.End or VirtualKey.PageUp or VirtualKey.PageDown;
+                    bool isSafeSingleKey = !isTypingOrNavSingleKey;
+
+                    if (candidate.KeyCount > 3)
+                    {
+                        errorText.Text = "ショートカットは 1〜3 キーの組み合わせで指定してください。";
+                        errorText.Visibility = Visibility.Visible;
+                        dialog.IsPrimaryButtonEnabled = false;
+                        captured = null;
+                    }
+                    else if (!hasModifier && !isSafeSingleKey)
+                    {
+                        errorText.Text = "通常の文字・操作キー単体は入力できなくなるため使用できません。Ctrl/Shift/Alt/Win と組み合わせるか、F1〜F24・CapsLock・Copilot などの専用キーを指定してください。";
+                        errorText.Visibility = Visibility.Visible;
+                        dialog.IsPrimaryButtonEnabled = false;
+                        captured = null;
+                    }
+                    else if (key == VirtualKey.Snapshot || (isWin && isShift && key == VirtualKey.S))
+                    {
+                        errorText.Text = "PrintScreen および Win + Shift + S はキャプチャ用に予約されているため割り当てできません。";
+                        errorText.Visibility = Visibility.Visible;
+                        dialog.IsPrimaryButtonEnabled = false;
+                        captured = null;
+                    }
+                    else if (otherShortcut != null && otherShortcut.Matches(isCtrl, isShift, isAlt, isWin, vk))
+                    {
+                        errorText.Text = $"この組み合わせはすでに別のショートカット（{otherShortcut.DisplayText}）で使用されています。";
+                        errorText.Visibility = Visibility.Visible;
+                        dialog.IsPrimaryButtonEnabled = false;
+                        captured = null;
+                    }
+                    else
+                    {
+                        errorText.Visibility = Visibility.Collapsed;
+                        captured = candidate;
+                        previewText.Text = candidate.DisplayText;
+                        dialog.IsPrimaryButtonEnabled = true;
+                    }
+                }
+
+                hookService.KeyCaptureCallback = (isCtrl, isShift, isAlt, isWin, vk) =>
+                {
+                    DispatcherQueue?.TryEnqueue(() => HandleCapturedKey(isCtrl, isShift, isAlt, isWin, vk));
+                };
+
+                try
+                {
+                    var result = await dialog.ShowAsync();
+                    return result == ContentDialogResult.Primary ? captured : null;
+                }
+                finally
+                {
+                    hookService.KeyCaptureCallback = null;
+                }
+            }
+            finally
+            {
+                _isModalDialogOpen = false;
+            }
+        }
+
         private void Grid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             // テキストボックス等の入力中またはモーダルダイアログ表示中は無視する

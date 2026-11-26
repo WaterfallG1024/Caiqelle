@@ -68,9 +68,9 @@ namespace Caiqelle.Views
             const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
             NotificationNativeMethods.SetWindowDisplayAffinity(_hwnd, WDA_EXCLUDEFROMCAPTURE);
 
-            // タスクバーから除外（コンストラクタで1回のみ設定）
+            // タスクバーから除外し、表示・クリックで他ウィンドウからフォーカスを奪わないようにする
             var exStyle = (long)NotificationNativeMethods.GetWindowLongPtr(_hwnd, NotificationNativeMethods.GWL_EXSTYLE);
-            exStyle |= 0x00000080L; // WS_EX_TOOLWINDOW
+            exStyle |= 0x00000080L | 0x08000000L; // WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE
             NotificationNativeMethods.SetWindowLongPtr(_hwnd, NotificationNativeMethods.GWL_EXSTYLE, (IntPtr)exStyle);
 
             // 通知ウィンドウのサイズと位置を設定（画面中央・DPIスケーリング対応）
@@ -134,7 +134,7 @@ namespace Caiqelle.Views
                 _pendingGlyph = glyph;
                 _pendingDurationMs = durationMs;
 
-                _appWindow.Show();
+                _appWindow.Show(false);
                 NotificationNativeMethods.SetWindowPos(_hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0200);
             }
             else
@@ -181,7 +181,7 @@ namespace Caiqelle.Views
                 if (IconContainer != null) IconContainer.Visibility = Visibility.Visible;
 
                 // カラーテーマに合わせたアイコン配色
-                SetIconColors("M3PrimaryContainerGlassBrush", "M3PrimaryBrush", Microsoft.UI.Colors.SpringGreen);
+                SetIconColors("FluentPrimaryContainerGlassBrush", "FluentPrimaryBrush", Microsoft.UI.Colors.SpringGreen);
             }
             else
             {
@@ -192,7 +192,7 @@ namespace Caiqelle.Views
             // フォーカスを奪わず即座に表示＆アニメーション開始（不要な50ms待機を削除）
             _animGeneration++;
             ContentBorder.Opacity = 1;
-            _appWindow.Show();
+            _appWindow.Show(false);
             NotificationNativeMethods.SetWindowPos(_hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0200);
 
             AnimateIn();

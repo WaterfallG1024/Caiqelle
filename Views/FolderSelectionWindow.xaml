@@ -67,7 +67,7 @@
                              KeyDown="CreateInput_KeyDown"/>
                     <Button Grid.Column="2"
                             Content="作成"
-                            Style="{StaticResource M3FilledPrimaryButtonStyle}"
+                            Style="{StaticResource FluentFilledPrimaryButtonStyle}"
                             Command="{x:Bind ViewModel.CreateFolderCommand}"
                             Padding="14,6"
                             FontSize="13"/>
@@ -115,14 +115,14 @@
                                            HorizontalAlignment="Left"
                                            FontSize="13" />
                                 <Border Grid.Column="1"
-                                        Background="{StaticResource M3PrimaryContainerGlassBrush}"
+                                        Background="{StaticResource FluentPrimaryContainerGlassBrush}"
                                         CornerRadius="4"
                                         Padding="7,2"
                                         Margin="6,0,0,0"
                                         VerticalAlignment="Center"
                                         HorizontalAlignment="Right">
                                     <TextBlock Text="{x:Bind Key}"
-                                               Foreground="{StaticResource M3PrimaryBrush}"
+                                               Foreground="{StaticResource FluentPrimaryBrush}"
                                                FontWeight="Bold"
                                                FontSize="12" />
                                 </Border>

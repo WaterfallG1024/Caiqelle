@@ -120,8 +120,8 @@ namespace Caiqelle.Views
         private void RefreshList()
         {
             var entries = _service.GetListEntries(out bool isSaveEnabled);
-            var activeBg = GetResourceBrush("M3PrimaryContainerGlassBrush");
-            var activeFg = GetResourceBrush("M3PrimaryBrush");
+            var activeBg = GetResourceBrush("FluentPrimaryContainerGlassBrush");
+            var activeFg = GetResourceBrush("FluentPrimaryBrush");
             var inactiveBg = GetResourceBrush("SubtleFillColorSecondaryBrush");
             var inactiveFg = GetResourceBrush("AfterGlowTextSecondaryBrush");
 

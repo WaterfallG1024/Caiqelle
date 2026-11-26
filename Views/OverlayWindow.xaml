@@ -36,7 +36,7 @@
                 
             <!-- Selection Box Border -->
             <Rectangle x:Name="SelectionBox" 
-                       Stroke="{StaticResource M3PrimaryBrush}" 
+                       Stroke="{StaticResource FluentPrimaryBrush}" 
                        StrokeThickness="1" 
                        Fill="Transparent" 
                        Visibility="Collapsed" 
@@ -81,7 +81,7 @@
         <views:CursorGrid x:Name="FloatingToolbar" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,0,0">
             <StackPanel Spacing="6" HorizontalAlignment="Center">
                 <!-- Row 1: Primary Tools & Actions -->
-                <Border Background="{StaticResource M3SurfaceContainerHighestBrush}" 
+                <Border Background="{StaticResource FluentSurfaceContainerHighestBrush}" 
                         BorderThickness="0" CornerRadius="14" Padding="6,4" Translation="0,0,16"
                         HorizontalAlignment="Center">
                     <Border.Shadow>
@@ -99,7 +99,7 @@
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xF146;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
                         
-                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
                         
                         <!-- Color Picker Button (Clean Squircle No Clip) -->
                         <Button x:Name="ColorBtn" ToolTipService.ToolTip="色選択" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0">
@@ -121,7 +121,7 @@
                             </Button.Flyout>
                         </Button>
                         
-                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
                         
                         <!-- Actions -->
                         <Button x:Name="UndoBtn" ToolTipService.ToolTip="元に戻す (Ctrl+Z)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="UndoBtn_Click" IsEnabled="False">
@@ -134,7 +134,7 @@
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE75C;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
                         
-                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
                         
                         <Button x:Name="CopyButton" ToolTipService.ToolTip="コピー(またはCtrl + C)" Width="34" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="0" Click="CopyButton_Click">
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C8;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
@@ -150,7 +150,7 @@
 
                 <!-- Row 2: Pen Sub-Toolbar -->
                 <Border x:Name="PenSubBar"
-                        Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                        Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                         BorderThickness="0"
                         CornerRadius="12"
                         Padding="12,4"
@@ -184,7 +184,7 @@
 
                 <!-- Row 2: Shapes Sub-Toolbar -->
                 <Border x:Name="ShapesSubBar"
-                        Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                        Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                         BorderThickness="0"
                         CornerRadius="12"
                         Padding="8,4"
@@ -211,7 +211,7 @@
                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE742;" FontSize="16" Foreground="{StaticResource AfterGlowTextPrimaryBrush}" />
                         </ToggleButton>
 
-                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
                         <ToggleButton x:Name="FillBtn" ToolTipService.ToolTip="塗りつぶし（四角形・楕円のみ）" Height="34" Background="Transparent" Foreground="{ThemeResource TextFillColorPrimaryBrush}" BorderThickness="0" CornerRadius="8" Padding="10,0" Click="FillBtn_Click" IsEnabled="True">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -224,7 +224,7 @@
 
                 <!-- Row 2: Delete Sub-Toolbar -->
                 <Border x:Name="DeleteSubBar"
-                        Background="{StaticResource M3SurfaceContainerHighestBrush}"
+                        Background="{StaticResource FluentSurfaceContainerHighestBrush}"
                         BorderThickness="0"
                         CornerRadius="12"
                         Padding="8,4"
@@ -242,7 +242,7 @@
                             </StackPanel>
                         </ToggleButton>
 
-                        <Rectangle Width="1" Height="18" Fill="{StaticResource M3SurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
+                        <Rectangle Width="1" Height="18" Fill="{StaticResource FluentSurfaceContainerLowBrush}" Margin="4,0" VerticalAlignment="Center" />
 
                         <Button x:Name="ClearAllButton" ToolTipService.ToolTip="編集をすべて消去" Height="34" Background="Transparent" BorderThickness="0" CornerRadius="8" Padding="10,0" Click="ClearButton_Click">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">

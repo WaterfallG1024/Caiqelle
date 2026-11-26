@@ -45,6 +45,7 @@ namespace Caiqelle.Services
         public void Pause()
         {
             _isPaused = true;
+            StateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void Resume()
@@ -52,6 +53,7 @@ namespace Caiqelle.Services
             _isPaused = false;
             // 一時停止解除後に次のキャプチャをスケジュール
             ScheduleNextCapture(500);
+            StateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void Start(bool clearBuffer = true)

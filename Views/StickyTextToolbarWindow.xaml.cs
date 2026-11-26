@@ -144,7 +144,7 @@ namespace Caiqelle.Views
             {
                 StealthBtn.IsChecked = isStealth;
                 StealthIcon.Glyph = isStealth ? "\uED1A" : "\uE890";
-                if (Application.Current.Resources.TryGetValue(isStealth ? "M3PrimaryBrush" : "TextFillColorPrimaryBrush", out var brushObj) && brushObj is Brush iconBrush)
+                if (Application.Current.Resources.TryGetValue(isStealth ? "FluentPrimaryBrush" : "TextFillColorPrimaryBrush", out var brushObj) && brushObj is Brush iconBrush)
                 {
                     StealthIcon.Foreground = iconBrush;
                 }

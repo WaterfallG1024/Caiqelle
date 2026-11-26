@@ -398,5 +398,49 @@ namespace Caiqelle.Tests
             var slashResult = ActionService.DetectFormFields(lines, "テストフォーム - Google Chrome", Point.Empty, slashOnlyMappings);
             Assert.Empty(slashResult);
         }
+
+        [Fact]
+        public void DetectFormFields_IgnoresNegativeInstructionSentence()
+        {
+            var lines = new List<OcrLineBox>
+            {
+                new("最大250文字までです。氏名やメールアドレスなどの個人情報は入力しないでください。", new Rectangle(100, 100, 500, 22)),
+                new("送信", new Rectangle(100, 200, 50, 26))
+            };
+            var mappings = new List<ActionFieldMapping>
+            {
+                new() { Id = "n1", Keywords = "氏名", PlainValue = "山田 太郎" },
+                new() { Id = "e1", Keywords = "メールアドレス", PlainValue = "taro@example.com" }
+            };
+
+            var result = ActionService.DetectFormFields(lines, "Block user - Google Chrome", Point.Empty, mappings);
+            Assert.Empty(result);
+        }
+
+        [Fact]
+        public void IsUrlAllowedByWhitelist_MatchesConfiguredDomains()
+        {
+            var whitelist = new List<string> { "docs.google.com/forms", "example.org" };
+
+            Assert.True(ActionService.IsUrlAllowedByWhitelist("https://docs.google.com/forms/d/e/123/viewform", whitelist));
+            Assert.True(ActionService.IsUrlAllowedByWhitelist("docs.google.com/forms/d/e/123/viewform", new[] { "https://docs.google.com/forms" }));
+            Assert.True(ActionService.IsUrlAllowedByWhitelist("https://sub.example.org/entry", whitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("https://docs.google.com/spreadsheets/d/123", whitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("https://evil.com/?redirect=docs.google.com/forms", whitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("https://example.org.evil.com/login", whitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist("https://github.com/settings/blocked_users", whitelist));
+            Assert.False(ActionService.IsUrlAllowedByWhitelist(null, whitelist));
+        }
+
+        [Fact]
+        public void ShortcutBinding_MatchesAndFormatsCorrectly()
+        {
+            var binding = new ShortcutBinding { Ctrl = true, Shift = true, VirtualKey = 0x43 };
+            Assert.Equal(3, binding.KeyCount);
+            Assert.True(binding.IsValid);
+            Assert.Equal("Ctrl + Shift + C", binding.DisplayText);
+            Assert.True(binding.Matches(ctrl: true, shift: true, alt: false, win: false, vk: 0x43));
+            Assert.False(binding.Matches(ctrl: true, shift: false, alt: false, win: false, vk: 0x43));
+        }
     }
 }

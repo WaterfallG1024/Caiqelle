@@ -191,7 +191,10 @@ namespace Caiqelle.ViewModels
         public partial bool CanEnableRewind { get; set; } = true;
 
         [ObservableProperty]
-        public partial bool IsShiftCapsLockRewindEnabled { get; set; }
+        public partial string RewindPauseButtonText { get; set; } = "一時停止";
+
+        [ObservableProperty]
+        public partial string RewindPauseButtonGlyph { get; set; } = "\uE769";
 
         [ObservableProperty]
         public partial bool IsRewindTileCompressionEnabled { get; set; } = false;
@@ -459,11 +462,20 @@ namespace Caiqelle.ViewModels
                 IsActionAutoDetectEnabled = _settings.IsActionAutoDetectEnabled;
                 IsActionOnlyOnBrowsers = _settings.IsActionOnlyOnBrowsers;
                 ActionRestoreClipboardAfterFill = _settings.ActionRestoreClipboardAfterFill;
+                IsActionUrlWhitelistEnabled = _settings.IsActionUrlWhitelistEnabled;
+                ActionUrlWhitelist.Clear();
+                foreach (var url in _settings.ActionUrlWhitelist)
+                {
+                    ActionUrlWhitelist.Add(url);
+                }
                 ActionMappings.Clear();
                 foreach (var actionItem in _settings.ActionMappings)
                 {
                     ActionMappings.Add(actionItem);
                 }
+
+                OnPropertyChanged(nameof(RewindToggleShortcutText));
+                OnPropertyChanged(nameof(AutoCopyToggleShortcutText));
 
                 VersionText = $"v{GetCurrentVersionString()}";
 
@@ -477,7 +489,9 @@ namespace Caiqelle.ViewModels
 
                 _hookService.IsHijackPrintScreen = _settings.IsHijackPrintScreen;
                 _hookService.IsHijackWinShiftS = _settings.IsHijackWinShiftS;
-                _hookService.IsShiftCapsLockRewindEnabled = _settings.IsShiftCapsLockRewindEnabled;
+                _hookService.IsRewindEnabled = _settings.IsRewindEnabled;
+                _hookService.RewindToggleShortcut = _settings.RewindToggleShortcut;
+                _hookService.AutoCopyToggleShortcut = _settings.AutoCopyToggleShortcut;
 
                 UpdateRewindStatusCard();
             }
@@ -502,9 +516,32 @@ namespace Caiqelle.ViewModels
 
             IsRewindStatusVisible = true;
             string durationLabel = FormatDuration(_settings.RewindDurationSeconds);
-            RewindStatusText = _rewindService.IsPaused
+            bool isPausedState = !_rewindService.IsRunning || _rewindService.IsPaused;
+            RewindStatusText = isPausedState
                 ? $"リワインド一時停止中 ({durationLabel} / {_settings.RewindQuality})"
                 : $"リワインド録画中 ({durationLabel} / {_settings.RewindQuality})";
+            RewindPauseButtonText = isPausedState ? "再開" : "一時停止";
+            RewindPauseButtonGlyph = isPausedState ? "\uE768" : "\uE769";
+        }
+
+        [RelayCommand]
+        private void ToggleRewindPause()
+        {
+            if (!_settings.IsRewindEnabled) return;
+
+            if (_rewindService.IsRunning && !_rewindService.IsPaused)
+            {
+                _rewindService.Pause();
+            }
+            else if (_rewindService.IsRunning)
+            {
+                _rewindService.Resume();
+            }
+            else
+            {
+                _rewindService.Start(clearBuffer: false);
+            }
+            UpdateRewindStatusCard();
         }
 
         /// <summary>
@@ -564,6 +601,99 @@ namespace Caiqelle.ViewModels
 
         [ObservableProperty]
         public partial bool ActionRestoreClipboardAfterFill { get; set; } = true;
+
+        [ObservableProperty]
+        public partial bool IsActionUrlWhitelistEnabled { get; set; }
+
+        public ObservableCollection<string> ActionUrlWhitelist { get; } = new();
+
+        [ObservableProperty]
+        public partial string NewActionUrlPattern { get; set; } = string.Empty;
+
+        public string RewindToggleShortcutText => _settings.RewindToggleShortcut.DisplayText;
+        public string AutoCopyToggleShortcutText => _settings.AutoCopyToggleShortcut.DisplayText;
+
+        partial void OnIsActionUrlWhitelistEnabledChanged(bool value)
+        {
+            if (_isInitializing) return;
+            _settings.IsActionUrlWhitelistEnabled = value;
+            _settings.SaveSettings();
+        }
+
+        public void SyncAutoCopyFromSettings()
+        {
+            _dispatcherQueue?.TryEnqueue(() =>
+            {
+                _isInitializing = true;
+                try
+                {
+                    IsAutoCopyToClipboard = _settings.IsAutoCopyToClipboard;
+                }
+                finally
+                {
+                    _isInitializing = false;
+                }
+            });
+        }
+
+        [RelayCommand]
+        private void AddActionUrlWhitelist()
+        {
+            string pattern = NewActionUrlPattern?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(pattern)) return;
+            foreach (var existing in ActionUrlWhitelist)
+            {
+                if (string.Equals(existing, pattern, StringComparison.OrdinalIgnoreCase))
+                {
+                    NewActionUrlPattern = string.Empty;
+                    return;
+                }
+            }
+            _settings.ActionUrlWhitelist.Add(pattern);
+            _settings.SaveSettings();
+            ActionUrlWhitelist.Add(pattern);
+            NewActionUrlPattern = string.Empty;
+        }
+
+        [RelayCommand]
+        private void RemoveActionUrlWhitelist(string? pattern)
+        {
+            if (string.IsNullOrEmpty(pattern)) return;
+            _settings.ActionUrlWhitelist.Remove(pattern);
+            _settings.SaveSettings();
+            ActionUrlWhitelist.Remove(pattern);
+        }
+
+        public ShortcutBinding GetRewindToggleShortcut() => _settings.RewindToggleShortcut;
+        public ShortcutBinding GetAutoCopyToggleShortcut() => _settings.AutoCopyToggleShortcut;
+
+        public void SetRewindToggleShortcut(ShortcutBinding binding)
+        {
+            _settings.RewindToggleShortcut = binding.Clone();
+            _hookService.RewindToggleShortcut = _settings.RewindToggleShortcut;
+            _settings.SaveSettings();
+            OnPropertyChanged(nameof(RewindToggleShortcutText));
+        }
+
+        [RelayCommand]
+        private void ResetRewindToggleShortcut()
+        {
+            SetRewindToggleShortcut(ShortcutBinding.CreateDefaultRewindToggle());
+        }
+
+        public void SetAutoCopyToggleShortcut(ShortcutBinding binding)
+        {
+            _settings.AutoCopyToggleShortcut = binding.Clone();
+            _hookService.AutoCopyToggleShortcut = _settings.AutoCopyToggleShortcut;
+            _settings.SaveSettings();
+            OnPropertyChanged(nameof(AutoCopyToggleShortcutText));
+        }
+
+        [RelayCommand]
+        private void ResetAutoCopyToggleShortcut()
+        {
+            SetAutoCopyToggleShortcut(ShortcutBinding.CreateDefaultAutoCopyToggle());
+        }
 
         [ObservableProperty]
         public partial string NewActionKeywords { get; set; } = string.Empty;
@@ -896,7 +1026,7 @@ namespace Caiqelle.ViewModels
         {
             try
             {
-                var mgr = new Velopack.UpdateManager(new Velopack.Sources.GithubSource("https://github.com/WaterfallG1024/Caiqelle-Release", null, false));
+                var mgr = new Velopack.UpdateManager(new Velopack.Sources.GithubSource("https://github.com/WaterfallG1024/Caiqelle", null, false));
                 if (mgr.IsInstalled && mgr.CurrentVersion != null)
                 {
                     return mgr.CurrentVersion.ToString();
@@ -926,25 +1056,17 @@ namespace Caiqelle.ViewModels
             if (_isInitializing) return;
             _settings.IsRewindEnabled = value;
             _settings.SaveSettings();
+            _hookService.IsRewindEnabled = value;
 
             if (value)
             {
                 _rewindService.Start();
-                _notificationService.ShowNotification("リワインドを開始しました", "\uE7C8");
             }
             else
             {
                 _rewindService.Stop();
-                _notificationService.ShowNotification("リワインドを停止しました", "\uE71A");
             }
-        }
-
-        partial void OnIsShiftCapsLockRewindEnabledChanged(bool value)
-        {
-            if (_isInitializing) return;
-            _settings.IsShiftCapsLockRewindEnabled = value;
-            _settings.SaveSettings();
-            _hookService.IsShiftCapsLockRewindEnabled = value;
+            UpdateRewindStatusCard();
         }
 
         partial void OnIsRewindTileCompressionEnabledChanged(bool value)
@@ -1094,7 +1216,7 @@ namespace Caiqelle.ViewModels
         private void LoadRewindSettings()
         {
             IsRewindEnabled = _settings.IsRewindEnabled;
-            IsShiftCapsLockRewindEnabled = _settings.IsShiftCapsLockRewindEnabled;
+            // メモリ制限チェック前に現在の値を反映しておく
             IsRewindTileCompressionEnabled = _settings.IsRewindTileCompressionEnabled;
             SelectedRewindDuration = _settings.RewindDurationSeconds.ToString();
             SelectedRewindQuality = string.IsNullOrEmpty(_settings.RewindQuality) ? "FulHD" : _settings.RewindQuality;

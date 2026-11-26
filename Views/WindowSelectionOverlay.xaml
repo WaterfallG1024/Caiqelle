@@ -15,13 +15,13 @@
                 PointerReleased="Window_PointerReleased" 
                 KeyDown="Window_KeyDown" IsTabStop="True">
                 
-            <!-- ウィンドウホバー枠 (M3 Expressive Accent Highlight) -->
+            <!-- ウィンドウホバー枠 (Fluent 2 Accent Highlight) -->
             <Rectangle x:Name="HighlightBox" 
-                       Stroke="{StaticResource M3PrimaryBrush}" 
+                       Stroke="{StaticResource FluentPrimaryBrush}" 
                        StrokeThickness="2" 
                        RadiusX="10"
                        RadiusY="10"
-                       Fill="{StaticResource M3PrimaryContainerGlassBrush}" 
+                       Fill="{StaticResource FluentPrimaryContainerGlassBrush}" 
                        Visibility="Collapsed"/>
         </Canvas>
     </Grid>

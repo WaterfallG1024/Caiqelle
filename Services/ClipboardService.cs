@@ -16,6 +16,7 @@ namespace Caiqelle.Services
     public class ClipboardService
     {
         private readonly NotificationService _notificationService;
+        private readonly SemaphoreSlim _clipboardLock = new(1, 1);
 
         private const uint CF_DIB = 8;
         private const uint GMEM_MOVEABLE = 0x0002;
@@ -42,32 +43,58 @@ namespace Caiqelle.Services
                 ?? ((App)Microsoft.UI.Xaml.Application.Current).MainWindow?.DispatcherQueue
                 ?? DispatcherQueue.GetForCurrentThread();
 
-            bool ok;
-            if (dispatcher != null && !dispatcher.HasThreadAccess)
+            bool ok = false;
+            // 連続コピー時の OpenClipboard / EmptyClipboard 競合を防ぐため排他制御する
+            await _clipboardLock.WaitAsync();
+            try
             {
-                var tcs = new TaskCompletionSource<bool>();
-                if (!dispatcher.TryEnqueue(() =>
+                // PC起動直後の初回競合や OS クリップボード履歴サービスとの競合に備え、
+                // 書き込み直後および約80ms後の再検証で消えていた場合は最大3回リトライする
+                for (int attempt = 0; attempt < 3; attempt++)
                 {
-                    try
+                    bool written;
+                    if (dispatcher != null && !dispatcher.HasThreadAccess)
                     {
-                        tcs.SetResult(SetClipboardWithVerification(GetClipboardOwnerHwnd(), dibBytes, pngBytes));
+                        var tcs = new TaskCompletionSource<bool>();
+                        if (!dispatcher.TryEnqueue(() =>
+                        {
+                            try
+                            {
+                                tcs.SetResult(WriteClipboardAndCheckImmediate(GetClipboardOwnerHwnd(), dibBytes, pngBytes));
+                            }
+                            catch (Exception ex)
+                            {
+                                tcs.SetException(ex);
+                            }
+                        }))
+                        {
+                            written = WriteClipboardAndCheckImmediate(IntPtr.Zero, dibBytes, pngBytes);
+                        }
+                        else
+                        {
+                            written = await tcs.Task;
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        tcs.SetException(ex);
+                        written = WriteClipboardAndCheckImmediate(GetClipboardOwnerHwnd(), dibBytes, pngBytes);
                     }
-                }))
-                {
-                    ok = SetClipboardWithVerification(IntPtr.Zero, dibBytes, pngBytes);
-                }
-                else
-                {
-                    ok = await tcs.Task;
+
+                    if (written)
+                    {
+                        await Task.Delay(80);
+                        if (await VerifyClipboardFormatOnDispatcherAsync(dispatcher))
+                        {
+                            ok = true;
+                            break;
+                        }
+                    }
+                    await Task.Delay(50);
                 }
             }
-            else
+            finally
             {
-                ok = SetClipboardWithVerification(GetClipboardOwnerHwnd(), dibBytes, pngBytes);
+                _clipboardLock.Release();
             }
 
             if (ok && showNotification)
@@ -133,22 +160,29 @@ namespace Caiqelle.Services
             }
         }
 
-        private static bool SetClipboardWithVerification(IntPtr ownerHwnd, byte[]? dibBytes, byte[]? pngBytes)
+        private static bool WriteClipboardAndCheckImmediate(IntPtr ownerHwnd, byte[]? dibBytes, byte[]? pngBytes)
         {
-            // PC起動直後の初回競合やクリップボード監視サービスとのタイミング競合に備え、
-            // 書き込み後に IsClipboardFormatAvailable で確認し、未反映ならリトライする
-            for (int attempt = 0; attempt < 3; attempt++)
+            if (WriteClipboardNative(ownerHwnd, dibBytes, pngBytes))
             {
-                if (WriteClipboardNative(ownerHwnd, dibBytes, pngBytes))
-                {
-                    if (IsClipboardFormatAvailable(CF_DIB) || (CF_PNG != 0 && IsClipboardFormatAvailable(CF_PNG)))
-                    {
-                        return true;
-                    }
-                }
-                Thread.Sleep(40);
+                return IsClipboardFormatAvailable(CF_DIB) || (CF_PNG != 0 && IsClipboardFormatAvailable(CF_PNG));
             }
             return false;
+        }
+
+        private static async Task<bool> VerifyClipboardFormatOnDispatcherAsync(DispatcherQueue? dispatcher)
+        {
+            if (dispatcher != null && !dispatcher.HasThreadAccess)
+            {
+                var tcs = new TaskCompletionSource<bool>();
+                if (dispatcher.TryEnqueue(() =>
+                {
+                    tcs.SetResult(IsClipboardFormatAvailable(CF_DIB) || (CF_PNG != 0 && IsClipboardFormatAvailable(CF_PNG)));
+                }))
+                {
+                    return await tcs.Task;
+                }
+            }
+            return IsClipboardFormatAvailable(CF_DIB) || (CF_PNG != 0 && IsClipboardFormatAvailable(CF_PNG));
         }
 
         private static bool WriteClipboardNative(IntPtr ownerHwnd, byte[]? dibBytes, byte[]? pngBytes)
